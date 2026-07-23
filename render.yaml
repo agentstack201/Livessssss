@@ -1,8 +1,10 @@
 # Render Blueprint — deploys the backend API (seha-app-server-main).
 # The frontend (seha.sa-main) is hosted separately on Vercel.
+# Database: Neon (Serverless PostgreSQL).
 #
 # Usage: Render Dashboard → New + → Blueprint → pick this repo → Apply.
-# Then fill ONLY the 3 database secrets (marked `sync: false`) in the dashboard.
+# Then fill the secrets marked `sync: false` in the dashboard:
+#   DATABASE_URL (from Neon → Connect) and FRONTEND_URL.
 services:
   - type: web
     name: seha-app-server
@@ -27,17 +29,9 @@ services:
       # Set this in the dashboard to your NEW Vercel frontend URL after deploying it.
       - key: FRONTEND_URL
         sync: false
-      # Database (Supabase PostgreSQL) — fixed values:
-      - key: DB_NAME
-        value: postgres
-      - key: DB_PORT
-        value: "5432"
-      - key: DB_DIALECT
-        value: postgres
-      # Database secrets — set these 3 in the dashboard (from Supabase → Connect):
-      - key: DB_HOST
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
+      # Database (Neon — Serverless PostgreSQL).
+      # Paste the full pooled connection string from Neon → Connect
+      # (host contains "-pooler"), e.g.
+      #   postgresql://user:pass@ep-xxx-pooler.<region>.aws.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
         sync: false

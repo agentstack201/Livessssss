@@ -5,7 +5,7 @@
 | المجلد | الوصف | التقنية |
 | --- | --- | --- |
 | [`seha.sa-main`](./seha.sa-main) | الواجهة الأمامية (Frontend) | React 19 + Vite |
-| [`seha-app-server-main`](./seha-app-server-main) | الخادم / الـ API (Backend) | Node.js + Express 5 + Sequelize (PostgreSQL / Supabase) |
+| [`seha-app-server-main`](./seha-app-server-main) | الخادم / الـ API (Backend) | Node.js + Express 5 + Sequelize (PostgreSQL / Neon) |
 
 يُنشر كل جزء كمشروع مستقل على **Vercel** (كلاهما يحتوي على `vercel.json` خاص به).
 
@@ -67,7 +67,7 @@ npm run create-admin      # إنشاء حساب مدير أولي
 ```
 
 ### متغيّرات البيئة (Backend)
-انظر [`seha-app-server-main/.env.example`](./seha-app-server-main/.env.example) — تشمل بيانات Supabase/PostgreSQL و `JWT_SECRET` و `CORS_ORIGIN` و `FRONTEND_URL`.
+انظر [`seha-app-server-main/.env.example`](./seha-app-server-main/.env.example) — تشمل `DATABASE_URL` (سلسلة اتصال Neon) و `JWT_SECRET` و `CORS_ORIGIN` و `FRONTEND_URL`. (تخزين ملفات الوسائط يستخدم Supabase Storage اختيارياً عبر `SUPABASE_URL` و `SUPABASE_SERVICE_ROLE_KEY`.)
 
 ### النشر على Render (موصى به للخادم)
 الخادم دائم التشغيل ويولّد PDF عبر Chromium، لذا Render أنسب من Vercel serverless.
@@ -80,7 +80,7 @@ npm run create-admin      # إنشاء حساب مدير أولي
 **الخطوات:**
 1. Render Dashboard → **New +** → **Blueprint** → اختر هذا المستودع → Apply.
    (أو **New Web Service** يدوياً مع: Root Directory = `seha-app-server-main`، Build = `npm install --omit=dev`، Start = `npm start`، Health Check Path = `/api/health`.)
-2. عبّئ متغيّرات البيئة (المعلّمة `sync: false`): `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `CORS_ORIGIN`, `FRONTEND_URL`. (`JWT_SECRET` يولّده Render تلقائياً.)
+2. عبّئ متغيّرات البيئة (المعلّمة `sync: false`): `DATABASE_URL` (من Neon → Connect، استخدم سلسلة الـ pooled) و `FRONTEND_URL`. (`JWT_SECRET` يولّده Render تلقائياً.)
 3. بعد نجاح النشر، انسخ رابط الخدمة (مثل `https://seha-app-server.onrender.com`).
 4. في مشروع **Vercel** للواجهة: اضبط `VITE_API_BASE_URL` على رابط Render أعلاه، ثم أعِد النشر (Redeploy).
 
