@@ -26,14 +26,13 @@ cd seha-app-server
 npm install
 ```
 
-### 2. إعداد قاعدة البيانات
+### 2. إعداد قاعدة البيانات (Neon)
 
-```bash
-# إنشاء قاعدة بيانات MySQL
-mysql -u root -p
+1. أنشئ مشروعاً مجانياً على [Neon](https://neon.tech).
+2. من **Project → Connect** انسخ سلسلة الاتصال (استخدم الـ **Pooled connection** — يحتوي المضيف على `-pooler`).
+3. ضعها في `DATABASE_URL` داخل ملف `.env` (انظر الخطوة التالية).
 
-CREATE DATABASE seha_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+> الجداول تُنشأ تلقائياً عند أول تشغيل عبر `sequelize.sync()`، ثم شغّل `npm run create-admin` لإنشاء حساب المدير.
 
 ### 3. إعداد المتغيرات البيئية
 
@@ -140,19 +139,17 @@ GET /countries
 
 ### خيارات قاعدة البيانات
 
-#### ✅ **الخيار 1: Supabase PostgreSQL (موصى به)**
-- مجاني تماماً (500MB)
-- يعمل مع Vercel
-- Connection pooling مدمج
-- [دليل الإعداد الكامل](./SUPABASE_SETUP.md)
+#### ✅ **الخيار 1: Neon — Serverless PostgreSQL (موصى به)**
+- خطة مجانية سخية
+- Connection pooling مدمج (استخدم مضيف `-pooler`)
+- مناسب للاستضافة على Render وVercel
+- الاتصال عبر متغيّر واحد: `DATABASE_URL`
 
-#### ✅ **الخيار 2: MySQL محلي**
-- للتطوير المحلي
-- سهل الإعداد
+#### ✅ **الخيار 2: أي PostgreSQL آخر**
+- يكفي ضبط `DATABASE_URL` أو المتغيّرات المنفصلة (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`)
 
-#### ❌ **SQLite لا يعمل على Vercel**
-- Serverless functions = read-only
-- البيانات تُحذف بعد كل request
+#### ❌ **SQLite لا يعمل على الاستضافة Serverless**
+- التخزين للقراءة فقط، والبيانات تُحذف بعد كل request
 
 ### Tables
 
@@ -204,7 +201,7 @@ GET /countries
 - **Node.js** - بيئة التشغيل
 - **Express.js** - إطار العمل
 - **Sequelize** - ORM لقاعدة البيانات
-- **MySQL** - قاعدة البيانات
+- **Neon (PostgreSQL)** - قاعدة البيانات
 - **JWT** - المصادقة
 - **bcrypt** - تشفير كلمات المرور
 - **Puppeteer** - توليد PDF
