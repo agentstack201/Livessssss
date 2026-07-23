@@ -1,0 +1,703 @@
+const normalizeArabicToUnicode = require('./normalizeArabicToUnicode');
+
+module.exports = async (data, leave_days, DateObj, country) => {
+  let browser;
+
+  try {
+    console.log('🚀 Starting PDF generation...');
+    console.log('📋 Data received:', {
+      id: data.id,
+      leave_id: data.leave_id,
+      name: data.name_en,
+      hospital: data.hospital_name_en
+    });
+
+    // Base URL for server-hosted images in the PDF. On Render, RENDER_EXTERNAL_URL
+    // is provided automatically so footer-logo images resolve without manual setup.
+    const serverHost = process.env.SERVER_HOST || process.env.RENDER_EXTERNAL_URL || '';
+    const defaultFooterLogo = `${serverHost}/public/images/1.png`;
+    const footerLogoSrc = data.footer_logo
+      ? (data.footer_logo.startsWith('http') || data.footer_logo.startsWith('data:')
+        ? data.footer_logo
+        : `${serverHost}${data.footer_logo}`)
+      : defaultFooterLogo;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
+    const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
+
+    // ------------------------------------------------------------------
+    // Presentation helpers — kept byte-for-byte in sync with the on-screen
+    // preview component (frontend: src/components/SickLeavePDFOriginal.jsx).
+    // The PDF MUST render identically to that preview; only the rendering
+    // engine changes (Chromium page.pdf -> true vector, selectable text).
+    // ------------------------------------------------------------------
+    const padTwo = (value) => String(value).padStart(2, '0');
+
+    // Gregorian date -> DD-MM-YYYY
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const parts = String(dateString).split('-');
+      if (parts.length === 3) {
+        const [year, month, day] = parts;
+        return `${padTwo(day)}-${padTwo(month)}-${year}`;
+      }
+      return dateString;
+    };
+
+    // Hijri date -> zero-padded, delimiter preserved
+    const formatHijriDate = (dateString) => {
+      if (!dateString) return '';
+      const delimiter = String(dateString).includes('/') ? '/' : '-';
+      const parts = String(dateString).split(delimiter);
+      if (parts.length >= 3) {
+        return parts
+          .map((part) => (isNaN(part) ? part : padTwo(part)))
+          .join(delimiter);
+      }
+      return dateString;
+    };
+
+    // Prefer the values stored with the leave (what the preview shows),
+    // falling back to the freshly formatted timestamp.
+    const currentTime = data.report_time || (DateObj && DateObj.currentTime) || '';
+    const currentDate = data.report_date || (DateObj && DateObj.currentDate) || '';
+
+    const countryNameEn = (country && country.country_name_en) || 'Saudi';
+    const countryNameAr = (country && country.country_name_ar) || data.nationality || 'سعودي';
+
+    // Use the bundled (Sparticuz) Chromium on managed/serverless hosts — Vercel
+    // AND Render — where a system Chromium and its shared libraries are not
+    // guaranteed and `puppeteer`'s full download may be skipped in production.
+    // Locally we fall back to full puppeteer with its own Chromium.
+    const useBundledChromium =
+      !!process.env.VERCEL_ENV ||
+      !!process.env.RENDER ||
+      process.env.USE_BUNDLED_CHROMIUM === 'true';
+    console.log('🌐 Chromium mode:', useBundledChromium ? 'bundled (@sparticuz)' : 'local puppeteer');
+
+    let puppeteer;
+    let launchOptions = {
+      headless: true,
+    };
+
+    if (useBundledChromium) {
+      // Production: Use Sparticuz Chromium (self-contained, no system deps)
+      console.log('📦 Loading bundled Chromium...');
+      const chromium = (await import("@sparticuz/chromium")).default;
+      puppeteer = await import("puppeteer-core");
+      const https = require('https');
+      const fs = require('fs');
+      const { execSync } = require('child_process');
+      const path = require('path');
+
+      let executablePath;
+
+      // إذا كان هناك رابط مخصص في environment variable
+      const customUrl = process.env.CHROMIUM_URL;
+
+      if (customUrl) {
+        console.log('📥 Downloading Chromium from custom URL...');
+        const tmpDir = '/tmp/chromium';
+        const tarPath = '/tmp/chromium.tar';
+
+        // إنشاء المجلد المؤقت
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+
+        // تحميل الملف
+        await new Promise((resolve, reject) => {
+          const file = fs.createWriteStream(tarPath);
+          https.get(customUrl, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+              file.close();
+              console.log('✅ Download complete');
+              resolve();
+            });
+          }).on('error', (err) => {
+            fs.unlinkSync(tarPath);
+            reject(err);
+          });
+        });
+
+        // فك الضغط
+        console.log('📦 Extracting Chromium...');
+        execSync(`tar -xf ${tarPath} -C ${tmpDir}`);
+        console.log('✅ Extraction complete');
+
+        // البحث عن ملف chromium التنفيذي
+        executablePath = path.join(tmpDir, 'chromium');
+
+        // جعل الملف قابل للتنفيذ
+        execSync(`chmod +x ${executablePath}`);
+        console.log('✅ Chromium ready at:', executablePath);
+      } else {
+        // استخدام chromium.executablePath() الافتراضي
+        executablePath = await chromium.executablePath();
+      }
+
+      launchOptions = {
+        headless: true,
+        args: [
+          ...chromium.args,
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-setuid-sandbox',
+          '--no-first-run',
+          '--no-sandbox',
+          '--no-zygote',
+          '--single-process',
+          '--font-render-hinting=none',
+        ],
+        executablePath: executablePath,
+      };
+      console.log('✅ Chromium configuration ready');
+      console.log('📍 Executable path:', launchOptions.executablePath);
+    } else {
+      // Development: Use local Puppeteer
+      console.log('📦 Loading local Puppeteer...');
+      puppeteer = await import("puppeteer");
+      launchOptions.args = ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'];
+    }
+
+    console.log('🚀 Launching browser...');
+    browser = await puppeteer.launch(launchOptions);
+
+    console.log('✅ Browser launched');
+    const page = await browser.newPage();
+
+    // Set viewport for A4 size (794x1123 css px @96dpi). deviceScaleFactor
+    // only affects raster capture; page.pdf() output stays vector regardless.
+    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
+    console.log('✅ Page created with A4 viewport');
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>sick leaves</title>
+<style>
+  /* Self-hosted fonts for deterministic, network-independent rendering.
+     Identical TTFs to the frontend preview (Noto Sans Arabic + Amiri). */
+  @font-face {
+    font-family: 'NotoSansArabic';
+    src: url('${serverHost}/public/fonts/NotoSansArabic-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NotoSansArabic';
+    src: url('${serverHost}/public/fonts/NotoSansArabic-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Amiri';
+    src: url('${serverHost}/public/fonts/Amiri-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Amiri';
+    src: url('${serverHost}/public/fonts/Amiri-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  /* A4, zero margin — matches the 210mm x 297mm preview container exactly. */
+  @page { size: A4; margin: 0; }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+      html, body {
+        width: 210mm;
+        height: 297mm;
+      }
+      body {
+        font-family: "NotoSansArabic", sans-serif;
+        margin: 0px 0px 20px 20px;
+        max-height: 297mm;
+        height: 297mm;
+        overflow: hidden;
+        page-break-inside: avoid;
+        box-sizing: border-box;
+      }
+      Top-head {
+        text-align: center;
+      }
+      h3 {
+        color: #3773b9;
+        text-align: center;
+      }
+      .dark-head {
+        color: #2b3d77;
+        font-size: 19px;
+        font-family: 'Amiri', serif;
+        font-weight: 700;
+      }
+        .custom-table {
+          width: 93%;
+          margin: auto;
+          margin-top: 10px;
+          border-collapse: separate;
+          border-spacing: 0;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          background-color: white;
+          overflow: hidden;
+        }
+        .custom-table td {
+          padding: 5px 7px;
+          font-size: 14px;
+          text-align: center;
+          border: 1px solid #d0d0d0;
+          vertical-align: middle;
+          background-color: white;
+        }
+
+        .en-text {
+          font-family: 'Amiri', serif;
+        }
+
+        .ar-text {
+          font-family: "NotoSansArabic", sans-serif;
+        }
+
+        .ar-date {
+          font-family: 'Amiri', serif;
+        }
+          .vertical-line{
+          width:1.5px;
+          height:190px ;
+          background-color:rgb(221, 221, 221) ;
+          }
+
+      .custom-table tr:first-child td {
+        background-color: white !important;
+        border: 1px solid #dee2e6;
+      }
+
+      .custom-table tr:first-child td:first-child {
+        border-left: 1px solid #dee2e6;
+        border-top: 1px solid #dee2e6;
+        border-radius: 8px 0px 0px 0px;
+      }
+
+      .custom-table tr:first-child td:last-child {
+        border-right: 1px solid #dee2e6;
+        border-top: 1px solid #dee2e6;
+        border-radius: 0px 8px 0px 0px;
+      }
+
+      .custom-table tr:last-child td:first-child {
+        border-left: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0px 0px 0px 8px;
+      }
+      .custom-table tr:last-child td:last-child {
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0px 0px 8px 0px;
+      }
+
+      .custom-table tr:first-child .one {
+        font-weight: bold;
+      }
+
+      .custom-table tr:first-child .two {
+        font-weight: 400;
+      }
+
+      .custom-table .one {
+        width: 130px;
+        min-width: 130px;
+        color: #366fb4 !important;
+        font-weight: 700;
+        padding: 6px 0px;
+        font-size: 13.5px;
+      }
+
+      .custom-table .two {
+        color: #2b3d77 !important;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 1.1;
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+      .darkBg {
+        background-color: #f7f7f7 !important;
+      }
+
+      .darkBg td {
+        background-color: #f7f7f7 !important;
+      }
+      .boldTit {
+         font-weight: 700;
+        font-size: 14px;
+      }
+      .leave-duration {
+        background-color: #2b3d76;
+        color: #a8b9e0 !important;
+        font-weight: 700;
+      }
+
+      .leave-duration td {
+        font-size: 11px;
+        background-color: #2b3d76 !important;
+        color: #a8b9e0 !important;
+      }
+
+      .leave-duration .one {
+        color: #ffffff !important;
+      }
+
+      .leave-duration .two {
+        color: #ffffff !important;
+      }
+      .custom-table tbody tr td:last-child {
+        padding: 6px 4px;
+      }
+
+      .custom-table tbody tr td:last-child.ar-text {
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .custom-table tbody tr .two.ar-text {
+        font-weight: 400 !important;
+        font-size: 14px;
+      }
+
+      .custom-table tbody tr .ar-text:not(.one) {
+        font-weight: 400 !important;
+      }
+
+      .custom-table tbody tr td:nth-child(2),
+      .custom-table tbody tr td:nth-child(3) {
+        width: 50%;
+      }
+      .transparnt-bg td {
+        background-color: transparent !important;
+      }
+      .header-logos {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 10px 20px;
+        padding-top: 36px;
+        background-color: #fff;
+      }
+
+      .logo-seha {
+        flex: 1;
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-start;
+        margin-top: -8px;
+      }
+
+      .logo-ksa {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 20px;
+      }
+
+      .logo-ksa img {
+        margin-bottom: -4px;
+      }
+
+      .logo-ksa .english-text {
+        font-size: 15px;
+        font-weight: 400;
+        color: #000;
+        margin: 0;
+        text-align: center;
+        font-family: 'Amiri', serif;
+      }
+
+      .logo-design {
+        flex: 1;
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-start;
+      }
+
+
+         .pdf-footer-section {
+      display: flex;
+      justify-content: space-between;
+
+    }
+    .qr-section {
+      text-align: center;
+      position: relative;
+      margin-top: 21px;
+      margin-right: -93px;
+      flex: 1;
+    }
+        .qr-section a {
+        position: absolute;
+        bottom: 10;
+        right:25% ;
+    }
+
+
+    .logo-section {
+      display: flex;
+      flex-direction: column;
+      margin-top : 18px !important;
+      flex: 1;
+      margin-left: 65px;
+      }
+
+    .logo-section .text {
+      font-size: 12px;
+      text-align: right;
+
+    }
+    .timestamp {
+      font-size: 13px;
+      font-weight: 700;
+      color: #000000;
+
+    }
+      .leave-report{
+        font-size: 22px;
+        color: #2f6db4;
+        font-weight: 700;
+      }
+
+      .vertical-line{
+      margin-top: 10px !important;
+      margin-left: 174px;
+      margin-right: 5px;
+      flex-shrink: 0;
+      }
+
+
+      @media print {
+        body, .Top-head, .custom-table, .footer-section {
+          page-break-inside: avoid !important;
+          page-break-after: avoid !important;
+        }
+      }
+    </style>
+
+    </head>
+    <body>
+   <div class="Top-head">
+      <div class="header-logos">
+        <div class="logo-seha">
+          <img style="height: 80px; width: auto;" src='${serverHost}/public/images/seha.jpg' alt="seha logo"/>
+        </div>
+        <div class="logo-ksa">
+          <img style="height: 54px; width: auto;" src='${serverHost}/public/images/saudia1.jpg' alt="KSA Logo" />
+          <div class="english-text">Kingdom of Saudi Arabia</div>
+        </div>
+        <div class="logo-design">
+          <img style="height: 100px; width: auto;margin-right: 10px;" src='${serverHost}/public/images/3.PNG' alt="design Logo" />
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: -5px;">
+        <h3 class='leave-report' style="margin: 0px; padding: 0px; margin-bottom: -5px;">تقرير إجازة مرضية</h3>
+        <div class="dark-head" style="margin: 0px; padding: 0px;">Sick Leave Report</div>
+      </div>
+
+    </div>
+   <table class="custom-table">
+<tbody>
+  <tr class="transparnt-bg">
+    <td class="one en-text" colspan="1">Leave ID</td>
+    <td class="two en-text" colspan="2">${data.leave_id || ''}</td>
+    <td class="one ar-text" colspan="1">رمز الإجازة</td>
+  </tr>
+  <tr class="leave-duration">
+    <td class="one en-text">Leave Duration</td>
+    <td class="two en-text">${leave_days} ${leave_days > 1 ? 'days' : 'day'} ( ${formatDate(data.admission_date_en) || ''} to ${formatDate(data.discharge_date_en) || ''} )</td>
+    <td class="two ar-text" style="direction: rtl;"><span class="ar-date">${leave_days}</span> ${leave_days > 1 ? 'أيام' : 'يوم'} (<span class="ar-date" dir="ltr">${formatHijriDate(data.admission_date_ar) || ''}</span> الى <span class="ar-date" dir="ltr">${formatHijriDate(data.discharge_date_ar) || ''}</span>) </td>
+    <td class="one ar-text">مدة الإجازة</td>
+  </tr>
+  <tr>
+    <td class="one en-text">Admission Date</td>
+    <td class="two en-text">${formatDate(data.admission_date_en) || ''}</td>
+    <td class="two en-text">${formatHijriDate(data.admission_date_ar) || ''}</td>
+    <td class="one ar-text">تاريخ الدخول</td>
+  </tr>
+  <tr class="darkBg">
+    <td class="one en-text">Discharge Date</td>
+    <td class="two en-text">${formatDate(data.discharge_date_en) || ''}</td>
+    <td class="two en-text">${formatHijriDate(data.discharge_date_ar) || ''}</td>
+    <td class="one ar-text">تاريخ الخروج</td>
+  </tr>
+  <tr>
+    <td class="one en-text" colspan="1">Issue Date</td>
+    <td class="two en-text" colspan="2">${formatDate(data.issue_date) || ''}</td>
+    <td class="one ar-text" colspan="1">تاريخ إصدار التقرير</td>
+  </tr>
+  <tr class="darkBg">
+    <td class="one en-text">Name</td>
+    <td class="two en-text">${(data.name_en || '').toUpperCase()}</td>
+    <td class="two ar-text">${data.name_ar || ''}</td>
+    <td class="one ar-text">الاسم</td>
+  </tr>
+  <tr>
+    <td class="one en-text" colspan="1">National ID / Iqama</td>
+    <td class="two en-text" colspan="2">${data.national_id || ''}</td>
+    <td class="one ar-text" colspan="1">رقم الهوية / الإقامة</td>
+  </tr>
+  <tr class="darkBg">
+    <td class="one en-text">Nationality</td>
+    <td class="two en-text">${countryNameEn}</td>
+    <td class="two ar-text">${countryNameAr}</td>
+    <td class="one ar-text">الجنسية</td>
+  </tr>
+  <tr>
+    <td class="one en-text">Employer</td>
+    <td class="two en-text">${''}</td>
+    <td class="two ar-text">${data.employer_ar || ''}</td>
+    <td class="one ar-text">جهة العمل</td>
+  </tr>
+  <tr class="darkBg">
+    <td class="one en-text">Physician Name</td>
+    <td class="two en-text">${(data.physician_name_en || '').toUpperCase()}</td>
+    <td class="two ar-text">${data.physician_name_ar || ''}</td>
+    <td class="one ar-text">اسم الممارس</td>
+  </tr>
+  <tr>
+    <td class="one en-text">Position</td>
+    <td class="two en-text">${data.position_en || ''}</td>
+    <td class="two ar-text">${data.position_ar || ''}</td>
+    <td class="one ar-text">المسمى الوظيفى</td>
+  </tr>
+</tbody>
+
+      </table>
+
+<div class="pdf-footer-section" >
+    <!-- QR Code Section -->
+    <div class="qr-section">
+    <div style="margin-left: 45px !important;">
+             <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">
+
+      <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
+      <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>
+
+
+<a class="en-text"
+           style="margin: 0px; margin-top : 7px !important ; font-size: 10px; font-weight: 900 !important; color:blue; text-decoration: underline;"
+          href='${verificationUrl}'
+          target="_blank">www.seha.sa/#/inquiries/skenquiry</a>
+    </div>
+      <!-- Timestamp -->
+  <div class="timestamp">
+  <div style="margin-top: 46px !important; text-align:left !important ;  margin-left: 26px !important;">
+      <p class="en-text" style='margin:0px;font-size:13px !important;font-weight: 700 !important;'>${currentTime}</p>
+    <p class="en-text" style='margin:0px;font-size:13px !important;font-weight: 700 !important;'>${currentDate}</p></div>
+
+
+  </div>
+
+
+
+
+      </div>
+    <div class="vertical-line"></div>
+    <!-- Logo Section -->
+    <div class="logo-section" >
+      <div style="text-align: center; margin-right: 80px;">
+        <img style="height: 100px ;" src='${footerLogoSrc}' alt="Ministry of Health Logo">
+        <div style="line-height: 1.5; margin-top: 0px;">
+          <p class="ar-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${data.hospital_name_ar || 'مستشفى النور التخصصي'}</p>
+          <p class="en-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${data.hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL'}</p>
+          ${data.show_license_number !== false ? `<p class="ar-text" style="margin: 0px; font-size: 12px; font-weight: 900;color: #000;">رقم الترخيص: <span class="ar-date">${data.license_number || '1410845906'}</span></p>` : ''}
+        </div>
+      </div>
+      <div>
+        <img style="width: 140px; height: 90px ;margin-left: 147px !important; margin-top:30px !important;" src='${serverHost}/public/images/national-center.jpg' alt="National Health Logo">
+      </div>
+    </div>
+  </div>
+
+
+    </body>
+    </html>
+  `;
+
+    console.log('📄 Setting HTML content...');
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 30000 });
+    console.log('✅ HTML content loaded');
+
+    // Ensure web fonts are fully parsed & ready before printing, otherwise
+    // Chromium may lay text out with a fallback font (layout shift / wrong glyphs).
+    try {
+      await page.evaluateHandle('document.fonts.ready');
+      console.log('✅ Fonts ready');
+    } catch (fontErr) {
+      console.warn('⚠️ document.fonts.ready wait failed (continuing):', fontErr.message);
+    }
+
+    // Generate a TRUE vector PDF (selectable/searchable text, embedded subset
+    // fonts, correct ToUnicode). preferCSSPageSize honours the @page A4/0-margin
+    // rule so the output matches the 210x297mm preview 1:1.
+    console.log('🖨️ Generating PDF buffer...');
+    const pdfBuffer = await page.pdf({
+      printBackground: true,
+      preferCSSPageSize: true,
+      format: "A4",
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+      pageRanges: '1',
+      tagged: true,   // emit the accessibility structure tree + ActualText /
+                      // ReversedChars spans so screen readers and compliant
+                      // viewers get correct logical-order, base-Unicode Arabic.
+      timeout: 30000
+    });
+    console.log('✅ PDF buffer generated:', pdfBuffer.length, 'bytes');
+
+    await browser.close();
+    console.log('✅ Browser closed');
+
+    // Normalize the Arabic /ToUnicode layer (presentation forms -> base
+    // letters) so Arabic copy / search / translation work cleanly. This is a
+    // text-layer-only transform: 0 drawing operators are touched, so the PDF
+    // stays 100% visually identical. Fails open (returns the original buffer)
+    // if the PDF isn't the expected shape.
+    let finalBuffer = pdfBuffer;
+    try {
+      finalBuffer = normalizeArabicToUnicode(pdfBuffer);
+      console.log('✅ Arabic ToUnicode normalized:', finalBuffer.length, 'bytes');
+    } catch (normErr) {
+      console.warn('⚠️ Arabic normalization skipped:', normErr.message);
+      finalBuffer = pdfBuffer;
+    }
+
+    // Return the PDF buffer directly
+    return finalBuffer;
+  } catch (error) {
+    console.error('❌ PDF Generation Error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    if (browser) {
+      try {
+        await browser.close();
+        console.log('✅ Browser closed after error');
+      } catch (closeError) {
+        console.error('❌ Error closing browser:', closeError.message);
+      }
+    }
+    throw new Error(`Failed to generate PDF: ${error.message}`);
+  }
+};

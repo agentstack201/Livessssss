@@ -1,0 +1,264 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Amiri:wght@400;700&display=swap');
+
+@font-face {
+  font-family: 'NotoSansArabic';
+  src: url('/fonts/NotoSansArabic-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'NotoSansArabic';
+  src: url('/fonts/NotoSansArabic-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+.container {
+  min-height: 100vh;
+  background: #f0f0f0;
+  padding: 20px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.backBtn,
+.printBtn {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'NotoSansArabic', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.backBtn {
+  background: #6c757d;
+  color: white;
+}
+
+.backBtn:hover {
+  background: #5a6268;
+}
+
+.printBtn {
+  background: #306db5;
+  color: white;
+}
+
+.printBtn:hover {
+  background: #2c5a9e;
+}
+
+.previewContainer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.a4Page {
+  width: 794px;
+  min-height: 1123px;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 25px;
+  font-family: 'NotoSansArabic', 'Amiri', sans-serif;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.headerLeft img { 
+  width: 80px;
+}
+
+.headerCenter {
+  text-align: center;
+  flex: 1;
+}
+
+.kingdomAr {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.kingdomEn {
+  font-family: 'Amiri', serif;
+  font-size: 10px;
+  color: #666;
+}
+
+.headerRight img { 
+  width: 120px;
+}
+
+.titleSection {
+  text-align: center;
+}
+
+.titleAr {
+  color: #4a90e2;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 15px 0 3px;
+}
+
+.titleEn {
+  font-family: 'Amiri', serif;
+  color: #666;
+  font-size: 13px;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 10px;
+}
+
+.table td {
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.labelAr {
+  background: #f8f9fa;
+  color: #4a90e2;
+  font-weight: 600;
+  width: 22%;
+}
+
+.labelEn {
+  font-family: 'Amiri', serif;
+  background: #fff;
+  color: #666;
+  width: 22%;
+}
+
+.value {
+  background: #fff;
+  color: #333;
+  width: 28%;
+}
+
+.durationRow td {
+  background: #2c5282;
+  color: white;
+  font-weight: 600;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 25px;
+  align-items: flex-end;
+}
+
+.qrSection {
+  text-align: center;
+}
+
+.qrSection img {
+  width: 60px;
+  height: 60px;
+}
+
+.qrText {
+  font-size: 7px;
+  color: #666;
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+.qrLink {
+  font-family: 'Amiri', serif;
+  font-size: 7px;
+  color: #4a90e2;
+  text-decoration: underline;
+}
+
+.timestamp {
+  font-family: 'Amiri', serif;
+  font-size: 9px;
+  color: #666;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.logoSection {
+  text-align: right;
+}
+
+.logoSection img {
+  max-width: 100px;
+  margin-bottom: 10px;
+}
+
+.hospitalName {
+  font-family: 'Amiri', serif;
+  font-size: 8px;
+  color: #666;
+  text-align: right;
+}
+
+/* Loading & Error */
+.loading,
+.error {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'NotoSansArabic', sans-serif;
+}
+
+.error button {
+  margin-top: 20px;
+  padding: 10px 25px;
+  background: #306db5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'NotoSansArabic', sans-serif;
+}
+
+/* Print Styles */
+@media print {
+  .toolbar {
+    display: none !important;
+  }
+
+  .container {
+    background: white;
+    padding: 0;
+  }
+
+  .a4Page {
+    box-shadow: none;
+    margin: 0;
+    width: 100%;
+    padding: 15mm;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
