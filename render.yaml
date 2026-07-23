@@ -24,8 +24,9 @@ services:
         value: 3h
       # Frontend origin — used for the verification QR code printed on the PDF.
       # SERVER_HOST is not needed: Render provides RENDER_EXTERNAL_URL automatically.
+      # Set this in the dashboard to your NEW Vercel frontend URL after deploying it.
       - key: FRONTEND_URL
-        value: https://seha-sa-slenguiry.vercel.app
+        sync: false
       # Database (Supabase PostgreSQL) — fixed values:
       - key: DB_NAME
         value: postgres

@@ -13,18 +13,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/limbonux/seha-app-server.git"
+    "url": "git+https://github.com/agentstack201/Livessssss.git"
   },
   "keywords": [
     "sick",
     "leaves"
   ],
-  "author": "Limbonux",
+  "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/limbonux/seha-app-server/issues"
+    "url": "https://github.com/agentstack201/Livessssss/issues"
   },
-  "homepage": "https://github.com/limbonux/seha-app-server#readme",
+  "homepage": "https://github.com/agentstack201/Livessssss#readme",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@sparticuz/chromium": "^149.0.0",

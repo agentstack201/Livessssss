@@ -55,7 +55,7 @@ npm start
 npm run dev
 ```
 
-السيرفر سيعمل على: `http://localhost:3000` (Development) أو `https://seha-server.vercel.app` (Production)
+السيرفر سيعمل على: `http://localhost:3000` (Development) أو رابط الاستضافة الخاص بك على Render/Vercel (Production)
 
 ---
 

@@ -185,7 +185,7 @@ app.get("/", (req, res) => {
         <p>نظام إدارة الإجازات المرضية الإلكتروني</p>
         <div class="status">✓ النظام يعمل بشكل طبيعي</div>
         <div class="links">
-          <a href="https://seha-saa.vercel.app" class="btn btn-primary">الذهاب للموقع</a>
+          <a href="${process.env.FRONTEND_URL || '#'}" class="btn btn-primary">الذهاب للموقع</a>
         </div>
         <div class="footer">
           <p>© 2025 منصة صحة - جميع الحقوق محفوظة</p>

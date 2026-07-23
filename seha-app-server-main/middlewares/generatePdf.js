@@ -22,7 +22,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
         : `${serverHost}${data.footer_logo}`)
       : defaultFooterLogo;
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://seha-sa-s.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
     const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 

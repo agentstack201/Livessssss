@@ -75,7 +75,7 @@ npm run create-admin      # إنشاء حساب مدير أولي
 
 **نشر بضغطة واحدة** (بعد دمج التغييرات في الفرع الافتراضي، أو اختر هذا الفرع داخل Render):
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/agentstack201/Sickness)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/agentstack201/Livessssss)
 
 **الخطوات:**
 1. Render Dashboard → **New +** → **Blueprint** → اختر هذا المستودع → Apply.
