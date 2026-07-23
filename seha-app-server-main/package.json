@@ -1,0 +1,57 @@
+{
+  "name": "seha-app-server",
+  "version": "1.1.0",
+  "description": "this project create and manage reports of sick leaves ",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "create-admin": "node migrations/createAdmin.js",
+    "vercel-build": "echo 'Build complete'",
+    "postinstall": "npm list pg || npm install pg@8.13.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/limbonux/seha-app-server.git"
+  },
+  "keywords": [
+    "sick",
+    "leaves"
+  ],
+  "author": "Limbonux",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/limbonux/seha-app-server/issues"
+  },
+  "homepage": "https://github.com/limbonux/seha-app-server#readme",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@sparticuz/chromium": "^149.0.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "hijri-converter": "^1.1.1",
+    "jsonwebtoken": "^9.0.3",
+    "mime": "^4.1.0",
+    "moment": "^2.30.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.22.5",
+    "pdfkit": "^0.19.1",
+    "pg": "^8.21.0",
+    "pg-hstore": "^2.3.4",
+    "puppeteer-core": "^25.1.0",
+    "sequelize": "^6.37.8"
+  },
+  "engines": {
+    "node": ">=18.x"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "puppeteer": "^25.1.0",
+    "sequelize-cli": "^6.6.5"
+  }
+}

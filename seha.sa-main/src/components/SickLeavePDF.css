@@ -1,0 +1,233 @@
+/* Modal Overlay */
+.pdf-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.pdf-modal-container {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.pdf-modal-header {
+  padding: 20px;
+  border-bottom: 2px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #2f6db4 0%, #366fb4 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.pdf-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-family: 'Cairo', sans-serif;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-download,
+.btn-close {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: 'Cairo', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.btn-download {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-download:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-close {
+  background: #f44336;
+  color: white;
+}
+
+.btn-close:hover {
+  background: #da190b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.pdf-preview-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+  background: #f5f5f5;
+}
+
+/* PDF Report Styles */
+.sick-leave-report {
+  background: white;
+  padding: 40px;
+  max-width: 210mm;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: 'Cairo', 'Amiri', sans-serif;
+}
+
+.report-header {
+  margin-bottom: 30px;
+  border-bottom: 3px solid #2f6db4;
+  padding-bottom: 20px;
+}
+
+.header-logos {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logo-img {
+  max-width: 120px;
+  height: auto;
+}
+
+.header-title {
+  text-align: center;
+  flex: 1;
+}
+
+.ar-title {
+  font-size: 2rem;
+  color: #2f6db4;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.en-title {
+  font-size: 1.3rem;
+  color: #666;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Table Styles */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+  border: 2px solid #dcdcdc;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.report-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.report-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.section-header td {
+  background: #2f6db4;
+  color: white;
+  padding: 15px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.label-cell {
+  background: #f7f7f7;
+  color: #366fb4;
+  font-weight: 700;
+  padding: 12px 15px;
+  width: 35%;
+  border-right: 1px solid #e0e0e0;
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.value-cell {
+  padding: 12px 15px;
+  color: #2b3d77;
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.alt-row {
+  background: #fafafa;
+}
+
+.alt-row .label-cell {
+  background: #f0f0f0;
+}
+
+/* Footer */
+.report-footer {
+  text-align: center;
+  padding-top: 20px;
+  border-top: 2px solid #e0e0e0;
+  color: #666;
+}
+
+.footer-text {
+  margin: 5px 0;
+  font-size: 0.85rem;
+}
+
+/* Print Styles */
+@media print {
+  .pdf-modal-overlay,
+  .pdf-modal-header,
+  .pdf-modal-actions {
+    display: none;
+  }
+
+  .sick-leave-report {
+    box-shadow: none;
+    padding: 0;
+  }
+}
+
+/* RTL Support */
+[dir="rtl"] .report-table {
+  direction: rtl;
+}
+
+[dir="rtl"] .label-cell {
+  text-align: right;
+  border-right: none;
+  border-left: 1px solid #e0e0e0;
+}
+
+[dir="rtl"] .value-cell {
+  text-align: right;
+}

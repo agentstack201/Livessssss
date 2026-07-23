@@ -1,0 +1,7 @@
+.env.local
+.env.*.local
+*.log
+.git
+scripts/
+public/leaves/*.pdf
+app.js

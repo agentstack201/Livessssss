@@ -1,0 +1,216 @@
+{
+  "info": {
+    "name": "Seha Sick Leaves API",
+    "_postman_id": "seha-api-collection",
+    "description": "Complete API collection for Seha Sick Leaves management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('token', response.data.token);",
+                  "    console.log('Token saved:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@seha.sa\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sick Leaves",
+      "item": [
+        {
+          "name": "Create Sick Leave",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_num\": \"12345\",\n  \"leave_id\": \"CSL001\",\n  \"admission_date_en\": \"2024-01-15\",\n  \"discharge_date_en\": \"2024-01-18\",\n  \"issue_date\": \"2024-01-19\",\n  \"name_en\": \"Ahmed Ali\",\n  \"name_ar\": \"أحمد علي\",\n  \"national_id\": \"1234567890\",\n  \"employer_en\": \"Ministry of Health\",\n  \"employer_ar\": \"وزارة الصحة\",\n  \"physician_name_en\": \"Dr. Mohammed\",\n  \"physician_name_ar\": \"د. محمد\",\n  \"position_en\": \"General Practitioner\",\n  \"position_ar\": \"طبيب عام\",\n  \"countryId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sick-leaves/Nasr4k",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves", "Nasr4k"]
+            }
+          }
+        },
+        {
+          "name": "Get Sick Leave",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sick-leaves?service_num=12345&national_id=1234567890",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves"],
+              "query": [
+                {
+                  "key": "service_num",
+                  "value": "12345"
+                },
+                {
+                  "key": "national_id",
+                  "value": "1234567890"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Sick Leave",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_num\": \"12345\",\n  \"leave_id\": \"CSL001\",\n  \"admission_date_en\": \"2024-01-15\",\n  \"discharge_date_en\": \"2024-01-20\",\n  \"issue_date\": \"2024-01-21\",\n  \"name_en\": \"Ahmed Ali Updated\",\n  \"name_ar\": \"أحمد علي المحدث\",\n  \"national_id\": \"1234567890\",\n  \"employer_en\": \"Ministry of Health\",\n  \"employer_ar\": \"وزارة الصحة\",\n  \"physician_name_en\": \"Dr. Mohammed\",\n  \"physician_name_ar\": \"د. محمد\",\n  \"position_en\": \"General Practitioner\",\n  \"position_ar\": \"طبيب عام\",\n  \"countryId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sick-leaves/Nasr4k",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves", "Nasr4k"]
+            }
+          }
+        },
+        {
+          "name": "Delete Sick Leave",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/sick-leaves/Nasr4k?service_num=12345&national_id=1234567890",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves", "Nasr4k"],
+              "query": [
+                {
+                  "key": "service_num",
+                  "value": "12345"
+                },
+                {
+                  "key": "national_id",
+                  "value": "1234567890"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download PDF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sick-leaves/12345/1234567890/pdf",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves", "12345", "1234567890", "pdf"]
+            }
+          }
+        },
+        {
+          "name": "AI Extract Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientInfo\": \"Patient Name: Ahmed Ali, Service: 12345, ID: 1234567890, Doctor: Dr. Mohammed, Admission: 2024-01-15, Discharge: 2024-01-18, Leave: CSL001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sick-leaves/ai-extract/Nasr4k",
+              "host": ["{{base_url}}"],
+              "path": ["sick-leaves", "ai-extract", "Nasr4k"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Countries",
+      "item": [
+        {
+          "name": "Get All Countries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/countries",
+              "host": ["{{base_url}}"],
+              "path": ["countries"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

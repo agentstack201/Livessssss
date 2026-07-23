@@ -1,0 +1,278 @@
+/* Modal */
+.pdfModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cairo', sans-serif;
+}
+
+.modalOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.modalContent {
+  position: relative;
+  background: #1e293b;
+  width: 95%;
+  max-width: 1000px;
+  max-height: 95vh;
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.modalActions {
+  display: flex;
+  gap: 1rem;
+}
+
+.downloadBtn, .closeBtn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Cairo', sans-serif;
+}
+
+.downloadBtn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.5rem;
+}
+
+.downloadBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* PDF Preview */
+.pdfPreview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  background: #0f172a;
+  display: flex;
+  justify-content: center;
+}
+
+.a4Container {
+  width: 210mm;
+  min-height: 297mm;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* CV Document - ATS Optimized */
+.cvDocument {
+  padding: 20mm;
+  font-family: 'Cairo', sans-serif;
+  color: #1e293b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Header */
+.cvHeader {
+  text-align: center;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #000;
+}
+
+.candidateName {
+  font-size: 22px;
+  font-weight: 800;
+  color: #000;
+  margin: 0 0 6px 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.jobTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 8px 0;
+}
+
+.contactInfo {
+  font-size: 10px;
+  color: #475569;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.separator {
+  color: #cbd5e1;
+}
+
+/* Sections */
+.cvSection {
+  margin-bottom: 16px;
+  page-break-inside: avoid;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: #000;
+  margin-bottom: 10px;
+}
+
+/* Summary */
+.summaryText {
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.6;
+  margin: 0;
+  text-align: justify;
+}
+
+/* Experience & Education Items */
+.experienceItem,
+.educationItem {
+  margin-bottom: 12px;
+  page-break-inside: avoid;
+}
+
+.itemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.itemTitle {
+  font-size: 11px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.itemDate {
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.itemSubtitle {
+  font-size: 10px;
+  color: #475569;
+  margin: 2px 0;
+  font-style: italic;
+}
+
+.itemDescription {
+  font-size: 10px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 4px 0 0 0;
+}
+
+.itemGrade {
+  font-size: 10px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+/* Skills - ATS Friendly (text-based) */
+.skillsList {
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.7;
+}
+
+/* Footer */
+.cvFooter {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid #cbd5e1;
+  font-size: 10px;
+  color: #64748b;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modalContent {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .modalHeader {
+    border-radius: 0;
+  }
+
+  .pdfPreview {
+    padding: 1rem;
+  }
+
+  .a4Container {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .cvDocument {
+    padding: 15mm;
+  }
+}
