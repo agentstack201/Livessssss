@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import styles from './SickLeaveForm.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import MediaPicker from '../components/MediaPicker'
+import NationalityPicker from '../components/NationalityPicker'
 
 // API Configuration from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -116,12 +117,6 @@ function SickLeaveForm() {
   const [countries, setCountries] = useState([]) // قائمة الدول من قاعدة البيانات
   const [doctors, setDoctors] = useState([]) // قائمة الأطباء من قاعدة البيانات
   const [hospitals, setHospitals] = useState([]) // قائمة المستشفيات من قاعدة البيانات
-  // إضافة جنسية/حالة جديدة (عربي + إنجليزي)
-  const [showAddNat, setShowAddNat] = useState(false)
-  const [newNatAr, setNewNatAr] = useState('')
-  const [newNatEn, setNewNatEn] = useState('')
-  const [natBusy, setNatBusy] = useState(false)
-  const [natMsg, setNatMsg] = useState('')
   const footerLogoInputRef = useRef(null)
 
   const canManageDoctors = userPermissions.can_manage_doctors || user.role === 'admin'
@@ -139,62 +134,6 @@ function SickLeaveForm() {
     } catch (e) {
       console.error('Error refetching countries:', e)
       return []
-    }
-  }
-
-  // ترجمة تلقائية (عربي → إنجليزي أو العكس) عبر Gemini
-  const handleTranslateNat = async () => {
-    const source = newNatAr.trim() ? { text: newNatAr, to: 'en', set: setNewNatEn } : (newNatEn.trim() ? { text: newNatEn, to: 'ar', set: setNewNatAr } : null)
-    if (!source) { setNatMsg('اكتب النص أولاً (عربي أو إنجليزي)') ; return }
-    setNatBusy(true); setNatMsg('')
-    try {
-      const res = await fetch(`${API_BASE_URL}/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ text: source.text, to: source.to })
-      })
-      const data = await res.json()
-      if (res.ok && data.success && data.data?.translation) {
-        source.set(data.data.translation)
-        setNatMsg('')
-      } else {
-        setNatMsg(data.message || 'تعذّرت الترجمة التلقائية — اكتب النص يدوياً')
-      }
-    } catch (e) {
-      setNatMsg('تعذّر الاتصال بالخادم للترجمة')
-    } finally {
-      setNatBusy(false)
-    }
-  }
-
-  // إضافة جنسية/حالة جديدة (عربي + إنجليزي) واختيارها
-  const handleAddNationality = async () => {
-    const ar = newNatAr.trim(); const en = newNatEn.trim()
-    if (!ar || !en) { setNatMsg('يرجى تعبئة العربي والإنجليزي (استخدم زر الترجمة)') ; return }
-    setNatBusy(true); setNatMsg('')
-    try {
-      const res = await fetch(`${API_BASE_URL}/countries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ country_name_ar: ar, country_name_en: en })
-      })
-      const data = await res.json()
-      if (res.ok && (data.success || data.data)) {
-        await refetchCountries()
-        setFormData(prev => ({ ...prev, nationality: ar }))
-        setShowAddNat(false); setNewNatAr(''); setNewNatEn(''); setNatMsg('')
-      } else if (res.status === 400 && (data.message || '').includes('موجود')) {
-        // موجودة مسبقاً → فقط اخترها
-        await refetchCountries()
-        setFormData(prev => ({ ...prev, nationality: ar }))
-        setShowAddNat(false); setNewNatAr(''); setNewNatEn(''); setNatMsg('')
-      } else {
-        setNatMsg(data.message || 'تعذّر إضافة الجنسية')
-      }
-    } catch (e) {
-      setNatMsg('تعذّر الاتصال بالخادم')
-    } finally {
-      setNatBusy(false)
     }
   }
 
@@ -1546,68 +1485,14 @@ function SickLeaveForm() {
             <label className={styles.label} htmlFor="nationality">
               الجنسية *
             </label>
-            <select
-              className={styles.inputField}
-              id="nationality"
-              name="nationality"
-              value={showAddNat ? '__add__' : formData.nationality}
-              onChange={(e) => {
-                if (e.target.value === '__add__') {
-                  setShowAddNat(true)
-                  setNatMsg('')
-                } else {
-                  setShowAddNat(false)
-                  handleChange(e)
-                }
-              }}
-              required
-            >
-              {countries.map(country => (
-                <option key={country.id} value={country.country_name_ar}>
-                  {country.country_name_ar}
-                </option>
-              ))}
-              <option value="__add__">➕ إضافة جنسية / حالة جديدة…</option>
-            </select>
-
-            {showAddNat && (
-              <div style={{ marginTop: '10px', padding: '12px', border: '1px dashed #306db5', borderRadius: '10px', background: '#f5f9ff', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <input
-                  type="text"
-                  className={styles.inputField}
-                  placeholder="بالعربية (مثال: مقيم نازح)"
-                  value={newNatAr}
-                  onChange={(e) => setNewNatAr(e.target.value)}
-                  dir="rtl"
-                />
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    className={styles.inputField}
-                    placeholder="English (e.g. Displaced Resident)"
-                    value={newNatEn}
-                    onChange={(e) => setNewNatEn(e.target.value)}
-                    dir="ltr"
-                    style={{ flex: 1 }}
-                  />
-                  <button type="button" onClick={handleTranslateNat} disabled={natBusy}
-                    style={{ whiteSpace: 'nowrap', padding: '0 14px', borderRadius: '8px', border: 'none', background: '#0ea5e9', color: '#fff', cursor: 'pointer' }}>
-                    {natBusy ? '...' : 'ترجمة 🔄'}
-                  </button>
-                </div>
-                {natMsg && <span style={{ color: '#dc2626', fontSize: '13px' }}>{natMsg}</span>}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={handleAddNationality} disabled={natBusy}
-                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#16a34a', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {natBusy ? 'جارٍ الحفظ...' : 'إضافة واختيار'}
-                  </button>
-                  <button type="button" onClick={() => { setShowAddNat(false); setNatMsg('') }}
-                    style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>
-                    إلغاء
-                  </button>
-                </div>
-              </div>
-            )}
+            <NationalityPicker
+              value={formData.nationality}
+              options={countries}
+              token={token}
+              error={!!errors.nationality}
+              onSelect={(ar) => setFormData(prev => ({ ...prev, nationality: ar }))}
+              onOptionsChanged={refetchCountries}
+            />
             {errors.nationality && (
               <span className={styles.errorMessage}>{errors.nationality}</span>
             )}
