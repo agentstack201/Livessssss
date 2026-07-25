@@ -384,35 +384,7 @@ module.exports.aiExtract = async (req, res, next) => {
       });
     }
 
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const { getSettingValue } = require("./settings.controller");
-
-    // التحقق من مفتاح API (قاعدة البيانات أولاً ثم .env)
-    let apiKey = await getSettingValue('gemini_api_key');
-    let source = "Database";
-
-    if (!apiKey) {
-      apiKey = process.env.GEMINI_API_KEY;
-      source = "Environment (.env)";
-    }
-
-    // التحقق من إصدار النموذج (قاعدة البيانات أولاً ثم .env)
-    let modelName = await getSettingValue('gemini_model');
-    if (!modelName) {
-      modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-    }
-
-    console.log(`Using Gemini: [Model: ${modelName}] [Key Source: ${source}]`);
-
-    if (!apiKey) {
-      return res.status(500).json({
-        status_code: 500,
-        message: "مفتاح الربط مع Google Gemini غير موجود في إعدادات السيرفر",
-      });
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const { geminiGenerate } = require("../utils/gemini");
 
     const prompt = `
       You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
@@ -444,11 +416,21 @@ module.exports.aiExtract = async (req, res, next) => {
       """
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("Gemini Response:", text);
+    let text;
+    try {
+      const out = await geminiGenerate(prompt);
+      text = out.text;
+      console.log(`✅ AI extract via key #${out.usedKey + 1} using model "${out.usedModel}"`);
+    } catch (err) {
+      const status = err.code === "NO_KEYS" ? 500 : 502;
+      console.error("AI Extract failed:", err.message, err.details || "");
+      return res.status(status).json({
+        status_code: status,
+        success: false,
+        message: err.message || "تعذّر استخراج البيانات.",
+        details: err.details,
+      });
+    }
 
     let extractedData = {};
     try {
@@ -456,8 +438,12 @@ module.exports.aiExtract = async (req, res, next) => {
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       extractedData = JSON.parse(cleanJson);
     } catch (parseError) {
-      console.error("JSON Parse Error:", parseError);
-      throw new Error("فشل في معالجة رد الذكاء الاصطناعي");
+      console.error("JSON Parse Error:", parseError, "RAW:", text);
+      return res.status(500).json({
+        status_code: 500,
+        success: false,
+        message: "تم الاتصال بالذكاء الاصطناعي لكن تعذّر تحليل الرد. حاول مرة أخرى.",
+      });
     }
 
     return res.status(200).json({
@@ -477,6 +463,42 @@ module.exports.aiExtract = async (req, res, next) => {
       status_code: 500,
       data: null,
       message: error.message || "حدث خطأ أثناء معالجة البيانات",
+    });
+  }
+};
+
+// ترجمة نص قصير (جنسية/حالة) بين العربية والإنجليزية باستخدام Gemini
+module.exports.translate = async (req, res) => {
+  try {
+    const { text, to } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: "لا يوجد نص للترجمة" });
+    }
+
+    const { geminiGenerate } = require("../utils/gemini");
+    const target = to === "ar" ? "Arabic" : "English";
+    const prompt =
+      `Translate the following nationality or residency-status term into ${target}. ` +
+      `It is used on an official medical document, so use the standard/formal term. ` +
+      `Return ONLY the translated term with no quotes, no explanation, no extra words.\n\n` +
+      `Term: "${text.trim()}"`;
+
+    const out = await geminiGenerate(prompt);
+    const translation = (out.text || "")
+      .replace(/```/g, "")
+      .replace(/^["'\s]+|["'\s]+$/g, "")
+      .split("\n")[0]
+      .trim();
+
+    return res.status(200).json({ success: true, data: { translation } });
+  } catch (error) {
+    const status = error.code === "NO_KEYS" ? 500 : 502;
+    console.error("Translate failed:", error.message, error.details || "");
+    return res.status(status).json({
+      success: false,
+      message: error.message || "تعذّرت الترجمة",
+      details: error.details,
     });
   }
 };

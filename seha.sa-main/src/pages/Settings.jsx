@@ -9,7 +9,7 @@ function Settings() {
     const navigate = useNavigate()
     const [activeTab, setActiveTab] = useState('ai') // ai, general, notifications
     const [apiKey, setApiKey] = useState('')
-    const [aiModel, setAiModel] = useState('gemini-2.5-flash')
+    const [aiModel, setAiModel] = useState('gemini-flash-latest')
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState(null)
@@ -32,7 +32,7 @@ function Settings() {
             const [keyData, modelData] = await Promise.all(responses.map(r => r.json()));
 
             if (keyData?.data) setApiKey(keyData.data.value || '')
-            if (modelData?.data) setAiModel(modelData.data.value || 'gemini-2.5-flash')
+            if (modelData?.data) setAiModel(modelData.data.value || 'gemini-flash-latest')
         } catch (err) {
             console.error('Error fetching settings:', err)
             showMessage('failed', 'فشل في الاتصال بالخادم')
@@ -99,39 +99,32 @@ function Settings() {
                                     onChange={(e) => setAiModel(e.target.value)}
                                     style={{ fontFamily: 'Cairo, sans-serif' }}
                                 >
-                                    <option value="gemini-flash-latest">Gemini Flash Latest (مستقر ومتاح)</option>
+                                    <option value="gemini-flash-latest">Gemini Flash (الأحدث - موصى به)</option>
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                     <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (تجريبي)</option>
-                                    <option value="gemini-3-flash-preview">Gemini 3.0 Flash (المستقبل!)</option>
+                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (أدق - أبطأ)</option>
                                 </select>
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Google Gemini API Key</label>
-                                <div className={styles.inputWrapper}>
-                                    <input
-                                        type="password"
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        placeholder="AIzaSy..."
-                                        className={styles.input}
-                                        dir="ltr"
-                                    />
-                                    <div className={styles.inputIcon}>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                                        </svg>
-                                    </div>
-                                </div>
+                                <label>Google Gemini API Keys (مفاتيح الربط)</label>
+                                <textarea
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder={"AIzaSy...المفتاح الأول\nAIzaSy...المفتاح الثاني\nAIzaSy...المفتاح الثالث"}
+                                    className={styles.input}
+                                    dir="ltr"
+                                    rows={4}
+                                    style={{ resize: 'vertical', minHeight: '110px', lineHeight: '1.8', fontFamily: 'monospace' }}
+                                />
                                 <small className={styles.helpText}>
-                                    مفتاح الربط الخاص بـ Google Generative AI. يمكنك الحصول عليه من <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#306db5', fontWeight: 'bold' }}>AI Studio</a>.
+                                    يمكنك إضافة <b>أكثر من مفتاح</b> — كل مفتاح في <b>سطر منفصل</b>. النظام يستخدم الأول، ولو توقف (تجاوز الحصة أو خطأ) ينتقل تلقائياً للمفتاح التالي. احصل على المفاتيح من <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#306db5', fontWeight: 'bold' }}>Google AI Studio</a>.
                                 </small>
                             </div>
 
                             <div className={styles.apiStatus}>
                                 <div className={`${styles.statusDot} ${apiKey ? styles.connected : styles.disconnected}`}></div>
-                                <span>{apiKey ? 'المفتاح جاهز للعمل مع النموذج المختار' : 'يرجى إضافة مفتاح صالح'}</span>
+                                <span>{apiKey ? `عدد المفاتيح: ${apiKey.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean).length} — جاهزة للعمل مع التبديل التلقائي` : 'يرجى إضافة مفتاح صالح واحد على الأقل'}</span>
                             </div>
 
                             {message && (
