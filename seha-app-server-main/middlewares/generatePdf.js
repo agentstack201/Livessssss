@@ -63,8 +63,15 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const currentTime = data.report_time || (DateObj && DateObj.currentTime) || '';
     const currentDate = data.report_date || (DateObj && DateObj.currentDate) || '';
 
-    const countryNameEn = (country && country.country_name_en) || 'Saudi';
+    // The two nationality columns must agree. They used to fall back
+    // independently — Arabic to the free-text nationality, English to the
+    // literal 'Saudi' — so a custom entry printed as English "Saudi" next to
+    // Arabic "مقيم نازح". When the country row cannot be resolved, only the
+    // Arabic value is trustworthy, so English mirrors it rather than inventing
+    // a nationality that contradicts it.
     const countryNameAr = (country && country.country_name_ar) || data.nationality || 'سعودي';
+    const countryNameEn = (country && country.country_name_en)
+      || (countryNameAr === 'سعودي' || countryNameAr === 'السعودية' ? 'Saudi' : countryNameAr);
 
     // Use the bundled (Sparticuz) Chromium on managed/serverless hosts — Vercel
     // AND Render — where a system Chromium and its shared libraries are not

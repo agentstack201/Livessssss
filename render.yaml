@@ -11,7 +11,16 @@ services:
     runtime: node
     rootDir: seha-app-server-main
     plan: free
-    region: frankfurt            # pick the region closest to your users/DB
+    # Deliberately NOT an EEA region. Google offers no Gemini free-tier quota to
+    # requests originating in the EEA, the UK or Switzerland, and frankfurt sits
+    # inside that area — an unbilled key then fails with 400 FAILED_PRECONDITION
+    # from the deployed backend while working fine from a developer machine in
+    # Saudi Arabia (which is itself a fully supported country). Google evaluates
+    # this against the SERVER's egress IP, not the end user's location.
+    # frankfurt is only safe once billing is enabled on the key's Google Cloud
+    # project. Render cannot change the region of an existing service, so this
+    # takes effect on a newly created one.
+    region: virginia
     buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /api/health

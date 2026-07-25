@@ -81,6 +81,25 @@ const DEFAULT_COUNTRIES = [
   { ar: 'غير محدد', en: 'Unspecified' },
 ];
 
+// migrations/add-countries.js inserts explicit ids 1-29 without advancing the
+// serial sequence, so on a database where it was ever run the next generated id
+// collides and the first custom nationality a user adds fails with a duplicate
+// key. Realigning the sequence with the table's real maximum repairs that, and
+// is a no-op on a healthy database.
+async function repairCountrySequence(sequelize) {
+  try {
+    await sequelize.query(`
+      SELECT setval(
+        pg_get_serial_sequence('countries', 'id'),
+        COALESCE((SELECT MAX(id) FROM countries), 1),
+        true
+      )
+    `);
+  } catch (err) {
+    console.warn('⚠️ Could not realign countries id sequence:', err.message);
+  }
+}
+
 async function seedCountries() {
   try {
     const existing = await Country.findAll({ attributes: ['country_name_ar'] });

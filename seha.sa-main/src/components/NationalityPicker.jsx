@@ -3,6 +3,23 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 /**
+ * Fold the spelling variations people actually type, so searching "الامارات"
+ * finds "الإمارات" and "عمان" finds "عُمان". Without this the entry looks
+ * missing and the user adds a near-duplicate.
+ */
+function normalizeArabic(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[ً-ْٰـ]/g, '') // harakat, superscript alef, tatweel
+    .replace(/[آأإٱ]/g, 'ا') // آ أ إ ٱ -> ا
+    .replace(/ى/g, 'ي') // ى -> ي
+    .replace(/ة/g, 'ه') // ة -> ه
+    .replace(/[ؤئ]/g, 'ء') // ؤ ئ -> ء
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * Searchable modal picker for nationality / residency status.
  *
  * A native <select> gave no usable picker on mobile (and rendered empty when the
@@ -37,11 +54,11 @@ function NationalityPicker({ value, options, onSelect, onOptionsChanged, token, 
   }, [open])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normalizeArabic(query)
     if (!q) return options
     return options.filter(o =>
-      (o.country_name_ar || '').toLowerCase().includes(q) ||
-      (o.country_name_en || '').toLowerCase().includes(q)
+      normalizeArabic(o.country_name_ar).includes(q) ||
+      normalizeArabic(o.country_name_en).includes(q)
     )
   }, [options, query])
 

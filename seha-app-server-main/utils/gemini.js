@@ -135,11 +135,36 @@ function classify(httpStatus, body) {
   if (reason === "SERVICE_DISABLED" || hay.includes("has not been used in project") || hay.includes("is disabled")) {
     return out("API_DISABLED", "واجهة Generative Language غير مفعّلة في مشروع Google الخاص بالمفتاح — فعّلها ثم انتظر دقيقة.", true);
   }
+  // Checked before the generic billing rule below: the region message also
+  // contains the word "billing" ("Please enable billing on your project"), and
+  // it needs the region-specific guidance rather than the generic one.
+  if (status === "FAILED_PRECONDITION") {
+    // Google evaluates this against the SERVER's egress IP, never the end user's
+    // location, so a key that works from a laptop can fail from the deployment.
+    // Two different failures share this status and need different advice:
+    //   * "free tier is not available in your country" — billing fixes it.
+    //   * "User location is not supported for the API use." — correlates with
+    //     datacenter/hosting IP ranges and billing does NOT reliably clear it.
+    // Neither is retryable, and neither depends on which key is used.
+    if (hay.includes("user location is not supported")) {
+      return out(
+        "UNSUPPORTED_LOCATION",
+        "Google يرفض الطلبات القادمة من عنوان الخادم الحالي (\"User location is not supported\"). " +
+        "هذا مرتبط بنطاق عناوين مركز البيانات وليس بدولتك، وتفعيل الفوترة قد لا يحلّه. " +
+        "الحل: انشر الخادم في منطقة أخرى لدى المستضيف.",
+        false
+      );
+    }
+    return out(
+      "UNSUPPORTED_REGION",
+      "الخطة المجانية من Gemini غير متاحة لمنطقة الخادم (دول المنطقة الاقتصادية الأوروبية وبريطانيا وسويسرا). " +
+      "الحل: فعّل الفوترة على مشروع Google الخاص بالمفتاح، أو أنشئ خدمة Render في منطقة خارج أوروبا مثل Virginia. " +
+      "العبرة بموقع الخادم لا بموقعك — السعودية نفسها ضمن الدول المدعومة.",
+      false
+    );
+  }
   if (reason === "BILLING_DISABLED" || hay.includes("billing")) {
     return out("BILLING", "الفوترة غير مفعّلة على مشروع Google المرتبط بالمفتاح.", false);
-  }
-  if (status === "FAILED_PRECONDITION") {
-    return out("UNSUPPORTED_REGION", "الطلب مرفوض لسبب يتعلق بالدولة أو بالفوترة (الخطة المجانية غير متاحة في بعض الدول). فعّل الفوترة أو استخدم مفتاحاً من مشروع مفوتر.", false);
   }
   if (httpStatus === 404 || status === "NOT_FOUND") {
     return out("MODEL_NOT_FOUND", "الموديل المطلوب غير متاح لهذا المفتاح — سيتم التحويل تلقائياً لموديل متاح.", false);
@@ -216,25 +241,36 @@ async function listModels(key) {
     return { models: cached.models, cached: true };
   }
 
-  const res = await httpJson(
-    `${API_BASE}/${API_VERSION}/models?key=${encodeURIComponent(key)}&pageSize=200`,
-    { method: "GET" },
-    20000
-  );
+  // ListModels pages at 50 by default and Google now publishes well over that,
+  // so an unpaginated call can silently miss the model we most want.
+  const models = [];
+  let pageToken = "";
 
-  if (!res.ok) {
-    return { models: null, error: classify(res.status, res.body) };
+  for (let page = 0; page < 6; page++) {
+    const url =
+      `${API_BASE}/${API_VERSION}/models?key=${encodeURIComponent(key)}&pageSize=200` +
+      (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+
+    const res = await httpJson(url, { method: "GET" }, 20000);
+    if (!res.ok) return { models: null, error: classify(res.status, res.body) };
+
+    for (const m of (res.body && res.body.models) || []) {
+      // supportedGenerationMethods is the documented capability list; keep the
+      // model when it is absent rather than discarding a possibly usable one.
+      const usable = Array.isArray(m.supportedGenerationMethods)
+        ? m.supportedGenerationMethods.includes("generateContent")
+        : true;
+      const name = String(m.name || "").replace(/^models\//, "");
+      if (usable && name) models.push(name);
+    }
+
+    pageToken = (res.body && res.body.nextPageToken) || "";
+    if (!pageToken) break;
   }
 
-  const models = ((res.body && res.body.models) || [])
-    .filter((m) => Array.isArray(m.supportedGenerationMethods)
-      ? m.supportedGenerationMethods.includes("generateContent")
-      : true)
-    .map((m) => String(m.name || "").replace(/^models\//, ""))
-    .filter(Boolean);
-
-  modelCache.set(key, { models, at: Date.now() });
-  return { models, cached: false };
+  const unique = [...new Set(models)];
+  modelCache.set(key, { models: unique, at: Date.now() });
+  return { models: unique, cached: false };
 }
 
 function rankModels(available, preferred) {
@@ -289,8 +325,14 @@ function extractText(body) {
     throw e;
   }
 
+  // Reasoning parts are flagged with thought:true. They must not be concatenated
+  // into the answer — the caller parses this text as JSON.
   const parts = (candidate.content && candidate.content.parts) || [];
-  const text = parts.map((p) => p && p.text).filter(Boolean).join("");
+  const text = parts
+    .filter((p) => p && p.thought !== true)
+    .map((p) => p && p.text)
+    .filter(Boolean)
+    .join("");
   return text || null;
 }
 
@@ -352,6 +394,10 @@ async function geminiGenerate(prompt, opts = {}) {
     }
 
     for (const model of candidates) {
+      // Older models reject thinkingConfig outright; drop it and retry rather
+      // than writing off a model that is otherwise perfectly usable.
+      let sendThinkingConfig = true;
+
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         if (Date.now() - startedAt > OVERALL_DEADLINE_MS) {
           const e = new Error("انتهت المهلة الكلية أثناء محاولة الاتصال بـ Gemini.");
@@ -371,6 +417,10 @@ async function geminiGenerate(prompt, opts = {}) {
               safetySettings: SAFETY_SETTINGS,
               generationConfig: {
                 temperature: 0.1,
+                // Newer flash models reason before answering, and that reasoning
+                // can land in the response parts — which corrupts a payload the
+                // caller is about to JSON.parse. Nothing here benefits from it.
+                ...(sendThinkingConfig ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
                 ...(opts.json ? { responseMimeType: "application/json" } : {}),
               },
             }),
@@ -399,14 +449,29 @@ async function geminiGenerate(prompt, opts = {}) {
         attempts.push({ key: label, model, ms, code: c.code, http: c.httpStatus, error: c.arabic });
         console.warn(`⚠️ Gemini ${c.code} — ${label} | model=${model} | http=${c.httpStatus} | ${c.message}`);
 
+        // Origin-dependent rejections are decided by the server's IP, so every
+        // key and every model will be refused identically. Fail immediately
+        // rather than grinding through the whole matrix to repeat the answer.
+        if (["UNSUPPORTED_REGION", "UNSUPPORTED_LOCATION"].includes(c.code)) {
+          const e = new Error(c.arabic);
+          e.code = c.code;
+          e.details = attempts;
+          throw e;
+        }
         // A key problem affects every model: stop testing models for this key.
-        if (["INVALID_KEY", "KEY_RESTRICTED", "PERMISSION", "BILLING", "UNSUPPORTED_REGION"].includes(c.code)) {
+        if (["INVALID_KEY", "KEY_RESTRICTED", "PERMISSION", "BILLING"].includes(c.code)) {
           attempt = MAX_ATTEMPTS;
           candidates = [];
           break;
         }
         // Quota is per key: move to the next key.
         if (c.code === "QUOTA") { candidates = []; break; }
+        // An unsupported generationConfig field is recoverable: strip it and
+        // retry this same model instead of discarding it.
+        if (c.code === "BAD_REQUEST" && sendThinkingConfig && /thinking/i.test(c.message || "")) {
+          sendThinkingConfig = false;
+          continue;
+        }
         // Model problems: next model, no retry.
         if (c.code === "MODEL_NOT_FOUND" || c.code === "BAD_REQUEST") break;
 
