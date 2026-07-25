@@ -243,6 +243,12 @@ if (sequelize) {
         console.warn('⚠️ Auto-migration warnings (checking columns):', err.message);
       });
     })
+    .then(() => {
+      // Seed the nationality list so a freshly-created database still renders a
+      // populated dropdown. Idempotent: only inserts entries that are missing.
+      const { seedCountries } = require("./config/seed.js");
+      return seedCountries();
+    })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
     });

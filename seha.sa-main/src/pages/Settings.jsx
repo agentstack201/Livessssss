@@ -13,6 +13,8 @@ function Settings() {
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState(null)
+    const [testing, setTesting] = useState(false)
+    const [diagnosis, setDiagnosis] = useState(null)
 
     // Fetch initial settings
     useEffect(() => {
@@ -46,6 +48,27 @@ function Settings() {
         setTimeout(() => setMessage(null), 5000)
     }
 
+    // Live per-key health check. The backend probes each saved key against
+    // Google and reports exactly why it fails, so a bad key never has to be
+    // diagnosed by guesswork.
+    const handleDiagnose = async () => {
+        setTesting(true)
+        setDiagnosis(null)
+        try {
+            const token = localStorage.getItem('token')
+            const res = await fetch(`${API_BASE_URL}/settings/ai/diagnose`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            const body = await res.json()
+            if (res.ok && body.success) setDiagnosis(body.data)
+            else showMessage('error', body.message || `فشل الفحص (رمز ${res.status})`)
+        } catch (err) {
+            showMessage('error', 'تعذّر الاتصال بالخادم لإجراء الفحص')
+        } finally {
+            setTesting(false)
+        }
+    }
+
     const handleSave = async (e) => {
         e.preventDefault()
         setSaving(true)
@@ -53,25 +76,35 @@ function Settings() {
 
         try {
             const token = localStorage.getItem('token')
-            // Save API Key
-            await fetch(`${API_BASE_URL}/settings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ key: 'gemini_api_key', value: apiKey, description: 'Gemini API Key' })
-            })
 
-            // Save Model
-            await fetch(`${API_BASE_URL}/settings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ key: 'gemini_model', value: aiModel, description: 'AI Model Version' })
-            })
+            // Both writes are verified: previously the responses were ignored, so an
+            // expired session (the token lasts 3h) reported "saved successfully"
+            // while nothing was persisted — the key then appeared to "not work".
+            const save = async (key, value, description) => {
+                const res = await fetch(`${API_BASE_URL}/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ key, value, description })
+                })
+                let body = null
+                try { body = await res.json() } catch { /* non-JSON error page */ }
+                if (!res.ok || body?.success === false) {
+                    const reason = res.status === 401
+                        ? 'انتهت الجلسة — سجّل الدخول مرة أخرى ثم أعد الحفظ'
+                        : (body?.message || `فشل الحفظ (رمز ${res.status})`)
+                    throw new Error(reason)
+                }
+                return body
+            }
+
+            await save('gemini_api_key', apiKey, 'Gemini API Key')
+            await save('gemini_model', aiModel, 'AI Model Version')
 
             showMessage('success', 'تم حفظ الإعدادات بنجاح')
             window.showToast?.('تم حفظ الإعدادات بنجاح', 'success')
         } catch (err) {
             console.error('Save error:', err)
-            showMessage('error', 'حدث خطأ أثناء الاتصال بالخادم')
+            showMessage('error', err.message || 'حدث خطأ أثناء الاتصال بالخادم')
         } finally {
             setSaving(false)
         }
@@ -130,6 +163,57 @@ function Settings() {
                             {message && (
                                 <div className={`${styles.message} ${styles[message.type]}`}>
                                     {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+                                </div>
+                            )}
+
+                            <div style={{ marginTop: '14px' }}>
+                                <button type="button" onClick={handleDiagnose} disabled={testing}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #0ea5e9', background: '#f0f9ff', color: '#0369a1', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '15px' }}>
+                                    {testing ? '🔍 جارٍ فحص المفاتيح…' : '🔍 اختبار المفاتيح الآن'}
+                                </button>
+                                <small className={styles.helpText} style={{ display: 'block', marginTop: '6px' }}>
+                                    يفحص كل مفتاح مباشرةً مع Google ويخبرك بالسبب الدقيق لأي فشل. احفظ التغييرات أولاً.
+                                </small>
+                            </div>
+
+                            {diagnosis && (
+                                <div style={{ marginTop: '12px', padding: '14px', borderRadius: '12px', border: `1px solid ${diagnosis.healthy ? '#86efac' : '#fecaca'}`, background: diagnosis.healthy ? '#f0fdf4' : '#fef2f2' }}>
+                                    <strong style={{ display: 'block', marginBottom: '8px', color: diagnosis.healthy ? '#15803d' : '#b91c1c' }}>
+                                        {diagnosis.healthy ? '✅' : '⛔'} {diagnosis.summary}
+                                    </strong>
+
+                                    {diagnosis.hiddenCharactersRemoved > 0 && (
+                                        <div style={{ fontSize: '13px', color: '#b45309', marginBottom: '8px' }}>
+                                            ⚠️ تم تنظيف {diagnosis.hiddenCharactersRemoved} محرف مخفي من اللصق (علامات اتجاه/مسافات غير مرئية) — هذا سبب شائع لفشل المفتاح، وقد عولج تلقائياً.
+                                        </div>
+                                    )}
+                                    {!diagnosis.savedInDatabase && diagnosis.keysConfigured === 0 && (
+                                        <div style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '8px' }}>
+                                            لم يُحفظ أي مفتاح في قاعدة البيانات — اضغط «حفظ التغييرات» ثم أعد الفحص.
+                                        </div>
+                                    )}
+
+                                    {diagnosis.keys?.map(k => (
+                                        <div key={k.index} style={{ padding: '9px 0', borderTop: '1px solid rgba(0,0,0,.07)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span style={{ fontWeight: 700 }}>
+                                                    مفتاح #{k.index} <span style={{ direction: 'ltr', display: 'inline-block', color: '#64748b', fontWeight: 400, fontFamily: 'monospace' }}>{k.fingerprint}</span>
+                                                </span>
+                                                <span style={{ color: k.status === 'يعمل' ? '#15803d' : '#b91c1c', fontWeight: 700 }}>
+                                                    {k.status === 'يعمل' ? '✅ يعمل' : '❌ خطأ'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '3px' }}>{k.verdict}</div>
+                                            {k.modelsAvailable != null && (
+                                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                    الموديلات المتاحة: {k.modelsAvailable} — المختار: <span style={{ direction: 'ltr', display: 'inline-block' }}>{k.selectedModel}</span>
+                                                </div>
+                                            )}
+                                            {k.googleMessage && (
+                                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', direction: 'ltr', textAlign: 'left' }}>{k.googleMessage}</div>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
