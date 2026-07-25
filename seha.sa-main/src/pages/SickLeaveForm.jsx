@@ -830,7 +830,7 @@ function SickLeaveForm() {
         setIsEditMode(false)
         setAiText('')
       } else {
-        setAiError(data.error || 'فشل في استخراج البيانات')
+        setAiError(data.message || data.error || 'فشل في استخراج البيانات')
       }
     } catch (error) {
       console.error('AI Extract Error:', error)

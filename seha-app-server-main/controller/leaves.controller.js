@@ -387,32 +387,43 @@ module.exports.aiExtract = async (req, res, next) => {
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const { getSettingValue } = require("./settings.controller");
 
-    // التحقق من مفتاح API (قاعدة البيانات أولاً ثم .env)
-    let apiKey = await getSettingValue('gemini_api_key');
-    let source = "Database";
+    // ------------------------------------------------------------------
+    // مفاتيح API متعددة مع تبديل تلقائي (failover):
+    // تُقرأ من الإعدادات (قاعدة البيانات) ثم من متغيّرات البيئة، ويمكن وضع
+    // أكثر من مفتاح مفصولة بسطر جديد أو فاصلة. إذا توقّف مفتاح (تجاوز الحصة
+    // أو خطأ) يُجرَّب الذي يليه تلقائياً.
+    // ------------------------------------------------------------------
+    const parseKeys = (raw) =>
+      (raw || "")
+        .split(/[\n,;]+/)
+        .map((k) => k.trim())
+        .filter(Boolean);
 
-    if (!apiKey) {
-      apiKey = process.env.GEMINI_API_KEY;
-      source = "Environment (.env)";
-    }
+    const dbKeys = parseKeys(await getSettingValue('gemini_api_key'));
+    const envKeys = parseKeys(process.env.GEMINI_API_KEY);
+    const apiKeys = [...new Set([...dbKeys, ...envKeys])];
 
-    // التحقق من إصدار النموذج (قاعدة البيانات أولاً ثم .env)
-    let modelName = await getSettingValue('gemini_model');
-    if (!modelName) {
-      modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-    }
-
-    console.log(`Using Gemini: [Model: ${modelName}] [Key Source: ${source}]`);
-
-    if (!apiKey) {
+    if (apiKeys.length === 0) {
       return res.status(500).json({
         status_code: 500,
-        message: "مفتاح الربط مع Google Gemini غير موجود في إعدادات السيرفر",
+        success: false,
+        message: "لا يوجد أي مفتاح ربط مع Google Gemini. أضف مفتاحاً واحداً على الأقل في الإعدادات.",
       });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: modelName });
+    // النموذج المختار من الإعدادات، مع قائمة نماذج احتياطية مضمونة العمل.
+    // لو كان المحفوظ نموذجاً غير موجود، يتحوّل تلقائياً لأول نموذج شغّال.
+    const configuredModel =
+      (await getSettingValue('gemini_model')) || process.env.GEMINI_MODEL || "gemini-flash-latest";
+    const modelsToTry = [
+      configuredModel,
+      "gemini-flash-latest",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+    ].filter((m, i, a) => m && a.indexOf(m) === i);
+
+    console.log(`AI Extract: ${apiKeys.length} key(s) available | preferred model: ${configuredModel}`);
 
     const prompt = `
       You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
@@ -444,11 +455,59 @@ module.exports.aiExtract = async (req, res, next) => {
       """
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // محاولة التنفيذ عبر كل مفتاح ثم كل نموذج حتى ينجح واحد
+    let text = null;
+    let usedKey = -1;
+    let usedModel = null;
+    const attemptErrors = [];
 
-    console.log("Gemini Response:", text);
+    for (let ki = 0; ki < apiKeys.length && text === null; ki++) {
+      const genAI = new GoogleGenerativeAI(apiKeys[ki]);
+      for (let mi = 0; mi < modelsToTry.length; mi++) {
+        const modelName = modelsToTry[mi];
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          text = result.response.text();
+          usedKey = ki;
+          usedModel = modelName;
+          break;
+        } catch (err) {
+          const msg = err && err.message ? err.message : String(err);
+          attemptErrors.push(`مفتاح#${ki + 1} / ${modelName}: ${msg}`);
+          const low = msg.toLowerCase();
+          const invalidKey =
+            low.includes('api key not valid') ||
+            low.includes('api_key_invalid') ||
+            low.includes('invalid api key') ||
+            low.includes('permission denied') ||
+            low.includes('403');
+          const quota =
+            low.includes('quota') ||
+            low.includes('rate limit') ||
+            low.includes('resource_exhausted') ||
+            low.includes('429') ||
+            low.includes('overloaded') ||
+            low.includes('503');
+          // مفتاح غير صالح أو تجاوز حصة → انتقل للمفتاح التالي مباشرة
+          if (invalidKey || quota) break;
+          // غير ذلك (نموذج غير موجود مثلاً) → جرّب النموذج التالي بنفس المفتاح
+        }
+      }
+    }
+
+    if (text === null) {
+      console.error("AI Extract — all keys/models failed:", attemptErrors);
+      return res.status(502).json({
+        status_code: 502,
+        success: false,
+        message:
+          "تعذّر استخراج البيانات: فشلت جميع مفاتيح Gemini. تأكد من صحة المفاتيح ومن عدم تجاوز الحصة.",
+        details: attemptErrors,
+      });
+    }
+
+    console.log(`✅ AI extract succeeded via key #${usedKey + 1} using model "${usedModel}"`);
 
     let extractedData = {};
     try {
@@ -456,8 +515,12 @@ module.exports.aiExtract = async (req, res, next) => {
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       extractedData = JSON.parse(cleanJson);
     } catch (parseError) {
-      console.error("JSON Parse Error:", parseError);
-      throw new Error("فشل في معالجة رد الذكاء الاصطناعي");
+      console.error("JSON Parse Error:", parseError, "RAW:", text);
+      return res.status(500).json({
+        status_code: 500,
+        success: false,
+        message: "تم الاتصال بالذكاء الاصطناعي لكن تعذّر تحليل الرد. حاول مرة أخرى.",
+      });
     }
 
     return res.status(200).json({
