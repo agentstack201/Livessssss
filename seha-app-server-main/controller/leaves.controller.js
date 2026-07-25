@@ -384,46 +384,7 @@ module.exports.aiExtract = async (req, res, next) => {
       });
     }
 
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const { getSettingValue } = require("./settings.controller");
-
-    // ------------------------------------------------------------------
-    // مفاتيح API متعددة مع تبديل تلقائي (failover):
-    // تُقرأ من الإعدادات (قاعدة البيانات) ثم من متغيّرات البيئة، ويمكن وضع
-    // أكثر من مفتاح مفصولة بسطر جديد أو فاصلة. إذا توقّف مفتاح (تجاوز الحصة
-    // أو خطأ) يُجرَّب الذي يليه تلقائياً.
-    // ------------------------------------------------------------------
-    const parseKeys = (raw) =>
-      (raw || "")
-        .split(/[\n,;]+/)
-        .map((k) => k.trim())
-        .filter(Boolean);
-
-    const dbKeys = parseKeys(await getSettingValue('gemini_api_key'));
-    const envKeys = parseKeys(process.env.GEMINI_API_KEY);
-    const apiKeys = [...new Set([...dbKeys, ...envKeys])];
-
-    if (apiKeys.length === 0) {
-      return res.status(500).json({
-        status_code: 500,
-        success: false,
-        message: "لا يوجد أي مفتاح ربط مع Google Gemini. أضف مفتاحاً واحداً على الأقل في الإعدادات.",
-      });
-    }
-
-    // النموذج المختار من الإعدادات، مع قائمة نماذج احتياطية مضمونة العمل.
-    // لو كان المحفوظ نموذجاً غير موجود، يتحوّل تلقائياً لأول نموذج شغّال.
-    const configuredModel =
-      (await getSettingValue('gemini_model')) || process.env.GEMINI_MODEL || "gemini-flash-latest";
-    const modelsToTry = [
-      configuredModel,
-      "gemini-flash-latest",
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-    ].filter((m, i, a) => m && a.indexOf(m) === i);
-
-    console.log(`AI Extract: ${apiKeys.length} key(s) available | preferred model: ${configuredModel}`);
+    const { geminiGenerate } = require("../utils/gemini");
 
     const prompt = `
       You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
@@ -455,59 +416,21 @@ module.exports.aiExtract = async (req, res, next) => {
       """
     `;
 
-    // محاولة التنفيذ عبر كل مفتاح ثم كل نموذج حتى ينجح واحد
-    let text = null;
-    let usedKey = -1;
-    let usedModel = null;
-    const attemptErrors = [];
-
-    for (let ki = 0; ki < apiKeys.length && text === null; ki++) {
-      const genAI = new GoogleGenerativeAI(apiKeys[ki]);
-      for (let mi = 0; mi < modelsToTry.length; mi++) {
-        const modelName = modelsToTry[mi];
-        try {
-          const model = genAI.getGenerativeModel({ model: modelName });
-          const result = await model.generateContent(prompt);
-          text = result.response.text();
-          usedKey = ki;
-          usedModel = modelName;
-          break;
-        } catch (err) {
-          const msg = err && err.message ? err.message : String(err);
-          attemptErrors.push(`مفتاح#${ki + 1} / ${modelName}: ${msg}`);
-          const low = msg.toLowerCase();
-          const invalidKey =
-            low.includes('api key not valid') ||
-            low.includes('api_key_invalid') ||
-            low.includes('invalid api key') ||
-            low.includes('permission denied') ||
-            low.includes('403');
-          const quota =
-            low.includes('quota') ||
-            low.includes('rate limit') ||
-            low.includes('resource_exhausted') ||
-            low.includes('429') ||
-            low.includes('overloaded') ||
-            low.includes('503');
-          // مفتاح غير صالح أو تجاوز حصة → انتقل للمفتاح التالي مباشرة
-          if (invalidKey || quota) break;
-          // غير ذلك (نموذج غير موجود مثلاً) → جرّب النموذج التالي بنفس المفتاح
-        }
-      }
-    }
-
-    if (text === null) {
-      console.error("AI Extract — all keys/models failed:", attemptErrors);
-      return res.status(502).json({
-        status_code: 502,
+    let text;
+    try {
+      const out = await geminiGenerate(prompt);
+      text = out.text;
+      console.log(`✅ AI extract via key #${out.usedKey + 1} using model "${out.usedModel}"`);
+    } catch (err) {
+      const status = err.code === "NO_KEYS" ? 500 : 502;
+      console.error("AI Extract failed:", err.message, err.details || "");
+      return res.status(status).json({
+        status_code: status,
         success: false,
-        message:
-          "تعذّر استخراج البيانات: فشلت جميع مفاتيح Gemini. تأكد من صحة المفاتيح ومن عدم تجاوز الحصة.",
-        details: attemptErrors,
+        message: err.message || "تعذّر استخراج البيانات.",
+        details: err.details,
       });
     }
-
-    console.log(`✅ AI extract succeeded via key #${usedKey + 1} using model "${usedModel}"`);
 
     let extractedData = {};
     try {
@@ -540,6 +463,42 @@ module.exports.aiExtract = async (req, res, next) => {
       status_code: 500,
       data: null,
       message: error.message || "حدث خطأ أثناء معالجة البيانات",
+    });
+  }
+};
+
+// ترجمة نص قصير (جنسية/حالة) بين العربية والإنجليزية باستخدام Gemini
+module.exports.translate = async (req, res) => {
+  try {
+    const { text, to } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: "لا يوجد نص للترجمة" });
+    }
+
+    const { geminiGenerate } = require("../utils/gemini");
+    const target = to === "ar" ? "Arabic" : "English";
+    const prompt =
+      `Translate the following nationality or residency-status term into ${target}. ` +
+      `It is used on an official medical document, so use the standard/formal term. ` +
+      `Return ONLY the translated term with no quotes, no explanation, no extra words.\n\n` +
+      `Term: "${text.trim()}"`;
+
+    const out = await geminiGenerate(prompt);
+    const translation = (out.text || "")
+      .replace(/```/g, "")
+      .replace(/^["'\s]+|["'\s]+$/g, "")
+      .split("\n")[0]
+      .trim();
+
+    return res.status(200).json({ success: true, data: { translation } });
+  } catch (error) {
+    const status = error.code === "NO_KEYS" ? 500 : 502;
+    console.error("Translate failed:", error.message, error.details || "");
+    return res.status(status).json({
+      success: false,
+      message: error.message || "تعذّرت الترجمة",
+      details: error.details,
     });
   }
 };

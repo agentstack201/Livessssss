@@ -39,6 +39,15 @@ router
     (req, res, next) => leaveController.aiExtract(req, res, next)
   );
 
+// AI Translate (nationality/status between Arabic and English)
+router
+  .route("/translate")
+  .post(
+    config.auth,
+    checkController,
+    (req, res, next) => leaveController.translate(req, res, next)
+  );
+
 // Get leaves count for dashboard stats
 router
   .route("/sick-leaves/count")
