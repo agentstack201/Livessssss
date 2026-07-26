@@ -49,8 +49,11 @@ function applyResets(k, t = now()) {
 }
 
 // Is a key eligible right now for an optional required model?
+// A key in cooldown becomes eligible again once cooldown_until has passed — the
+// row is only reactivated to "active" when it is actually chosen (see reserveKey),
+// so an expired cooldown must count as eligible here or the key stays stuck.
 function isEligible(k, model, t = now()) {
-  if (k.status !== "active") return false;
+  if (k.status !== "active" && k.status !== "cooldown") return false;
   if (k.cooldown_until && t < k.cooldown_until) return false;
   if (k.rpm > 0 && k.used_rpm >= k.rpm) return false;
   if (k.rpd > 0 && k.used_rpd >= k.rpd) return false;
@@ -94,7 +97,8 @@ async function reserveKey(model, excludeIds) {
   return sequelize.transaction(async (t) => {
     const rows = await ApiKey.findAll({
       where: {
-        status: "active",
+        // Cooldown keys are included so an expired cooldown can be revived.
+        status: { [Op.in]: ["active", "cooldown"] },
         ...(excludeIds.length ? { id: { [Op.notIn]: excludeIds } } : {}),
       },
       lock: t.LOCK.UPDATE,
@@ -113,13 +117,20 @@ async function reserveKey(model, excludeIds) {
     const provider = getProvider(chosen.provider);
     if (!provider) return null;
 
+    // Revive a key whose cooldown has elapsed now that it is being used again.
+    if (chosen.status === "cooldown") {
+      chosen.status = "active";
+      chosen.cooldown_until = null;
+    }
+
     // Reserve the request now; tokens are added after the call completes.
     chosen.used_rpm += 1;
     chosen.used_rpd += 1;
     chosen.last_used_at = clock;
     await chosen.save({
       fields: ["used_rpm", "used_rpd", "used_tpm", "used_tpd", "used_month",
-        "minute_reset_at", "day_reset_at", "month_reset_at", "last_used_at"],
+        "minute_reset_at", "day_reset_at", "month_reset_at", "last_used_at",
+        "status", "cooldown_until"],
       transaction: t,
     });
 
