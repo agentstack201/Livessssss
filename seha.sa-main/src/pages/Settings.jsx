@@ -15,6 +15,7 @@ function Settings() {
     const [message, setMessage] = useState(null)
     const [testing, setTesting] = useState(false)
     const [diagnosis, setDiagnosis] = useState(null)
+    const [loadFailed, setLoadFailed] = useState(false)
 
     // Fetch initial settings
     useEffect(() => {
@@ -25,19 +26,33 @@ function Settings() {
         setLoading(true)
         try {
             const token = localStorage.getItem('token')
-            // Fetch multiple settings
-            const responses = await Promise.all([
+            const [keyRes, modelRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/settings/gemini_api_key`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch(`${API_BASE_URL}/settings/gemini_model`, { headers: { 'Authorization': `Bearer ${token}` } })
-            ]);
+            ])
+            const [keyData, modelData] = await Promise.all([keyRes, modelRes].map(r => r.json().catch(() => null)))
 
-            const [keyData, modelData] = await Promise.all(responses.map(r => r.json()));
+            // A 404 means "not configured yet" and is a legitimate empty state.
+            // Anything else (401 on an expired session, 500 on a DB hiccup) means
+            // the stored value is unknown — and must not be treated as empty,
+            // because the field would render blank and the next save would
+            // overwrite a perfectly good key with "".
+            const unreadable = [keyRes, modelRes].some(r => !r.ok && r.status !== 404)
+            setLoadFailed(unreadable)
+
+            if (unreadable) {
+                showMessage('error', keyRes.status === 401 || modelRes.status === 401
+                    ? 'انتهت الجلسة — سجّل الدخول مرة أخرى قبل تعديل الإعدادات'
+                    : 'تعذّر قراءة الإعدادات الحالية — لا تحفظ الآن حتى لا تُمحى القيم المخزّنة')
+                return
+            }
 
             if (keyData?.data) setApiKey(keyData.data.value || '')
             if (modelData?.data) setAiModel(modelData.data.value || 'gemini-flash-latest')
         } catch (err) {
             console.error('Error fetching settings:', err)
-            showMessage('failed', 'فشل في الاتصال بالخادم')
+            setLoadFailed(true)
+            showMessage('error', 'فشل في الاتصال بالخادم')
         } finally {
             setLoading(false)
         }
@@ -71,6 +86,16 @@ function Settings() {
 
     const handleSave = async (e) => {
         e.preventDefault()
+
+        // Refuse to write over values we were never able to read back.
+        if (loadFailed) {
+            showMessage('error', 'لم نتمكن من قراءة الإعدادات الحالية — أعد تحميل الصفحة (وسجّل الدخول إن لزم) قبل الحفظ.')
+            return
+        }
+        if (!apiKey.trim() && !window.confirm('حقل المفاتيح فارغ. هل تريد فعلاً حذف المفاتيح المحفوظة؟')) {
+            return
+        }
+
         setSaving(true)
         setMessage(null)
 
