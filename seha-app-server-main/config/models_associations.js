@@ -6,6 +6,8 @@ const Media = require("../models/media.model.js");
 const Setting = require("../models/settings.model.js");
 const Doctor = require("../models/doctor.model.js");
 const Hospital = require("../models/hospital.model.js");
+const ApiKey = require("../models/apiKey.model.js");
+const ApiKeyUsage = require("../models/apiKeyUsage.model.js");
 
 countries.hasMany(leaves, { foreignKey: 'countryId', as: 'countryLeaves' });
 leaves.belongsTo(countries, { foreignKey: 'countryId', as: 'country' });
@@ -26,5 +28,9 @@ Doctor.belongsTo(User, { foreignKey: 'user_id', as: 'creator' });
 User.hasMany(Hospital, { foreignKey: 'user_id', as: 'userHospitals' });
 Hospital.belongsTo(User, { foreignKey: 'user_id', as: 'creator' });
 
+// API key pool: each usage row belongs to one key.
+ApiKey.hasMany(ApiKeyUsage, { foreignKey: 'key_id', as: 'usage', onDelete: 'CASCADE' });
+ApiKeyUsage.belongsTo(ApiKey, { foreignKey: 'key_id', as: 'key' });
+
 // Export all models
-module.exports = { User, leaves, countries, Permission, Media, Setting, Doctor, Hospital };
+module.exports = { User, leaves, countries, Permission, Media, Setting, Doctor, Hospital, ApiKey, ApiKeyUsage };

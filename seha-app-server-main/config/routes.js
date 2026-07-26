@@ -106,6 +106,20 @@ try {
   }));
 }
 
+let keysRoute;
+try {
+  keysRoute = require("../routes/apiKeys.route");
+  console.log("✅ API keys route loaded");
+} catch (error) {
+  console.error("❌ API keys route failed:", error.message);
+  const express = require("express");
+  keysRoute = express.Router();
+  keysRoute.all("*", (req, res) => res.status(503).json({
+    success: false,
+    message: "خدمة إدارة المفاتيح غير متاحة حالياً",
+  }));
+}
+
 module.exports = {
   loginRoute,
   countryRoute,
@@ -115,4 +129,5 @@ module.exports = {
   settingsRoute,
   doctorRoute,
   hospitalRoute,
+  keysRoute,
 };

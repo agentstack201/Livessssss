@@ -16,6 +16,7 @@ import CountryManagement from './pages/CountryManagement'
 import DoctorManagement from './pages/DoctorManagement'
 import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
+import KeysManagement from './pages/KeysManagement'
 // CV Routes
 import CVList from './features/cv/pages/CVList'
 import CreateCV from './features/cv/pages/CreateCV'
@@ -116,6 +117,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/keys"
+            element={
+              <ProtectedRoute>
+                <KeysManagement />
               </ProtectedRoute>
             }
           />

@@ -384,7 +384,7 @@ module.exports.aiExtract = async (req, res, next) => {
       });
     }
 
-    const { geminiGenerate } = require("../utils/gemini");
+    const { llmGenerate } = require("../utils/llm");
 
     const prompt = `
       You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
@@ -418,13 +418,13 @@ module.exports.aiExtract = async (req, res, next) => {
 
     let text;
     try {
-      // json:true asks Google to emit application/json, so no markdown fences
-      // have to be stripped off the response.
-      const out = await geminiGenerate(prompt, { json: true });
+      // json:true asks the provider for a JSON object, so no markdown fences
+      // have to be stripped off. The pool picks a working key/provider.
+      const out = await llmGenerate(prompt, { json: true });
       text = out.text;
-      console.log(`✅ AI extract via key #${out.usedKeyIndex + 1} using model "${out.usedModel}"`);
+      console.log(`✅ AI extract via ${out.provider} model "${out.model}"`);
     } catch (err) {
-      const status = err.code === "NO_KEYS" ? 400 : 502;
+      const status = err.httpStatus || (["NO_KEYS", "MALFORMED_KEY"].includes(err.code) ? 400 : 502);
       console.error("AI Extract failed:", err.code, err.message, err.details || "");
       return res.status(status).json({
         status_code: status,
@@ -432,6 +432,7 @@ module.exports.aiExtract = async (req, res, next) => {
         code: err.code,
         message: err.message || "تعذّر استخراج البيانات.",
         details: err.details,
+        retry_at: err.retryAt || undefined,
       });
     }
 
@@ -479,7 +480,7 @@ module.exports.translate = async (req, res) => {
       return res.status(400).json({ success: false, message: "لا يوجد نص للترجمة" });
     }
 
-    const { geminiGenerate } = require("../utils/gemini");
+    const { llmGenerate } = require("../utils/llm");
     const target = to === "ar" ? "Arabic" : "English";
     const prompt =
       `Translate the following nationality or residency-status term into ${target}. ` +
@@ -487,7 +488,7 @@ module.exports.translate = async (req, res) => {
       `Return ONLY the translated term with no quotes, no explanation, no extra words.\n\n` +
       `Term: "${text.trim()}"`;
 
-    const out = await geminiGenerate(prompt);
+    const out = await llmGenerate(prompt);
     const translation = (out.text || "")
       .replace(/```/g, "")
       .replace(/^["'\s]+|["'\s]+$/g, "")
@@ -496,7 +497,7 @@ module.exports.translate = async (req, res) => {
 
     return res.status(200).json({ success: true, data: { translation } });
   } catch (error) {
-    const status = error.code === "NO_KEYS" ? 400 : 502;
+    const status = error.httpStatus || (["NO_KEYS", "MALFORMED_KEY"].includes(error.code) ? 400 : 502);
     console.error("Translate failed:", error.code, error.message, error.details || "");
     return res.status(status).json({
       success: false,

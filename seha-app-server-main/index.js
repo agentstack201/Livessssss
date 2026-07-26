@@ -199,6 +199,7 @@ app.get("/", (req, res) => {
 // API Routes - only if routes loaded successfully
 if (routes) {
   app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
+  if (routes.keysRoute) app.use(routes.keysRoute);
   app.use('/users', routes.usersRoute);
   app.use('/media', routes.mediaRoute);
   app.use('/settings', routes.settingsRoute);
@@ -248,6 +249,11 @@ if (sequelize) {
       // populated dropdown. Idempotent: only inserts entries that are missing.
       const { seedCountries } = require("./config/seed.js");
       return seedCountries();
+    })
+    .then(() => {
+      // Move any legacy single-setting Gemini key(s) into the rotation pool.
+      const { importLegacyGeminiKeys } = require("./utils/llm/bootstrap.js");
+      return importLegacyGeminiKeys();
     })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
