@@ -166,23 +166,42 @@ function Settings() {
 
                             <div className={styles.formGroup}>
                                 <label>Google Gemini API Keys (مفاتيح الربط)</label>
-                                <textarea
+                                {/*
+                                  A plain single-line text input, same height as every
+                                  other field on this page. It is NOT type="password":
+                                  masking hid the stray characters an RTL paste carries,
+                                  which is what made a corrupted key impossible to spot.
+                                  No maxLength — the value is stored in a TEXT column and
+                                  must never be clipped. The mobile keyboard helpers are
+                                  all disabled so nothing rewrites what was pasted.
+                                */}
+                                <input
+                                    type="text"
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder={"AIzaSy...المفتاح الأول\nAIzaSy...المفتاح الثاني\nAIzaSy...المفتاح الثالث"}
+                                    placeholder="AIzaSy… (وللمفاتيح المتعددة افصل بينها بفاصلة)"
                                     className={styles.input}
                                     dir="ltr"
-                                    rows={4}
-                                    style={{ resize: 'vertical', minHeight: '110px', lineHeight: '1.8', fontFamily: 'monospace' }}
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck={false}
+                                    inputMode="text"
+                                    name="gemini-api-key"
+                                    style={{ fontFamily: 'monospace', textOverflow: 'ellipsis' }}
                                 />
                                 <small className={styles.helpText}>
-                                    يمكنك إضافة <b>أكثر من مفتاح</b> — كل مفتاح في <b>سطر منفصل</b>. النظام يستخدم الأول، ولو توقف (تجاوز الحصة أو خطأ) ينتقل تلقائياً للمفتاح التالي. احصل على المفاتيح من <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#306db5', fontWeight: 'bold' }}>Google AI Studio</a>.
+                                    يمكنك إضافة <b>أكثر من مفتاح</b> بفصلها بفاصلة <code>,</code> أو مسافة. النظام يستخدم الأول، ولو توقف (تجاوز الحصة أو خطأ) ينتقل تلقائياً للتالي. احصل على المفاتيح من <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#306db5', fontWeight: 'bold' }}>Google AI Studio</a>.
                                 </small>
                             </div>
 
                             <div className={styles.apiStatus}>
                                 <div className={`${styles.statusDot} ${apiKey ? styles.connected : styles.disconnected}`}></div>
-                                <span>{apiKey ? `عدد المفاتيح: ${apiKey.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean).length} — جاهزة للعمل مع التبديل التلقائي` : 'يرجى إضافة مفتاح صالح واحد على الأقل'}</span>
+                                <span>
+                                    {apiKey
+                                        ? `عدد المفاتيح: ${apiKey.split(/[\s,;]+/).filter(Boolean).length} — الطول المُدخل: ${apiKey.length} حرف`
+                                        : 'يرجى إضافة مفتاح واحد على الأقل'}
+                                </span>
                             </div>
 
                             {message && (
@@ -228,21 +247,34 @@ function Settings() {
                                                     {k.status === 'يعمل' ? '✅ يعمل' : '❌ خطأ'}
                                                 </span>
                                             </div>
-                                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '3px' }}>{k.verdict}</div>
+                                            {/* Google's own words come first when it rejects a
+                                                key — the Arabic line below is guidance, not the
+                                                verdict. */}
+                                            {k.googleMessage && (
+                                                <div style={{ marginTop: '5px', padding: '7px 9px', borderRadius: '7px', background: '#fff', border: '1px solid #fecaca' }}>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>رد Google:</div>
+                                                    <div style={{ fontSize: '12px', color: '#7f1d1d', direction: 'ltr', textAlign: 'left', fontFamily: 'monospace' }}>
+                                                        {k.googleMessage}
+                                                    </div>
+                                                    {(k.googleStatus || k.googleReason) && (
+                                                        <div style={{ fontSize: '10px', color: '#94a3b8', direction: 'ltr', textAlign: 'left', marginTop: '2px' }}>
+                                                            {[k.httpStatus, k.googleStatus, k.googleReason].filter(Boolean).join(' · ')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>{k.verdict}</div>
                                             {k.hint && (
                                                 <div style={{ fontSize: '12px', color: '#b45309', marginTop: '3px' }}>{k.hint}</div>
                                             )}
                                             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                                                الطول: {k.length}{k.prefix ? ` — يبدأ بـ ` : ''}
+                                                الطول المخزَّن: {k.length}{k.prefix ? ' — يبدأ بـ ' : ''}
                                                 {k.prefix && <span style={{ direction: 'ltr', display: 'inline-block', fontFamily: 'monospace' }}>{k.prefix}</span>}
                                             </div>
                                             {k.modelsAvailable != null && (
                                                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                                                     الموديلات المتاحة: {k.modelsAvailable} — المختار: <span style={{ direction: 'ltr', display: 'inline-block' }}>{k.selectedModel}</span>
                                                 </div>
-                                            )}
-                                            {k.googleMessage && (
-                                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', direction: 'ltr', textAlign: 'left' }}>{k.googleMessage}</div>
                                             )}
                                         </div>
                                     ))}
