@@ -199,6 +199,7 @@ app.get("/", (req, res) => {
 // API Routes - only if routes loaded successfully
 if (routes) {
   app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
+  if (routes.keysRoute) app.use(routes.keysRoute);
   app.use('/users', routes.usersRoute);
   app.use('/media', routes.mediaRoute);
   app.use('/settings', routes.settingsRoute);

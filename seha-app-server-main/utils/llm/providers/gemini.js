@@ -98,4 +98,19 @@ async function chat({ apiKey, model, messages, json = false, timeoutMs = 45000 }
   };
 }
 
-module.exports = { chat };
+// Validate a key without spending tokens: list the models it can see.
+async function test({ apiKey, timeoutMs = 20000 }) {
+  const res = await httpJson(
+    `${API_BASE}/${API_VERSION}/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
+    { method: "GET" },
+    timeoutMs
+  );
+  if (!res.ok) {
+    const c = classify(res.status, res.body);
+    return { ok: false, httpStatus: c.httpStatus, message: c.message || c.arabic, code: c.code };
+  }
+  const models = (res.body && res.body.models) || [];
+  return { ok: true, modelsAvailable: models.length };
+}
+
+module.exports = { chat, test };

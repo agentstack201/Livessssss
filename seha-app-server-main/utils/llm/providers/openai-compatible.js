@@ -68,4 +68,19 @@ async function chat({ apiKey, baseUrl, model, messages, json = false, timeoutMs 
   };
 }
 
-module.exports = { chat };
+// Validate a key without spending tokens: list the models it can see.
+async function test({ apiKey, baseUrl, timeoutMs = 20000 }) {
+  const url = `${String(baseUrl).replace(/\/$/, "")}/models`;
+  const res = await httpJson(url, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${apiKey}` },
+  }, timeoutMs);
+  if (!res.ok) {
+    const err = (res.body && res.body.error) || {};
+    return { ok: false, httpStatus: res.status, message: err.message || `HTTP ${res.status}` };
+  }
+  const data = (res.body && (res.body.data || res.body.models)) || [];
+  return { ok: true, modelsAvailable: Array.isArray(data) ? data.length : undefined };
+}
+
+module.exports = { chat, test };
