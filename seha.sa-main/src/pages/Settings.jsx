@@ -229,6 +229,13 @@ function Settings() {
                                                 </span>
                                             </div>
                                             <div style={{ fontSize: '13px', color: '#475569', marginTop: '3px' }}>{k.verdict}</div>
+                                            {k.hint && (
+                                                <div style={{ fontSize: '12px', color: '#b45309', marginTop: '3px' }}>{k.hint}</div>
+                                            )}
+                                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                                                الطول: {k.length}{k.prefix ? ` — يبدأ بـ ` : ''}
+                                                {k.prefix && <span style={{ direction: 'ltr', display: 'inline-block', fontFamily: 'monospace' }}>{k.prefix}</span>}
+                                            </div>
                                             {k.modelsAvailable != null && (
                                                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                                                     الموديلات المتاحة: {k.modelsAvailable} — المختار: <span style={{ direction: 'ltr', display: 'inline-block' }}>{k.selectedModel}</span>
