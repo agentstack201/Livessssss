@@ -353,14 +353,10 @@ async function geminiGenerate(prompt, opts = {}) {
     throw e;
   }
 
-  const malformed = keys.filter((k) => !looksLikeKey(k));
-  if (malformed.length === keys.length) {
-    const e = new Error(
-      `صيغة المفتاح غير صحيحة (${maskKey(keys[0])}). مفتاح Google يبدأ بـ AIza ويتكوّن من ٣٩ خانة تقريباً — انسخه كاملاً من Google AI Studio.`
-    );
-    e.code = "MALFORMED_KEY";
-    throw e;
-  }
+  // Deliberately NO client-side format gate here. Google owns the key format,
+  // does not document it, and has changed it before — so a local pattern check
+  // can only ever produce false negatives, rejecting keys Google would accept.
+  // Every key is sent to Google and Google's own verdict is what we report.
 
   const configuredModel =
     (await getSettingValue("gemini_model")) || process.env.GEMINI_MODEL || null;
@@ -372,10 +368,8 @@ async function geminiGenerate(prompt, opts = {}) {
     const key = keys[ki];
     const label = `مفتاح#${ki + 1} (${maskKey(key)})`;
 
-    if (!looksLikeKey(key)) {
-      attempts.push({ key: label, stage: "validate", error: "صيغة غير صحيحة — تم تخطّيه" });
-      continue;
-    }
+    // Lifecycle trace. Logged masked so a key never reaches the logs intact.
+    console.log(`🔑 Trying ${label} — length=${key.length}, prefix=${key.slice(0, 4)}`);
 
     // Ask this key which models it can actually use.
     const discovery = await listModels(key);
@@ -482,12 +476,18 @@ async function geminiGenerate(prompt, opts = {}) {
     }
   }
 
+  // Google's untranslated message is included verbatim so the real cause is
+  // always visible, with the Arabic line as guidance rather than as a substitute.
   const e = new Error(
     lastClassified
-      ? `تعذّر تنفيذ الطلب: ${lastClassified.arabic}`
+      ? `تعذّر تنفيذ الطلب: ${lastClassified.arabic}` +
+        (lastClassified.message ? `\n\nرد Google: ${lastClassified.message}` : "")
       : "تعذّر تنفيذ الطلب عبر جميع المفاتيح المتاحة."
   );
   e.code = lastClassified ? lastClassified.code : "ALL_FAILED";
+  e.googleMessage = lastClassified ? lastClassified.message : null;
+  e.googleStatus = lastClassified ? lastClassified.googleStatus : null;
+  e.googleReason = lastClassified ? lastClassified.reason : null;
   e.details = attempts;
   throw e;
 }
@@ -518,15 +518,12 @@ async function diagnose() {
       index: i + 1,
       fingerprint: maskKey(key),
       length: key.length,
-      formatValid: looksLikeKey(key),
+      prefix: key.slice(0, 4),
+      // Reported for information only. It never decides anything: this used to
+      // short-circuit the probe, so a key Google accepts was rejected locally
+      // and never even left the server.
+      matchesUsualShape: looksLikeKey(key),
     };
-
-    if (!entry.formatValid) {
-      entry.status = "خطأ";
-      entry.verdict = "صيغة المفتاح غير صحيحة — يجب أن يبدأ بـ AIza ويكون كاملاً.";
-      report.keys.push(entry);
-      continue;
-    }
 
     modelCache.delete(key); // always probe live when diagnosing
     const discovery = await listModels(key);
@@ -543,11 +540,24 @@ async function diagnose() {
         ? `المفتاح سليم، لكن الموديل المحفوظ "${configuredModel}" غير متاح له — سيُستخدم "${ranked[0]}" تلقائياً.`
         : `المفتاح سليم وجاهز — سيُستخدم الموديل "${ranked[0]}".`;
     } else {
+      const err = discovery.error;
       entry.status = "خطأ";
-      entry.code = discovery.error && discovery.error.code;
-      entry.httpStatus = discovery.error && discovery.error.httpStatus;
-      entry.verdict = discovery.error ? discovery.error.arabic : "سبب غير معروف";
-      entry.googleMessage = discovery.error && discovery.error.message;
+      entry.code = err && err.code;
+      entry.httpStatus = err && err.httpStatus;
+      entry.googleStatus = err && err.googleStatus;
+      entry.googleReason = err && err.reason;
+      // Google's untranslated message, so its verdict is always visible.
+      entry.googleMessage = err && err.message;
+      entry.verdict = err ? err.arabic : "سبب غير معروف";
+
+      // Only once Google has actually rejected the key is it worth pointing at
+      // the shape — and only as a hint, never as the reason.
+      if (err && err.code === "INVALID_KEY" && !entry.matchesUsualShape) {
+        entry.hint =
+          `ملاحظة: هذا المفتاح لا يشبه الشكل المعتاد لمفاتيح AI Studio ` +
+          `(طوله ${entry.length} ويبدأ بـ "${entry.prefix}"). تأكد أنك نسخته كاملاً، ` +
+          `وأنه مفتاح Gemini API وليس معرّف مشروع أو رمز OAuth.`;
+      }
     }
 
     report.keys.push(entry);
