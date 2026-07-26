@@ -476,12 +476,18 @@ async function geminiGenerate(prompt, opts = {}) {
     }
   }
 
+  // Google's untranslated message is included verbatim so the real cause is
+  // always visible, with the Arabic line as guidance rather than as a substitute.
   const e = new Error(
     lastClassified
-      ? `تعذّر تنفيذ الطلب: ${lastClassified.arabic}`
+      ? `تعذّر تنفيذ الطلب: ${lastClassified.arabic}` +
+        (lastClassified.message ? `\n\nرد Google: ${lastClassified.message}` : "")
       : "تعذّر تنفيذ الطلب عبر جميع المفاتيح المتاحة."
   );
   e.code = lastClassified ? lastClassified.code : "ALL_FAILED";
+  e.googleMessage = lastClassified ? lastClassified.message : null;
+  e.googleStatus = lastClassified ? lastClassified.googleStatus : null;
+  e.googleReason = lastClassified ? lastClassified.reason : null;
   e.details = attempts;
   throw e;
 }
