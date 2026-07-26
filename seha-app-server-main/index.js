@@ -249,6 +249,11 @@ if (sequelize) {
       const { seedCountries } = require("./config/seed.js");
       return seedCountries();
     })
+    .then(() => {
+      // Move any legacy single-setting Gemini key(s) into the rotation pool.
+      const { importLegacyGeminiKeys } = require("./utils/llm/bootstrap.js");
+      return importLegacyGeminiKeys();
+    })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
     });
