@@ -11,6 +11,14 @@ const crypto = require("crypto");
 const ALGO = "aes-256-gcm";
 const VERSION = "v1";
 
+// Fixed application salt for passphrase stretching. A per-record salt would be
+// stronger but would have to be stored alongside each ciphertext; a fixed salt
+// still forces an attacker to pay scrypt's cost per guess, which is the point.
+const KDF_SALT = Buffer.from("seha-llm-keypool-v1", "utf8");
+
+let _cachedKey = null;
+let _cachedFrom = null;
+
 function masterKey() {
   const raw = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || "";
   if (!raw) {
@@ -18,9 +26,23 @@ function masterKey() {
       "ENCRYPTION_KEY غير مضبوط. أضِف متغيّر بيئة ENCRYPTION_KEY (32 بايت) لتشفير المفاتيح."
     );
   }
-  // Accept a 64-char hex key directly; otherwise derive 32 bytes deterministically.
-  if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
-  return crypto.createHash("sha256").update(raw, "utf8").digest();
+  if (_cachedKey && _cachedFrom === raw) return _cachedKey; // scrypt is expensive
+
+  if (!process.env.ENCRYPTION_KEY) {
+    console.warn(
+      "⚠️ ENCRYPTION_KEY غير مضبوط — يُستخدم JWT_SECRET مؤقتاً لتشفير مفاتيح المزوّدين. " +
+      "يُفضّل مفتاح مستقل: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    );
+  }
+
+  // A 64-char hex value is used directly as a 256-bit key. Anything else is a
+  // passphrase and is stretched with scrypt (far harder to brute-force offline
+  // than a single unsalted hash).
+  _cachedKey = /^[0-9a-fA-F]{64}$/.test(raw)
+    ? Buffer.from(raw, "hex")
+    : crypto.scryptSync(raw, KDF_SALT, 32);
+  _cachedFrom = raw;
+  return _cachedKey;
 }
 
 function encrypt(plainText) {

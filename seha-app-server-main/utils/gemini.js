@@ -247,11 +247,12 @@ async function listModels(key) {
   let pageToken = "";
 
   for (let page = 0; page < 6; page++) {
+    // Key travels in the header, never the URL query string (avoids log leakage).
     const url =
-      `${API_BASE}/${API_VERSION}/models?key=${encodeURIComponent(key)}&pageSize=200` +
+      `${API_BASE}/${API_VERSION}/models?pageSize=200` +
       (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
 
-    const res = await httpJson(url, { method: "GET" }, 20000);
+    const res = await httpJson(url, { method: "GET", headers: { "x-goog-api-key": key } }, 20000);
     if (!res.ok) return { models: null, error: classify(res.status, res.body) };
 
     for (const m of (res.body && res.body.models) || []) {

@@ -59,7 +59,9 @@ function isEligible(k, model, t = now()) {
   if (k.rpd > 0 && k.used_rpd >= k.rpd) return false;
   if (k.tpm > 0 && k.used_tpm >= k.tpm) return false;
   if (k.tpd > 0 && k.used_tpd >= k.tpd) return false;
-  if (k.monthly_tokens > 0 && k.used_month >= k.monthly_tokens) return false;
+  // monthly_tokens / used_month are BIGINT → returned as STRINGS by pg. Comparing
+  // them directly is a lexicographic ("1000" < "500") comparison, so coerce.
+  if (Number(k.monthly_tokens) > 0 && Number(k.used_month) >= Number(k.monthly_tokens)) return false;
   if (model && !modelsForKey(k).includes(model)) return false;
   return true;
 }
@@ -90,16 +92,22 @@ function pickBest(candidates) {
 }
 
 /**
- * Reserve one request slot on the best eligible key, atomically.
- * @returns {Promise<null | {id, provider, model, apiKey, baseUrl, row}>}
+ * Reserve one request slot (and an estimated token cost) on the best eligible
+ * key, atomically.
+ * @param {string|null} model
+ * @param {number[]} excludeIds        keys already tried this request
+ * @param {string[]} blockedProviders  providers to skip this request (origin errors)
+ * @param {number} estTokens           tokens to reserve up front, reconciled later
+ * @returns {Promise<null | {id, provider, adapter, model, apiKey, baseUrl, estTokens}>}
  */
-async function reserveKey(model, excludeIds) {
+async function reserveKey(model, excludeIds, blockedProviders = [], estTokens = 0) {
   return sequelize.transaction(async (t) => {
     const rows = await ApiKey.findAll({
       where: {
         // Cooldown keys are included so an expired cooldown can be revived.
         status: { [Op.in]: ["active", "cooldown"] },
         ...(excludeIds.length ? { id: { [Op.notIn]: excludeIds } } : {}),
+        ...(blockedProviders.length ? { provider: { [Op.notIn]: blockedProviders } } : {}),
       },
       lock: t.LOCK.UPDATE,
       transaction: t,
@@ -123,9 +131,15 @@ async function reserveKey(model, excludeIds) {
       chosen.cooldown_until = null;
     }
 
-    // Reserve the request now; tokens are added after the call completes.
+    // Reserve BOTH the request slot and an estimated token cost up front. Tokens
+    // are reconciled to the true count after the call. Reserving an estimate is
+    // what keeps tpm/tpd from being overshot by a burst of concurrent requests
+    // that would otherwise all read the same stale (pre-call) token counter.
     chosen.used_rpm += 1;
     chosen.used_rpd += 1;
+    chosen.used_tpm += estTokens;
+    chosen.used_tpd += estTokens;
+    chosen.used_month = Number(chosen.used_month) + estTokens;
     chosen.last_used_at = clock;
     await chosen.save({
       fields: ["used_rpm", "used_rpd", "used_tpm", "used_tpd", "used_month",
@@ -145,18 +159,22 @@ async function reserveKey(model, excludeIds) {
       model: chosenModel,
       apiKey: decrypt(chosen.key_encrypted),
       baseUrl: chosen.base_url || provider.baseUrl,
+      estTokens,
     };
   });
 }
 
-async function recordSuccess(keyId, provider, model, usage, latencyMs, statusCode) {
+async function recordSuccess(keyId, provider, model, usage, latencyMs, statusCode, estTokens = 0) {
   await sequelize.transaction(async (t) => {
     const k = await ApiKey.findByPk(keyId, { lock: t.LOCK.UPDATE, transaction: t });
     if (!k) return;
     applyResets(k, now());
-    k.used_tpm += usage.total_tokens || 0;
-    k.used_tpd += usage.total_tokens || 0;
-    k.used_month = Number(k.used_month) + (usage.total_tokens || 0);
+    // Reconcile the up-front estimate with the true token count (delta may be
+    // negative). Clamp at 0 in case a window reset already zeroed the counter.
+    const delta = (usage.total_tokens || 0) - estTokens;
+    k.used_tpm = Math.max(0, k.used_tpm + delta);
+    k.used_tpd = Math.max(0, k.used_tpd + delta);
+    k.used_month = Math.max(0, Number(k.used_month) + delta);
     k.consecutive_failures = 0;
     k.last_latency_ms = latencyMs;
     k.last_error = null;
@@ -171,10 +189,22 @@ async function recordSuccess(keyId, provider, model, usage, latencyMs, statusCod
   }).catch(() => {});
 }
 
-async function recordFailure(keyId, provider, model, err, latencyMs) {
+// Origin/region rejections are decided by the server IP, not the key, and
+// persist — cool the key for a while so the pool stops re-selecting it on every
+// request and falls through to other providers.
+const ORIGIN_COOLDOWN_MS = 15 * 60_000;
+const ORIGIN_CODES = ["UNSUPPORTED_REGION", "UNSUPPORTED_LOCATION"];
+
+async function recordFailure(keyId, provider, model, err, latencyMs, estTokens = 0) {
   await sequelize.transaction(async (t) => {
     const k = await ApiKey.findByPk(keyId, { lock: t.LOCK.UPDATE, transaction: t });
     if (!k) return;
+
+    // The call did not consume tokens, so give back the up-front estimate.
+    applyResets(k, now());
+    k.used_tpm = Math.max(0, k.used_tpm - estTokens);
+    k.used_tpd = Math.max(0, k.used_tpd - estTokens);
+    k.used_month = Math.max(0, Number(k.used_month) - estTokens);
 
     k.consecutive_failures += 1;
     k.last_error = (err.providerMessage || err.message || "").slice(0, 500);
@@ -182,12 +212,24 @@ async function recordFailure(keyId, provider, model, err, latencyMs) {
 
     if (err.code === "INVALID_KEY" || err.httpStatus === 401 || err.httpStatus === 403) {
       k.status = "invalid"; // needs human attention; do not auto-retry
+    } else if (err.code === "SAFETY_BLOCKED") {
+      // Content problem, not the key's fault — do not penalise it.
+    } else if (ORIGIN_CODES.includes(err.code)) {
+      k.status = "cooldown";
+      k.cooldown_until = new Date(Date.now() + ORIGIN_COOLDOWN_MS);
     } else if (err.retryable) {
       const step = Math.min(k.consecutive_failures - 1, BACKOFF_STEPS_MS.length - 1);
       let cooldownMs = BACKOFF_STEPS_MS[step];
       if (k.consecutive_failures >= BREAKER_THRESHOLD) cooldownMs = Math.max(cooldownMs, BREAKER_COOLDOWN_MS);
       k.status = "cooldown";
       k.cooldown_until = new Date(Date.now() + cooldownMs);
+    } else {
+      // Any other terminal error (BAD_REQUEST, BILLING, unknown): don't leave the
+      // key hot to be re-picked every request. Trip the breaker after repeats.
+      if (k.consecutive_failures >= BREAKER_THRESHOLD) {
+        k.status = "cooldown";
+        k.cooldown_until = new Date(Date.now() + BREAKER_COOLDOWN_MS);
+      }
     }
     await k.save({ transaction: t });
   });
@@ -219,12 +261,19 @@ async function earliestReset() {
 async function chat(messages, opts = {}) {
   const startedAt = Date.now();
   const tried = [];
+  const blockedProviders = [];
   const failures = [];
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    if (Date.now() - startedAt > OVERALL_DEADLINE_MS) break;
+  // Rough up-front token estimate (~4 chars/token) plus a completion budget, so a
+  // concurrent burst reserves token budget instead of all reading a stale count.
+  const promptChars = messages.reduce((n, m) => n + String(m.content || "").length, 0);
+  const estTokens = Math.ceil(promptChars / 4) + 512;
 
-    const reserved = await reserveKey(opts.model, tried);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const remaining = OVERALL_DEADLINE_MS - (Date.now() - startedAt);
+    if (remaining <= 1000) break;
+
+    const reserved = await reserveKey(opts.model, tried, blockedProviders, estTokens);
     if (!reserved) break; // no eligible key left
     tried.push(reserved.id);
 
@@ -237,9 +286,11 @@ async function chat(messages, opts = {}) {
         model: reserved.model,
         messages,
         json: Boolean(opts.json),
+        // Never let a single attempt run past the overall deadline.
+        timeoutMs: Math.min(45000, remaining),
       });
       const latency = Date.now() - t0;
-      await recordSuccess(reserved.id, reserved.provider, reserved.model, out.usage, latency, out.statusCode);
+      await recordSuccess(reserved.id, reserved.provider, reserved.model, out.usage, latency, out.statusCode, reserved.estTokens);
       return {
         text: out.text,
         usage: out.usage,
@@ -250,9 +301,21 @@ async function chat(messages, opts = {}) {
       };
     } catch (err) {
       const latency = Date.now() - t0;
-      await recordFailure(reserved.id, reserved.provider, reserved.model, err, latency);
+      await recordFailure(reserved.id, reserved.provider, reserved.model, err, latency, reserved.estTokens);
       failures.push(`${reserved.provider}#${reserved.id}: ${err.message}`);
-      // INVALID_KEY / retryable both fall through to the next key immediately.
+
+      // A safety block is about the content, not the key — other keys will block
+      // the same prompt, so stop and surface it instead of burning attempts.
+      if (err.code === "SAFETY_BLOCKED") {
+        const e = new Error(err.message || "تم حجب المحتوى بواسطة مرشّحات الأمان.");
+        e.code = "SAFETY_BLOCKED"; e.httpStatus = 422;
+        throw e;
+      }
+      // An origin/region rejection hits every key of this provider — skip the
+      // whole provider for the rest of this request rather than trying each key.
+      if (ORIGIN_CODES.includes(err.code) && !blockedProviders.includes(reserved.provider)) {
+        blockedProviders.push(reserved.provider);
+      }
     }
   }
 

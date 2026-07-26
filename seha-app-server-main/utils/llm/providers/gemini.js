@@ -98,11 +98,13 @@ async function chat({ apiKey, model, messages, json = false, timeoutMs = 45000 }
   };
 }
 
-// Validate a key without spending tokens: list the models it can see.
+// Validate a key without spending tokens: list the models it can see. The key
+// goes in the x-goog-api-key header, never the URL query string (which would
+// leak it into access/proxy logs).
 async function test({ apiKey, timeoutMs = 20000 }) {
   const res = await httpJson(
-    `${API_BASE}/${API_VERSION}/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
-    { method: "GET" },
+    `${API_BASE}/${API_VERSION}/models?pageSize=1`,
+    { method: "GET", headers: { "x-goog-api-key": apiKey } },
     timeoutMs
   );
   if (!res.ok) {
