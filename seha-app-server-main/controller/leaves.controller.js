@@ -424,7 +424,7 @@ module.exports.aiExtract = async (req, res, next) => {
       text = out.text;
       console.log(`✅ AI extract via key #${out.usedKeyIndex + 1} using model "${out.usedModel}"`);
     } catch (err) {
-      const status = ["NO_KEYS", "MALFORMED_KEY"].includes(err.code) ? 400 : 502;
+      const status = err.code === "NO_KEYS" ? 400 : 502;
       console.error("AI Extract failed:", err.code, err.message, err.details || "");
       return res.status(status).json({
         status_code: status,
@@ -496,7 +496,7 @@ module.exports.translate = async (req, res) => {
 
     return res.status(200).json({ success: true, data: { translation } });
   } catch (error) {
-    const status = ["NO_KEYS", "MALFORMED_KEY"].includes(error.code) ? 400 : 502;
+    const status = error.code === "NO_KEYS" ? 400 : 502;
     console.error("Translate failed:", error.code, error.message, error.details || "");
     return res.status(status).json({
       success: false,
