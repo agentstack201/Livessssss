@@ -450,11 +450,16 @@ module.exports.aiExtract = async (req, res, next) => {
       });
     }
 
+    // ── Paste-to-Fill enrichment ───────────────────────────────────────────
+    // Fill in everything the AI can't know so a single paste yields a complete,
+    // ready-to-confirm record: identifiers, Hijri dates, duration, report stamp.
+    const enriched = await enrichExtracted(extractedData);
+
     return res.status(200).json({
       status_code: 200,
       success: true,
-      data: extractedData,
-      message: "تم استخراج البيانات بنجاح باستخدام Gemini AI",
+      data: enriched,
+      message: "تم استخراج البيانات وتعبئتها بالكامل",
     });
 
   } catch (error) {
@@ -505,6 +510,86 @@ module.exports.translate = async (req, res) => {
       message: error.message || "تعذّرت الترجمة",
       details: error.details,
     });
+  }
+};
+
+// Complete an AI-extracted record so the form needs no further typing:
+// generate the service/leave identifiers, derive Hijri dates and the duration,
+// and stamp the report time — all server-side where the converters already live.
+async function enrichExtracted(data) {
+  const out = { ...data };
+
+  // Identifiers: keep a valid extracted service number, else generate one.
+  // leave_id is kept identical to service_num (same rule as addNewLeaves).
+  let serviceNum = (out.serviceNum || "").trim();
+  if (!isValidIdFormat(serviceNum)) serviceNum = await generateServiceNumber();
+  out.serviceNum = serviceNum;
+  out.leaveId = serviceNum;
+
+  // Hijri equivalents for whatever Gregorian dates we have.
+  if (out.admissionDate) out.admissionDateAr = config.convertDates(out.admissionDate);
+  if (out.dischargeDate) out.dischargeDateAr = config.convertDates(out.dischargeDate);
+  if (out.issueDate) out.issueDateAr = config.convertDates(out.issueDate);
+
+  // Duration in days (inclusive), when both endpoints are present. calcDays
+  // throws on a malformed date, so guard — a bad AI date must not fail the paste.
+  if (out.admissionDate && out.dischargeDate) {
+    try {
+      const days = config.calcDays(out.admissionDate, out.dischargeDate);
+      if (days) out.duration = String(days);
+    } catch { /* leave duration for the user to complete */ }
+  }
+
+  // report_time / report_date are intentionally left for the form's own
+  // formatting (and are stamped at save time if still empty) to avoid a
+  // format mismatch with the time/date inputs.
+
+  return out;
+}
+
+// Client memory: return the most recent record for a national id so a returning
+// client's reusable details prefill instantly. Reads only stable identity fields
+// (never the previous dates or service number).
+module.exports.getClientByNationalId = async (req, res) => {
+  try {
+    const nationalId = (req.params.national_id || "").trim();
+    if (!/^\d{6,}$/.test(nationalId)) {
+      return res.status(400).json({ success: false, message: "رقم هوية غير صالح" });
+    }
+
+    const last = await leaves.findOne({
+      where: { national_id: nationalId },
+      order: [["createdAt", "DESC"]],
+      include: [{ model: Country, as: "country", attributes: ["id", "country_name_ar", "country_name_en"] }],
+    });
+
+    if (!last) return res.status(200).json({ success: true, found: false, data: null });
+
+    const total = await leaves.count({ where: { national_id: nationalId } });
+
+    return res.status(200).json({
+      success: true,
+      found: true,
+      data: {
+        name: last.name_en || "",
+        nameArabic: last.name_ar || "",
+        nationality: (last.country && last.country.country_name_ar) || last.nationality || "",
+        countryId: last.countryId || null,
+        employer: last.employer_ar || last.employer_en || "",
+        physicianPosition: last.position_en || "",
+        physicianPositionArabic: last.position_ar || "",
+        doctorName: last.physician_name_en || "",
+        doctorNameArabic: last.physician_name_ar || "",
+        hospitalNameEnglish: last.hospital_name_en || "",
+        hospitalNameArabic: last.hospital_name_ar || "",
+        licenseNumber: last.license_number || "",
+        previousRequests: total,
+        lastRequestAt: last.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("getClientByNationalId failed:", error.message);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
