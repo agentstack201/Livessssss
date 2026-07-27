@@ -48,6 +48,15 @@ router
     (req, res, next) => leaveController.translate(req, res, next)
   );
 
+// Client memory: prefill a returning client's reusable details by national id.
+router
+  .route("/clients/:national_id")
+  .get(
+    config.auth,
+    checkController,
+    (req, res, next) => leaveController.getClientByNationalId(req, res, next)
+  );
+
 // Get leaves count for dashboard stats
 router
   .route("/sick-leaves/count")

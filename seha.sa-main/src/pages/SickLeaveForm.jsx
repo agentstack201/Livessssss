@@ -122,6 +122,53 @@ function SickLeaveForm() {
   const canManageDoctors = userPermissions.can_manage_doctors || user.role === 'admin'
   const canManageHospitals = userPermissions.can_manage_hospitals || user.role === 'admin'
 
+  // ذاكرة العميل: عند إدخال رقم هوية معروف، تُعبّأ بياناته المتكررة تلقائياً.
+  const [clientMemo, setClientMemo] = useState(null) // {previousRequests, applied[]}
+  const lastLookedUpId = useRef('')
+
+  const lookupClient = async (nationalId) => {
+    const id = (nationalId || '').trim()
+    if (!/^\d{10}$/.test(id)) return          // هوية/إقامة سعودية = 10 أرقام
+    if (id === lastLookedUpId.current) return  // لا تكرّر نفس البحث
+    lastLookedUpId.current = id
+    try {
+      const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const body = await res.json()
+      if (!res.ok || !body.found || !body.data) { setClientMemo(null); return }
+
+      const d = body.data
+      // خريطة حقل قاعدة البيانات → حقل النموذج
+      const mem = {
+        name: d.name, nameArabic: d.nameArabic, nationality: d.nationality,
+        employer: d.employer, physicianPosition: d.physicianPosition,
+        physicianPositionArabic: d.physicianPositionArabic,
+        doctorName: d.doctorName, doctorNameArabic: d.doctorNameArabic,
+        hospitalNameEnglish: d.hospitalNameEnglish, hospitalNameArabic: d.hospitalNameArabic,
+        licenseNumber: d.licenseNumber,
+      }
+
+      // نملأ الحقول الفارغة فقط — لا نطمس ما كتبه الموظف.
+      const applied = []
+      setFormData(prev => {
+        const next = { ...prev }
+        Object.entries(mem).forEach(([k, v]) => {
+          if (v && (!prev[k] || String(prev[k]).trim() === '' ||
+              (k === 'nationality' && prev[k] === 'السعودية') ||
+              (k === 'licenseNumber' && prev[k] === '1410845906'))) {
+            next[k] = v
+            applied.push(k)
+          }
+        })
+        return next
+      })
+      setClientMemo({ previousRequests: d.previousRequests, applied: applied.length })
+    } catch {
+      setClientMemo(null)
+    }
+  }
+
   // إعادة جلب قائمة الدول/الجنسيات من الخادم
   const refetchCountries = async () => {
     try {
@@ -1413,10 +1460,17 @@ function SickLeaveForm() {
               name="nationalID"
               value={formData.nationalID}
               onChange={handleChange}
+              onBlur={(e) => lookupClient(e.target.value)}
+              inputMode="numeric"
               required
             />
             {errors.nationalID && (
               <span className={styles.errorMessage}>{errors.nationalID}</span>
+            )}
+            {clientMemo && clientMemo.applied > 0 && (
+              <span style={{ display: 'block', marginTop: 6, fontSize: 13, color: '#15803d' }}>
+                ✓ عميل معروف — طلباته السابقة: {clientMemo.previousRequests}. عُبّئت {clientMemo.applied} من حقوله تلقائياً.
+              </span>
             )}
           </div>
 
