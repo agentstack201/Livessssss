@@ -209,18 +209,22 @@ function KeysManagement() {
   )
 }
 
+const SLOTS = 10 // كل مزوّد يعرض ١٠ خانات لإضافة عدة مفاتيح دفعة واحدة
+
 function AddKeyModal({ providers, onClose, onSaved, authHeaders }) {
-  const [provider, setProvider] = useState('gemini')
-  const [keys, setKeys] = useState(['', '', '']) // Gemini defaults to 3 slots
-  const [oneKey, setOneKey] = useState('')
+  const [provider, setProvider] = useState(providers[0]?.id || 'gemini')
+  const [keys, setKeys] = useState(Array(SLOTS).fill(''))
   const [priority, setPriority] = useState(100)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const prov = providers.find((p) => p.id === provider)
   const isGemini = provider === 'gemini'
 
+  // عند تبديل المزوّد نُفرغ الخانات لتفادي خلط مفاتيح مزوّدين مختلفين.
+  const changeProvider = (id) => { setProvider(id); setKeys(Array(SLOTS).fill('')); setMsg('') }
+
   const submit = async () => {
-    const list = isGemini ? keys.map((k) => k.trim()).filter(Boolean) : [oneKey.trim()].filter(Boolean)
+    const list = keys.map((k) => k.trim()).filter(Boolean)
     if (!list.length) { setMsg('أدخل مفتاحاً واحداً على الأقل'); return }
     setBusy(true); setMsg('')
     try {
@@ -232,7 +236,7 @@ function AddKeyModal({ providers, onClose, onSaved, authHeaders }) {
           body: JSON.stringify({
             provider,
             key: list[i],
-            label: isGemini ? `Gemini ${i + 1}` : prov?.label,
+            label: `${prov?.label || provider} ${i + 1}`,
             models: isGemini ? ['gemini-2.5-flash'] : undefined,
             priority: Number(priority),
           }),
@@ -246,13 +250,15 @@ function AddKeyModal({ providers, onClose, onSaved, authHeaders }) {
     } finally { setBusy(false) }
   }
 
+  const filled = keys.filter((k) => k.trim()).length
+
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...card, maxWidth: 480, width: '100%' }} dir="rtl">
-        <h2 style={{ color: NAVY, marginTop: 0 }}>إضافة مفتاح</h2>
+      <div style={{ ...card, maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto' }} dir="rtl">
+        <h2 style={{ color: NAVY, marginTop: 0 }}>إضافة مفاتيح</h2>
 
         <label style={lbl}>المزوّد</label>
-        <select style={input} value={provider} onChange={(e) => setProvider(e.target.value)}>
+        <select style={input} value={provider} onChange={(e) => changeProvider(e.target.value)}>
           {providers.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
 
@@ -262,22 +268,13 @@ function AddKeyModal({ providers, onClose, onSaved, authHeaders }) {
           </a>
         )}
 
-        {isGemini ? (
-          <>
-            <label style={lbl}>مفاتيح Gemini (٣ حقول، موديل gemini-2.5-flash)</label>
-            {keys.map((v, i) => (
-              <input key={i} style={{ ...input, fontFamily: 'monospace' }} dir="ltr" placeholder={`AIzaSy… المفتاح ${i + 1}`}
-                value={v} autoComplete="off" spellCheck={false}
-                onChange={(e) => setKeys((p) => p.map((x, j) => (j === i ? e.target.value : x)))} />
-            ))}
-          </>
-        ) : (
-          <>
-            <label style={lbl}>المفتاح</label>
-            <input style={{ ...input, fontFamily: 'monospace' }} dir="ltr" placeholder="ألصق المفتاح هنا"
-              value={oneKey} autoComplete="off" spellCheck={false} onChange={(e) => setOneKey(e.target.value)} />
-          </>
-        )}
+        <label style={lbl}>مفاتيح {prov?.label || ''} — ١٠ خانات (املأ ما تشاء){filled ? ` · مُدخل ${arNum(filled)}` : ''}</label>
+        {keys.map((v, i) => (
+          <input key={i} style={{ ...input, fontFamily: 'monospace', marginBottom: 6 }} dir="ltr"
+            placeholder={`المفتاح ${i + 1}`}
+            value={v} autoComplete="off" spellCheck={false}
+            onChange={(e) => setKeys((p) => p.map((x, j) => (j === i ? e.target.value : x)))} />
+        ))}
 
         <label style={lbl}>الأولوية (الأعلى يُستخدم أولاً)</label>
         <input style={input} type="number" value={priority} onChange={(e) => setPriority(e.target.value)} />
