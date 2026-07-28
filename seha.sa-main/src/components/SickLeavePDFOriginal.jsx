@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { fetchLeavePdfBlob, leavePdfFileName, sendLeaveViaWhatsApp } from '../utils/whatsapp';
+import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf } from '../utils/pdfShare';
 
 // استخدام الصور والخطوط من مجلد public في الفرونت اند
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -14,21 +14,14 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     return null;
   }
 
-  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة).
+  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة) باسم sickLeaves.pdf.
   const generatePDF = async () => {
     if (downloading) return;
 
     setDownloading(true);
     try {
       const blob = await fetchLeavePdfBlob(data);
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = leavePdfFileName(data);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(objectUrl);
+      downloadLeavePdf(blob);
     } catch (error) {
       console.error('❌ PDF download error:', error);
       alert('حدث خطأ أثناء تنزيل ملف PDF. يرجى المحاولة مرة أخرى.');
@@ -37,15 +30,15 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     }
   };
 
-  // إرسال ملف الإجازة مباشرة عبر واتساب (المنطق المشترك في utils/whatsapp).
-  const sendViaWhatsApp = async () => {
+  // مشاركة ملف التقرير نفسه لأي تطبيق (المنطق المشترك في utils/pdfShare).
+  const shareFile = async () => {
     if (sharing) return;
     setSharing(true);
     try {
-      await sendLeaveViaWhatsApp(data);
+      await shareLeavePdf(data);
     } catch (error) {
-      console.error('❌ WhatsApp share error:', error);
-      alert('حدث خطأ أثناء الإرسال عبر واتساب. يرجى المحاولة مرة أخرى.');
+      console.error('❌ PDF share error:', error);
+      alert('حدث خطأ أثناء مشاركة الملف. يرجى المحاولة مرة أخرى.');
     } finally {
       setSharing(false);
     }
@@ -180,21 +173,21 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
             }}>
               {downloading ? '⏳ جاري التحميل...' : '📥 تحميل PDF'}
             </button>
-            <button onClick={sendViaWhatsApp} disabled={sharing} style={{
+            <button onClick={shareFile} disabled={sharing} style={{
               padding: '10px 20px',
               border: 'none',
               borderRadius: '6px',
               cursor: sharing ? 'wait' : 'pointer',
               fontSize: '1rem',
               fontFamily: 'Cairo, sans-serif',
-              background: '#25D366',
+              background: '#2f6db4',
               color: 'white',
               opacity: sharing ? 0.8 : 1,
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}>
-              {sharing ? '⏳ جاري الإرسال...' : '📲 إرسال عبر واتساب'}
+              {sharing ? '⏳ جاري المشاركة...' : '📤 مشاركة الملف'}
             </button>
             <button onClick={onClose} style={{
               padding: '10px 20px',
