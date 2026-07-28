@@ -17,11 +17,6 @@ import DoctorManagement from './pages/DoctorManagement'
 import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
 import KeysManagement from './pages/KeysManagement'
-// CV Routes
-import CVList from './features/cv/pages/CVList'
-import CreateCV from './features/cv/pages/CreateCV'
-import EditCV from './features/cv/pages/EditCV'
-import CVAIExtract from './features/cv/pages/CVAIExtract'
 import './App.css'
 
 function App() {
@@ -125,40 +120,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <KeysManagement />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* CV Routes */}
-          <Route
-            path="/cv/list"
-            element={
-              <ProtectedRoute>
-                <CVList />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cv/ai-extract"
-            element={
-              <ProtectedRoute>
-                <CVAIExtract />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cv/create"
-            element={
-              <ProtectedRoute>
-                <CreateCV />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cv/edit/:id"
-            element={
-              <ProtectedRoute>
-                <EditCV />
               </ProtectedRoute>
             }
           />
