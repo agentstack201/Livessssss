@@ -237,7 +237,9 @@ if (sequelize) {
       return Promise.all([
         sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_doctors BOOLEAN DEFAULT false;`),
         sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_hospitals BOOLEAN DEFAULT false;`),
-        sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_settings BOOLEAN DEFAULT false;`)
+        sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_settings BOOLEAN DEFAULT false;`),
+        // رقم جوال الزبون لإرسال التقرير عبر واتساب
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';`)
       ]).then(() => {
         console.log('✅ Database permissions table successfully updated with new columns!');
       }).catch((err) => {

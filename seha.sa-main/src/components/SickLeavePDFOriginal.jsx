@@ -16,6 +16,19 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
   // اسم الملف المُنزَّل — يتضمّن رقم الخدمة لتمييز كل تقرير.
   const pdfFileName = `SickLeave-${data.service_num || 'report'}.pdf`;
 
+  // تحويل رقم الجوال إلى صيغة دولية يقبلها واتساب (بدون + أو أصفار بادئة).
+  // يفترض السعودية عند رقم محلي يبدأ بـ 0 (مثال: 05xxxxxxxx → 9665xxxxxxxx).
+  const normalizeWhatsAppNumber = (raw) => {
+    let d = String(raw || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.startsWith('00')) d = d.slice(2);              // 00966… → 966…
+    else if (d.startsWith('0')) d = '966' + d.slice(1);  // 05xxxxxxxx → 9665xxxxxxxx
+    return d;
+  };
+
+  // رقم جوال الزبون المخزَّن مع التقرير (إن وُجد).
+  const customerNumber = normalizeWhatsAppNumber(data.phone);
+
   // جلب ملف PDF من الخادم (يُنشأ عبر Chromium page.pdf() بنفس شكل المعاينة).
   // مُشترك بين زر التحميل وزر الإرسال عبر واتساب.
   const fetchPdfBlob = async () => {
@@ -113,14 +126,18 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(objectUrl);
 
-      const phone = window.prompt(
-        'أدخل رقم جوال الزبون مع رمز الدولة (مثال: 9665xxxxxxxx)\nأو اتركه فارغاً لاختيار جهة الاتصال داخل واتساب:',
-        ''
-      );
-      // إذا ضغط المستخدم "إلغاء" لا نفتح واتساب.
-      if (phone === null) return;
+      // نستخدم رقم الزبون المخزَّن مباشرة إن وُجد؛ وإلا نطلبه مرة واحدة.
+      let digits = customerNumber;
+      if (!digits) {
+        const phone = window.prompt(
+          'أدخل رقم جوال الزبون مع رمز الدولة (مثال: 9665xxxxxxxx)\nأو اتركه فارغاً لاختيار جهة الاتصال داخل واتساب:',
+          ''
+        );
+        // إذا ضغط المستخدم "إلغاء" لا نفتح واتساب.
+        if (phone === null) return;
+        digits = normalizeWhatsAppNumber(phone);
+      }
 
-      const digits = phone.replace(/\D/g, '');
       const waUrl = digits
         ? `https://wa.me/${digits}?text=${encodeURIComponent(shareText)}`
         : `https://wa.me/?text=${encodeURIComponent(shareText)}`;

@@ -65,6 +65,13 @@ exports.addNewLeavesValidation = [
   // .isLength({ max: 191 })
   // .withMessage("national_id يجب أن يكون أقل من 191 حرفًا"),
 
+  body("phone")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .withMessage("رقم الجوال يجب أن يكون نصًا")
+    .isLength({ max: 30 })
+    .withMessage("رقم الجوال يجب أن يكون أقل من 30 حرفًا"),
+
   body("employer_en")
     .optional()
     .isString()
