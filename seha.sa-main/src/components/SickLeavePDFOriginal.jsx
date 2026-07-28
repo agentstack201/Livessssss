@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf } from '../utils/pdfShare';
+import { useRef, useState, useEffect } from 'react';
+import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare';
 
 // استخدام الصور والخطوط من مجلد public في الفرونت اند
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -8,6 +8,13 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
   const pdfRef = useRef();
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  // نبدأ تجهيز ملف الـ PDF فور فتح المعاينة، حتى تكون المشاركة/التنزيل فوريَّين.
+  useEffect(() => {
+    if (data?.service_num && data?.national_id) {
+      prefetchLeavePdf(data);
+    }
+  }, [data?.service_num, data?.national_id]);
 
   // التحقق من وجود البيانات
   if (!data) {
@@ -20,7 +27,8 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
 
     setDownloading(true);
     try {
-      const blob = await fetchLeavePdfBlob(data);
+      // نعيد استخدام الملف المُجهَّز مسبقًا إن وُجد (أسرع)، وإلا نجلبه الآن.
+      const blob = await (prefetchLeavePdf(data) || fetchLeavePdfBlob(data));
       downloadLeavePdf(blob);
     } catch (error) {
       console.error('❌ PDF download error:', error);
@@ -35,10 +43,14 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     if (sharing) return;
     setSharing(true);
     try {
-      await shareLeavePdf(data);
+      const result = await shareLeavePdf(data);
+      if (result?.downloaded) {
+        // الجهاز لا يدعم مشاركة الملفات (سطح المكتب غالبًا)، فنُزِّل الملف.
+        alert('هذا المتصفح لا يدعم مشاركة الملفات مباشرةً، فتم تنزيل الملف. للمشاركة استخدم الهاتف.');
+      }
     } catch (error) {
       console.error('❌ PDF share error:', error);
-      alert('حدث خطأ أثناء مشاركة الملف. يرجى المحاولة مرة أخرى.');
+      alert('تعذّرت المشاركة، الملف جاهز الآن — اضغط «مشاركة الملف» مرة أخرى.');
     } finally {
       setSharing(false);
     }
@@ -173,7 +185,7 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
             }}>
               {downloading ? '⏳ جاري التحميل...' : '📥 تحميل PDF'}
             </button>
-            <button onClick={shareFile} disabled={sharing} style={{
+            <button onClick={shareFile} onPointerDown={() => prefetchLeavePdf(data)} disabled={sharing} style={{
               padding: '10px 20px',
               border: 'none',
               borderRadius: '6px',

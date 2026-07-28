@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import styles from './Dashboard.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import WelcomePopup from '../components/WelcomePopup'
-import { shareLeavePdf } from '../utils/pdfShare'
+import { shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
@@ -252,10 +252,13 @@ function Dashboard() {
     if (sharingId) return
     setSharingId(leave.id)
     try {
-      await shareLeavePdf(leave)
+      const result = await shareLeavePdf(leave)
+      if (result?.downloaded) {
+        window.showToast?.('المتصفح لا يدعم المشاركة، فتم تنزيل الملف', 'info')
+      }
     } catch (error) {
       console.error('❌ PDF share error:', error)
-      window.showToast?.('حدث خطأ أثناء مشاركة الملف', 'error')
+      window.showToast?.('تعذّرت المشاركة، الملف جاهز — اضغط «مشاركة» مرة أخرى', 'error')
     } finally {
       setSharingId(null)
     }
@@ -612,6 +615,8 @@ function Dashboard() {
                                 </button>
                                 <button
                                   onClick={() => handleShare(leave)}
+                                  onPointerDown={() => prefetchLeavePdf(leave)}
+                                  onMouseEnter={() => prefetchLeavePdf(leave)}
                                   className={styles.shareBtn}
                                   disabled={sharingId === leave.id}
                                   title="مشاركة الملف"
