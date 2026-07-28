@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { fetchLeavePdfBlob, leavePdfFileName, sendLeaveViaWhatsApp } from '../utils/whatsapp';
 
 // استخدام الصور والخطوط من مجلد public في الفرونت اند
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -13,58 +14,17 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     return null;
   }
 
-  // اسم الملف المُنزَّل — يتضمّن رقم الخدمة لتمييز كل تقرير.
-  const pdfFileName = `SickLeave-${data.service_num || 'report'}.pdf`;
-
-  // تحويل رقم الجوال إلى صيغة دولية يقبلها واتساب (بدون + أو أصفار بادئة).
-  // يفترض السعودية عند رقم محلي يبدأ بـ 0 (مثال: 05xxxxxxxx → 9665xxxxxxxx).
-  const normalizeWhatsAppNumber = (raw) => {
-    let d = String(raw || '').replace(/\D/g, '');
-    if (!d) return '';
-    if (d.startsWith('00')) d = d.slice(2);              // 00966… → 966…
-    else if (d.startsWith('0')) d = '966' + d.slice(1);  // 05xxxxxxxx → 9665xxxxxxxx
-    return d;
-  };
-
-  // رقم جوال الزبون المخزَّن مع التقرير (إن وُجد).
-  const customerNumber = normalizeWhatsAppNumber(data.phone);
-
-  // جلب ملف PDF من الخادم (يُنشأ عبر Chromium page.pdf() بنفس شكل المعاينة).
-  // مُشترك بين زر التحميل وزر الإرسال عبر واتساب.
-  const fetchPdfBlob = async () => {
-    const serviceNum = data.service_num;
-    const nationalId = data.national_id;
-
-    if (!serviceNum || !nationalId) {
-      throw new Error('بيانات التقرير غير مكتملة');
-    }
-
-    const token = localStorage.getItem('token');
-    const url = `${API_BASE_URL}/sick-leaves/${encodeURIComponent(serviceNum)}/${encodeURIComponent(nationalId)}/pdf`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-
-    if (!response.ok) {
-      throw new Error(`PDF request failed with status ${response.status}`);
-    }
-
-    return await response.blob();
-  };
-
   // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة).
   const generatePDF = async () => {
     if (downloading) return;
 
     setDownloading(true);
     try {
-      const blob = await fetchPdfBlob();
+      const blob = await fetchLeavePdfBlob(data);
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = pdfFileName;
+      link.download = leavePdfFileName(data);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -77,72 +37,12 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     }
   };
 
-  // إرسال ملف الإجازة مباشرة عبر واتساب.
-  // على الجوال والمتصفحات الداعمة: تُفتح قائمة المشاركة ويظهر واتساب مع إرفاق
-  // ملف الـ PDF فعليًا — فيصله الزبون كملف جاهز.
-  // على سطح المكتب/المتصفحات غير الداعمة: يُنزَّل الملف ثم يُفتح واتساب مع رسالة
-  // جاهزة ورقم الزبون (إن أُدخل) ليُرفق المستخدم الملف المُنزَّل.
+  // إرسال ملف الإجازة مباشرة عبر واتساب (المنطق المشترك في utils/whatsapp).
   const sendViaWhatsApp = async () => {
     if (sharing) return;
-
-    if (!data.service_num || !data.national_id) {
-      alert('تعذر الإرسال: بيانات التقرير غير مكتملة');
-      return;
-    }
-
-    const shareText =
-      `تقرير الإجازة المرضية 🏥\n` +
-      `رمز الإجازة: ${data.leave_id || ''}\n` +
-      `الاسم: ${data.name_ar || ''}\n` +
-      `للتحقق من التقرير: ${verificationUrl}`;
-
     setSharing(true);
     try {
-      const blob = await fetchPdfBlob();
-      const file = new File([blob], pdfFileName, { type: 'application/pdf' });
-
-      // المسار الأمثل: مشاركة الملف نفسه عبر قائمة مشاركة النظام (يشمل واتساب).
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: 'تقرير الإجازة المرضية',
-            text: shareText,
-          });
-          return;
-        } catch (shareErr) {
-          if (shareErr && shareErr.name === 'AbortError') return; // ألغى المستخدم
-          // في حال فشل المشاركة نكمل للمسار البديل بالأسفل.
-        }
-      }
-
-      // المسار البديل: تنزيل الملف ثم فتح واتساب مع الرسالة الجاهزة.
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = pdfFileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(objectUrl);
-
-      // نستخدم رقم الزبون المخزَّن مباشرة إن وُجد؛ وإلا نطلبه مرة واحدة.
-      let digits = customerNumber;
-      if (!digits) {
-        const phone = window.prompt(
-          'أدخل رقم جوال الزبون مع رمز الدولة (مثال: 9665xxxxxxxx)\nأو اتركه فارغاً لاختيار جهة الاتصال داخل واتساب:',
-          ''
-        );
-        // إذا ضغط المستخدم "إلغاء" لا نفتح واتساب.
-        if (phone === null) return;
-        digits = normalizeWhatsAppNumber(phone);
-      }
-
-      const waUrl = digits
-        ? `https://wa.me/${digits}?text=${encodeURIComponent(shareText)}`
-        : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-      window.open(waUrl, '_blank', 'noopener,noreferrer');
-      alert('تم تنزيل ملف الإجازة ✅\nأرفِق الملف في محادثة واتساب التي فُتحت لإرساله للزبون.');
+      await sendLeaveViaWhatsApp(data);
     } catch (error) {
       console.error('❌ WhatsApp share error:', error);
       alert('حدث خطأ أثناء الإرسال عبر واتساب. يرجى المحاولة مرة أخرى.');
