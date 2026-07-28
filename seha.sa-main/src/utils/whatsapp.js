@@ -53,11 +53,12 @@ const buildShareText = (leave) => {
 }
 
 /**
- * إرسال ملف الإجازة مباشرة عبر واتساب.
- * - على الجوال/المتصفحات الداعمة: تُفتح قائمة المشاركة ويظهر واتساب مع إرفاق
- *   ملف الـ PDF فعليًا — فيصله الزبون كملف جاهز.
- * - على سطح المكتب/المتصفحات غير الداعمة: يُنزَّل الملف ثم يُفتح واتساب مع رسالة
- *   جاهزة ورقم الزبون المخزَّن (أو يُطلب الرقم مرة واحدة إن لم يكن مخزَّنًا).
+ * مشاركة/إرسال ملف الإجازة عبر واتساب — بدون الحاجة لإدخال أي رقم.
+ * - على الجوال/المتصفحات الداعمة: تُفتح قائمة مشاركة النظام مع إرفاق ملف الـ PDF
+ *   فعليًا، فتشاركه في أي مكان (واتساب، تيليجرام، البريد…) وتختار الزبون.
+ * - على سطح المكتب/المتصفحات غير الداعمة: يُنزَّل الملف تلقائيًا، ثم:
+ *     • إن كان رقم جوال الزبون مخزَّنًا → تُفتح محادثته مباشرة لإرساله له.
+ *     • وإلا → يُفتح واتساب لتختار جهة الاتصال بنفسك (بدون طلب رقم).
  *
  * يرمي استثناءً عند فشل جلب الملف؛ على المُستدعي التقاطه وعرض رسالة مناسبة.
  */
@@ -68,12 +69,13 @@ export const sendLeaveViaWhatsApp = async (leave) => {
 
   const shareText = buildShareText(leave)
   const fileName = leavePdfFileName(leave)
+  // نستخرج رقم الزبون تلقائيًا إن وُجد (لا نطلبه من المستخدم أبدًا).
   const customerNumber = normalizeWhatsAppNumber(leave.phone)
 
   const blob = await fetchLeavePdfBlob(leave)
   const file = new File([blob], fileName, { type: 'application/pdf' })
 
-  // المسار الأمثل: مشاركة الملف نفسه عبر قائمة مشاركة النظام (يشمل واتساب).
+  // المسار الأمثل: مشاركة الملف نفسه عبر قائمة مشاركة النظام (يشمل واتساب وغيره).
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
@@ -88,7 +90,7 @@ export const sendLeaveViaWhatsApp = async (leave) => {
     }
   }
 
-  // المسار البديل: تنزيل الملف ثم فتح واتساب مع الرسالة الجاهزة.
+  // المسار البديل: تنزيل الملف ثم فتح واتساب مباشرة (بدون طلب رقم).
   const objectUrl = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
@@ -98,20 +100,10 @@ export const sendLeaveViaWhatsApp = async (leave) => {
   document.body.removeChild(link)
   window.URL.revokeObjectURL(objectUrl)
 
-  // نستخدم رقم الزبون المخزَّن مباشرة إن وُجد؛ وإلا نطلبه مرة واحدة.
-  let digits = customerNumber
-  if (!digits) {
-    const phone = window.prompt(
-      'أدخل رقم جوال الزبون مع رمز الدولة (مثال: 9665xxxxxxxx)\nأو اتركه فارغاً لاختيار جهة الاتصال داخل واتساب:',
-      ''
-    )
-    // إذا ضغط المستخدم "إلغاء" لا نفتح واتساب.
-    if (phone === null) return
-    digits = normalizeWhatsAppNumber(phone)
-  }
-
-  const waUrl = digits
-    ? `https://wa.me/${digits}?text=${encodeURIComponent(shareText)}`
+  // إن كان رقم الزبون مخزَّنًا نفتح محادثته مباشرة؛ وإلا نفتح واتساب ليختار
+  // المستخدم جهة الاتصال بنفسه — دون أي مطالبة بإدخال رقم.
+  const waUrl = customerNumber
+    ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(shareText)}`
     : `https://wa.me/?text=${encodeURIComponent(shareText)}`
   window.open(waUrl, '_blank', 'noopener,noreferrer')
   alert('تم تنزيل ملف الإجازة ✅\nأرفِق الملف في محادثة واتساب التي فُتحت لإرساله للزبون.')
