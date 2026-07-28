@@ -61,6 +61,7 @@ function SickLeaveForm() {
     id: null,
     serviceNum: '',
     nationalID: '',
+    phone: '', // رقم جوال الزبون (لإرسال التقرير عبر واتساب)
     name: '',
     nameArabic: '',
     leaveId: '',
@@ -141,7 +142,7 @@ function SickLeaveForm() {
       const d = body.data
       // خريطة حقل قاعدة البيانات → حقل النموذج
       const mem = {
-        name: d.name, nameArabic: d.nameArabic, nationality: d.nationality,
+        name: d.name, nameArabic: d.nameArabic, phone: d.phone, nationality: d.nationality,
         employer: d.employer, physicianPosition: d.physicianPosition,
         physicianPositionArabic: d.physicianPositionArabic,
         doctorName: d.doctorName, doctorNameArabic: d.doctorNameArabic,
@@ -449,6 +450,7 @@ function SickLeaveForm() {
         id: leaveData.id || null,
         serviceNum: leaveData.service_num || '',
         nationalID: leaveData.national_id || '',
+        phone: leaveData.phone || '',
         name: leaveData.name_en || '',
         nameArabic: leaveData.name_ar || '',
         leaveId: leaveData.leave_id || '',
@@ -667,6 +669,11 @@ function SickLeaveForm() {
       newErrors.serviceNum = 'رقم الخدمة يجب أن يكون PSL261+8 أرقام أو GSL261+9 أرقام'
     }
 
+    // رقم الجوال اختياري — لكن إن أُدخل يجب ألا يتجاوز 30 حرفًا (مطابقة لحد الخادم)
+    if (formData.phone && formData.phone.trim().length > 30) {
+      newErrors.phone = 'رقم الجوال يجب أن يكون أقل من 30 حرفًا'
+    }
+
     Object.keys(requiredFields).forEach(field => {
       if (!formData[field] || formData[field].toString().trim() === '') {
         newErrors[field] = requiredFields[field]
@@ -766,6 +773,7 @@ function SickLeaveForm() {
           id: record.id || null,
           serviceNum: record.service_num || '',
           nationalID: record.national_id || '',
+          phone: record.phone || '',
           name: record.name_en || '',
           nameArabic: record.name_ar || '',
           leaveId: record.leave_id || '',
@@ -931,6 +939,7 @@ function SickLeaveForm() {
         id: formData.id,
         service_num: formData.serviceNum,
         national_id: formData.nationalID,
+        phone: formData.phone,
         leave_id: formData.leaveId,
         admission_date_en: formData.admissionDate,
         discharge_date_en: formData.dischargeDate,
@@ -1056,6 +1065,7 @@ function SickLeaveForm() {
           id: null,
           serviceNum: '',
           nationalID: '',
+          phone: '',
           name: '',
           nameArabic: '',
           leaveId: '',
@@ -1104,6 +1114,7 @@ function SickLeaveForm() {
       id: null,
       serviceNum: '',
       nationalID: '',
+      phone: '',
       name: '',
       nameArabic: '',
       leaveId: '',
@@ -1162,6 +1173,7 @@ function SickLeaveForm() {
           leave_id: formData.leaveId,
           service_num: formData.serviceNum,
           national_id: formData.nationalID,
+          phone: formData.phone,
           name_en: formData.name,
           name_ar: formData.nameArabic,
           employer_en: formData.employer,
@@ -1471,6 +1483,28 @@ function SickLeaveForm() {
               <span style={{ display: 'block', marginTop: 6, fontSize: 13, color: '#15803d' }}>
                 ✓ عميل معروف — طلباته السابقة: {clientMemo.previousRequests}. عُبّئت {clientMemo.applied} من حقوله تلقائياً.
               </span>
+            )}
+          </div>
+
+          {/* Customer Phone (WhatsApp) */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="phone">
+              رقم جوال الزبون (واتساب)
+            </label>
+            <input
+              className={styles.inputField}
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="مثال: 9665xxxxxxxx أو 05xxxxxxxx"
+              inputMode="tel"
+              dir="ltr"
+              maxLength={30}
+            />
+            {errors.phone && (
+              <span className={styles.errorMessage}>{errors.phone}</span>
             )}
           </div>
 

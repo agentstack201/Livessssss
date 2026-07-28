@@ -50,6 +50,12 @@ const leaves = sequelize.define(
       type: Sequelize.STRING(191),
       allowNull: false,
     },
+    phone: {
+      type: Sequelize.STRING(30),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'رقم جوال الزبون لإرسال التقرير عبر واتساب',
+    },
     employer_en: {
       type: Sequelize.STRING(191),
       allowNull: true,
