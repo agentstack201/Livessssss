@@ -921,7 +921,7 @@ module.exports.downloadPDF = async (req, res, next) => {
 
     // Send PDF buffer directly to user
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="SickLeaves.pdf"');
+    res.setHeader('Content-Disposition', 'attachment; filename="sickLeaves.pdf"');
     res.setHeader('Content-Length', pdfBuffer.length);
 
     console.log('📤 Sending PDF to client');
