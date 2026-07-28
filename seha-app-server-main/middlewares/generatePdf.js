@@ -1,7 +1,149 @@
 const normalizeArabicToUnicode = require('./normalizeArabicToUnicode');
+const fs = require('fs');
+const path = require('path');
+const QRCode = require('qrcode');
+
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// ── Asset embedding ────────────────────────────────────────────────────────
+// Fonts and images are inlined as base64 data URIs so the print page makes ZERO
+// network requests. This removes 7+ HTTP round-trips per render (4 fonts + 3
+// logos + the external QR service) and lets Chromium print as soon as the DOM is
+// parsed instead of waiting on the network. Each file is read from disk once and
+// cached for the life of the process.
+const _fileCache = new Map();
+const MIME_BY_EXT = {
+  '.ttf': 'font/ttf', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml',
+};
+
+function dataUriFromPublic(relPath) {
+  const key = String(relPath).toLowerCase();
+  if (_fileCache.has(key)) return _fileCache.get(key);
+  try {
+    const clean = String(relPath).replace(/^\/?public\//i, '').replace(/^\//, '');
+    const abs = path.join(PUBLIC_DIR, clean);
+    const buf = fs.readFileSync(abs);
+    const mime = MIME_BY_EXT[path.extname(abs).toLowerCase()] || 'application/octet-stream';
+    const uri = `data:${mime};base64,${buf.toString('base64')}`;
+    _fileCache.set(key, uri);
+    return uri;
+  } catch (e) {
+    console.warn('⚠️ Could not inline asset:', relPath, e.message);
+    return '';
+  }
+}
+
+// @font-face CSS with the TTFs inlined — built once.
+let _fontFaceCss = null;
+function fontFaceCss() {
+  if (_fontFaceCss !== null) return _fontFaceCss;
+  const face = (family, file, weight) => {
+    const uri = dataUriFromPublic(`fonts/${file}`);
+    return uri
+      ? `@font-face{font-family:'${family}';src:url('${uri}') format('truetype');font-weight:${weight};font-style:normal;}`
+      : '';
+  };
+  _fontFaceCss = [
+    face('NotoSansArabic', 'NotoSansArabic-Bold.ttf', 700),
+    face('NotoSansArabic', 'NotoSansArabic-Regular.ttf', 400),
+    face('Amiri', 'Amiri-Bold.ttf', 700),
+    face('Amiri', 'Amiri-Regular.ttf', 400),
+  ].join('\n');
+  return _fontFaceCss;
+}
+
+// Resolve the footer logo for an offline print page: keep http(s)/data URIs as
+// they are, inline a local /public path, else fall back to the default logo.
+function resolveFooterLogo(footerLogo) {
+  if (footerLogo && (footerLogo.startsWith('http') || footerLogo.startsWith('data:'))) return footerLogo;
+  if (footerLogo && footerLogo.includes('/public/')) return dataUriFromPublic(footerLogo.slice(footerLogo.indexOf('/public/')));
+  if (footerLogo && footerLogo.startsWith('/')) return dataUriFromPublic(footerLogo);
+  return dataUriFromPublic('images/1.png');
+}
+
+// ── Browser reuse ──────────────────────────────────────────────────────────
+// Launching Chromium costs ~1-3s. We launch ONE browser for the whole process
+// and reuse it, creating/closing only a page per request. It re-launches lazily
+// if the browser crashed or disconnected.
+let _browserPromise = null;
+
+async function resolveLaunchOptions() {
+  const useBundledChromium =
+    !!process.env.VERCEL_ENV ||
+    !!process.env.RENDER ||
+    process.env.USE_BUNDLED_CHROMIUM === 'true';
+  console.log('🌐 Chromium mode:', useBundledChromium ? 'bundled (@sparticuz)' : 'local puppeteer');
+
+  let puppeteer;
+  let launchOptions = { headless: true };
+
+  if (useBundledChromium) {
+    const chromium = (await import('@sparticuz/chromium')).default;
+    puppeteer = await import('puppeteer-core');
+    const https = require('https');
+    const { execSync } = require('child_process');
+
+    let executablePath;
+    const customUrl = process.env.CHROMIUM_URL;
+    if (customUrl) {
+      const tmpDir = '/tmp/chromium';
+      const tarPath = '/tmp/chromium.tar';
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      await new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(tarPath);
+        https.get(customUrl, (response) => {
+          response.pipe(file);
+          file.on('finish', () => { file.close(); resolve(); });
+        }).on('error', (err) => { fs.unlinkSync(tarPath); reject(err); });
+      });
+      execSync(`tar -xf ${tarPath} -C ${tmpDir}`);
+      executablePath = path.join(tmpDir, 'chromium');
+      execSync(`chmod +x ${executablePath}`);
+    } else {
+      executablePath = await chromium.executablePath();
+    }
+
+    launchOptions = {
+      headless: true,
+      args: [
+        ...chromium.args,
+        '--disable-gpu', '--disable-dev-shm-usage', '--disable-setuid-sandbox',
+        '--no-first-run', '--no-sandbox', '--no-zygote', '--single-process',
+        '--font-render-hinting=none',
+      ],
+      executablePath,
+    };
+  } else {
+    puppeteer = await import('puppeteer');
+    launchOptions.args = ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'];
+  }
+
+  return { puppeteer, launchOptions };
+}
+
+async function getBrowser() {
+  if (_browserPromise) {
+    try {
+      const b = await _browserPromise;
+      const connected = typeof b.isConnected === 'function' ? b.isConnected() : b.connected;
+      if (b && connected) return b;
+    } catch { /* fall through and relaunch */ }
+    _browserPromise = null;
+  }
+  _browserPromise = (async () => {
+    const { puppeteer, launchOptions } = await resolveLaunchOptions();
+    console.log('🚀 Launching browser (shared)...');
+    const b = await puppeteer.launch(launchOptions);
+    b.on('disconnected', () => { _browserPromise = null; });
+    console.log('✅ Browser launched (shared)');
+    return b;
+  })();
+  return _browserPromise;
+}
 
 module.exports = async (data, leave_days, DateObj, country) => {
-  let browser;
+  let page;
 
   try {
     console.log('🚀 Starting PDF generation...');
@@ -12,19 +154,28 @@ module.exports = async (data, leave_days, DateObj, country) => {
       hospital: data.hospital_name_en
     });
 
-    // Base URL for server-hosted images in the PDF. On Render, RENDER_EXTERNAL_URL
-    // is provided automatically so footer-logo images resolve without manual setup.
-    const serverHost = process.env.SERVER_HOST || process.env.RENDER_EXTERNAL_URL || '';
-    const defaultFooterLogo = `${serverHost}/public/images/1.png`;
-    const footerLogoSrc = data.footer_logo
-      ? (data.footer_logo.startsWith('http') || data.footer_logo.startsWith('data:')
-        ? data.footer_logo
-        : `${serverHost}${data.footer_logo}`)
-      : defaultFooterLogo;
+    // All images are inlined as data URIs so the print page makes no network
+    // requests. Logos are read from /public; a user-provided footer logo that is
+    // already an http(s)/data URI is kept as-is.
+    const sehaLogo = dataUriFromPublic('images/seha.jpg');
+    const ksaLogo = dataUriFromPublic('images/saudia1.jpg');
+    const designLogo = dataUriFromPublic('images/3.PNG');
+    const nationalCenterLogo = dataUriFromPublic('images/national-center.jpg');
+    const footerLogoSrc = resolveFooterLogo(data.footer_logo);
+    const fontFaceInline = fontFaceCss();
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
     const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
+
+    // Generate the verification QR locally (data URI) instead of calling the
+    // external api.qrserver.com service on every render.
+    let qrDataUri = '';
+    try {
+      qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+    } catch (qrErr) {
+      console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
+    }
 
     // ------------------------------------------------------------------
     // Presentation helpers — kept byte-for-byte in sync with the on-screen
@@ -73,107 +224,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const countryNameEn = (country && country.country_name_en)
       || (countryNameAr === 'سعودي' || countryNameAr === 'السعودية' ? 'Saudi' : countryNameAr);
 
-    // Use the bundled (Sparticuz) Chromium on managed/serverless hosts — Vercel
-    // AND Render — where a system Chromium and its shared libraries are not
-    // guaranteed and `puppeteer`'s full download may be skipped in production.
-    // Locally we fall back to full puppeteer with its own Chromium.
-    const useBundledChromium =
-      !!process.env.VERCEL_ENV ||
-      !!process.env.RENDER ||
-      process.env.USE_BUNDLED_CHROMIUM === 'true';
-    console.log('🌐 Chromium mode:', useBundledChromium ? 'bundled (@sparticuz)' : 'local puppeteer');
-
-    let puppeteer;
-    let launchOptions = {
-      headless: true,
-    };
-
-    if (useBundledChromium) {
-      // Production: Use Sparticuz Chromium (self-contained, no system deps)
-      console.log('📦 Loading bundled Chromium...');
-      const chromium = (await import("@sparticuz/chromium")).default;
-      puppeteer = await import("puppeteer-core");
-      const https = require('https');
-      const fs = require('fs');
-      const { execSync } = require('child_process');
-      const path = require('path');
-
-      let executablePath;
-
-      // إذا كان هناك رابط مخصص في environment variable
-      const customUrl = process.env.CHROMIUM_URL;
-
-      if (customUrl) {
-        console.log('📥 Downloading Chromium from custom URL...');
-        const tmpDir = '/tmp/chromium';
-        const tarPath = '/tmp/chromium.tar';
-
-        // إنشاء المجلد المؤقت
-        if (!fs.existsSync(tmpDir)) {
-          fs.mkdirSync(tmpDir, { recursive: true });
-        }
-
-        // تحميل الملف
-        await new Promise((resolve, reject) => {
-          const file = fs.createWriteStream(tarPath);
-          https.get(customUrl, (response) => {
-            response.pipe(file);
-            file.on('finish', () => {
-              file.close();
-              console.log('✅ Download complete');
-              resolve();
-            });
-          }).on('error', (err) => {
-            fs.unlinkSync(tarPath);
-            reject(err);
-          });
-        });
-
-        // فك الضغط
-        console.log('📦 Extracting Chromium...');
-        execSync(`tar -xf ${tarPath} -C ${tmpDir}`);
-        console.log('✅ Extraction complete');
-
-        // البحث عن ملف chromium التنفيذي
-        executablePath = path.join(tmpDir, 'chromium');
-
-        // جعل الملف قابل للتنفيذ
-        execSync(`chmod +x ${executablePath}`);
-        console.log('✅ Chromium ready at:', executablePath);
-      } else {
-        // استخدام chromium.executablePath() الافتراضي
-        executablePath = await chromium.executablePath();
-      }
-
-      launchOptions = {
-        headless: true,
-        args: [
-          ...chromium.args,
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--disable-setuid-sandbox',
-          '--no-first-run',
-          '--no-sandbox',
-          '--no-zygote',
-          '--single-process',
-          '--font-render-hinting=none',
-        ],
-        executablePath: executablePath,
-      };
-      console.log('✅ Chromium configuration ready');
-      console.log('📍 Executable path:', launchOptions.executablePath);
-    } else {
-      // Development: Use local Puppeteer
-      console.log('📦 Loading local Puppeteer...');
-      puppeteer = await import("puppeteer");
-      launchOptions.args = ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'];
-    }
-
-    console.log('🚀 Launching browser...');
-    browser = await puppeteer.launch(launchOptions);
-
-    console.log('✅ Browser launched');
-    const page = await browser.newPage();
+    // Reuse the shared browser (launched once for the whole process) and open a
+    // fresh page for this render. Only the page is closed afterwards.
+    const browser = await getBrowser();
+    page = await browser.newPage();
 
     // Set viewport for A4 size (794x1123 css px @96dpi). deviceScaleFactor
     // only affects raster capture; page.pdf() output stays vector regardless.
@@ -188,32 +242,9 @@ module.exports = async (data, leave_days, DateObj, country) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>sick leaves</title>
 <style>
-  /* Self-hosted fonts for deterministic, network-independent rendering.
-     Identical TTFs to the frontend preview (Noto Sans Arabic + Amiri). */
-  @font-face {
-    font-family: 'NotoSansArabic';
-    src: url('${serverHost}/public/fonts/NotoSansArabic-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-  }
-  @font-face {
-    font-family: 'NotoSansArabic';
-    src: url('${serverHost}/public/fonts/NotoSansArabic-Regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-  }
-  @font-face {
-    font-family: 'Amiri';
-    src: url('${serverHost}/public/fonts/Amiri-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-  }
-  @font-face {
-    font-family: 'Amiri';
-    src: url('${serverHost}/public/fonts/Amiri-Regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-  }
+  /* Inlined fonts (base64 data URIs) for deterministic, network-independent
+     rendering. Identical TTFs to the frontend preview (Noto Sans Arabic + Amiri). */
+  ${fontFaceInline}
 
   /* A4, zero margin — matches the 210mm x 297mm preview container exactly. */
   @page { size: A4; margin: 0; }
@@ -506,14 +537,14 @@ module.exports = async (data, leave_days, DateObj, country) => {
    <div class="Top-head">
       <div class="header-logos">
         <div class="logo-seha">
-          <img style="height: 80px; width: auto;" src='${serverHost}/public/images/seha.jpg' alt="seha logo"/>
+          <img style="height: 80px; width: auto;" src='${sehaLogo}' alt="seha logo"/>
         </div>
         <div class="logo-ksa">
-          <img style="height: 54px; width: auto;" src='${serverHost}/public/images/saudia1.jpg' alt="KSA Logo" />
+          <img style="height: 54px; width: auto;" src='${ksaLogo}' alt="KSA Logo" />
           <div class="english-text">Kingdom of Saudi Arabia</div>
         </div>
         <div class="logo-design">
-          <img style="height: 100px; width: auto;margin-right: 10px;" src='${serverHost}/public/images/3.PNG' alt="design Logo" />
+          <img style="height: 100px; width: auto;margin-right: 10px;" src='${designLogo}' alt="design Logo" />
         </div>
       </div>
       <div style="text-align: center; margin-top: -5px;">
@@ -595,7 +626,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
     <!-- QR Code Section -->
     <div class="qr-section">
     <div style="margin-left: 45px !important;">
-             <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">
+             <img style="height: 90px;margin:0px " src="${qrDataUri}" alt="QR Code">
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
       <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>
@@ -631,7 +662,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
         </div>
       </div>
       <div>
-        <img style="width: 140px; height: 90px ;margin-left: 147px !important; margin-top:30px !important;" src='${serverHost}/public/images/national-center.jpg' alt="National Health Logo">
+        <img style="width: 140px; height: 90px ;margin-left: 147px !important; margin-top:30px !important;" src='${nationalCenterLogo}' alt="National Health Logo">
       </div>
     </div>
   </div>
@@ -642,7 +673,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
   `;
 
     console.log('📄 Setting HTML content...');
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 30000 });
+    // All fonts/images/QR are inline data URIs now, so there is no network to
+    // wait on — 'load' fires as soon as the DOM and inline resources are parsed,
+    // which is far faster (and can't hang) compared to 'networkidle0'.
+    await page.setContent(htmlContent, { waitUntil: 'load', timeout: 30000 });
     console.log('✅ HTML content loaded');
 
     // Ensure web fonts are fully parsed & ready before printing, otherwise
@@ -671,8 +705,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
     });
     console.log('✅ PDF buffer generated:', pdfBuffer.length, 'bytes');
 
-    await browser.close();
-    console.log('✅ Browser closed');
+    // Close only the page — the shared browser stays alive for the next request.
+    await page.close();
+    page = null;
+    console.log('✅ Page closed (browser kept alive)');
 
     // Normalize the Arabic /ToUnicode layer (presentation forms -> base
     // letters) so Arabic copy / search / translation work cleanly. This is a
@@ -697,12 +733,14 @@ module.exports = async (data, leave_days, DateObj, country) => {
       stack: error.stack,
       name: error.name
     });
-    if (browser) {
+    // Close only the failed page; keep the shared browser alive so one bad
+    // render doesn't take down PDF generation for every other request.
+    if (page) {
       try {
-        await browser.close();
-        console.log('✅ Browser closed after error');
+        await page.close();
+        console.log('✅ Page closed after error');
       } catch (closeError) {
-        console.error('❌ Error closing browser:', closeError.message);
+        console.error('❌ Error closing page:', closeError.message);
       }
     }
     throw new Error(`Failed to generate PDF: ${error.message}`);
