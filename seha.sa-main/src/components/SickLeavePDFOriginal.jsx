@@ -6,45 +6,52 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000
 const SickLeavePDFOriginal = ({ data, onClose }) => {
   const pdfRef = useRef();
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   // التحقق من وجود البيانات
   if (!data) {
     return null;
   }
 
-  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة)
-  // يتم إنشاؤه على الخادم عبر Chromium page.pdf() بنفس شكل المعاينة تمامًا.
-  const generatePDF = async () => {
-    if (downloading) return;
+  // اسم الملف المُنزَّل — يتضمّن رقم الخدمة لتمييز كل تقرير.
+  const pdfFileName = `SickLeave-${data.service_num || 'report'}.pdf`;
 
+  // جلب ملف PDF من الخادم (يُنشأ عبر Chromium page.pdf() بنفس شكل المعاينة).
+  // مُشترك بين زر التحميل وزر الإرسال عبر واتساب.
+  const fetchPdfBlob = async () => {
     const serviceNum = data.service_num;
     const nationalId = data.national_id;
 
     if (!serviceNum || !nationalId) {
-      console.error('❌ Missing service_num / national_id for PDF download');
-      alert('تعذر تنزيل الملف: بيانات التقرير غير مكتملة');
-      return;
+      throw new Error('بيانات التقرير غير مكتملة');
     }
+
+    const token = localStorage.getItem('token');
+    const url = `${API_BASE_URL}/sick-leaves/${encodeURIComponent(serviceNum)}/${encodeURIComponent(nationalId)}/pdf`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error(`PDF request failed with status ${response.status}`);
+    }
+
+    return await response.blob();
+  };
+
+  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة).
+  const generatePDF = async () => {
+    if (downloading) return;
 
     setDownloading(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = `${API_BASE_URL}/sick-leaves/${encodeURIComponent(serviceNum)}/${encodeURIComponent(nationalId)}/pdf`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!response.ok) {
-        throw new Error(`PDF request failed with status ${response.status}`);
-      }
-
-      const blob = await response.blob();
+      const blob = await fetchPdfBlob();
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = 'SickLeaves.pdf';
+      link.download = pdfFileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -54,6 +61,76 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
       alert('حدث خطأ أثناء تنزيل ملف PDF. يرجى المحاولة مرة أخرى.');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // إرسال ملف الإجازة مباشرة عبر واتساب.
+  // على الجوال والمتصفحات الداعمة: تُفتح قائمة المشاركة ويظهر واتساب مع إرفاق
+  // ملف الـ PDF فعليًا — فيصله الزبون كملف جاهز.
+  // على سطح المكتب/المتصفحات غير الداعمة: يُنزَّل الملف ثم يُفتح واتساب مع رسالة
+  // جاهزة ورقم الزبون (إن أُدخل) ليُرفق المستخدم الملف المُنزَّل.
+  const sendViaWhatsApp = async () => {
+    if (sharing) return;
+
+    if (!data.service_num || !data.national_id) {
+      alert('تعذر الإرسال: بيانات التقرير غير مكتملة');
+      return;
+    }
+
+    const shareText =
+      `تقرير الإجازة المرضية 🏥\n` +
+      `رمز الإجازة: ${data.leave_id || ''}\n` +
+      `الاسم: ${data.name_ar || ''}\n` +
+      `للتحقق من التقرير: ${verificationUrl}`;
+
+    setSharing(true);
+    try {
+      const blob = await fetchPdfBlob();
+      const file = new File([blob], pdfFileName, { type: 'application/pdf' });
+
+      // المسار الأمثل: مشاركة الملف نفسه عبر قائمة مشاركة النظام (يشمل واتساب).
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'تقرير الإجازة المرضية',
+            text: shareText,
+          });
+          return;
+        } catch (shareErr) {
+          if (shareErr && shareErr.name === 'AbortError') return; // ألغى المستخدم
+          // في حال فشل المشاركة نكمل للمسار البديل بالأسفل.
+        }
+      }
+
+      // المسار البديل: تنزيل الملف ثم فتح واتساب مع الرسالة الجاهزة.
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = pdfFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+
+      const phone = window.prompt(
+        'أدخل رقم جوال الزبون مع رمز الدولة (مثال: 9665xxxxxxxx)\nأو اتركه فارغاً لاختيار جهة الاتصال داخل واتساب:',
+        ''
+      );
+      // إذا ضغط المستخدم "إلغاء" لا نفتح واتساب.
+      if (phone === null) return;
+
+      const digits = phone.replace(/\D/g, '');
+      const waUrl = digits
+        ? `https://wa.me/${digits}?text=${encodeURIComponent(shareText)}`
+        : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      alert('تم تنزيل ملف الإجازة ✅\nأرفِق الملف في محادثة واتساب التي فُتحت لإرساله للزبون.');
+    } catch (error) {
+      console.error('❌ WhatsApp share error:', error);
+      alert('حدث خطأ أثناء الإرسال عبر واتساب. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -185,6 +262,22 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
               opacity: downloading ? 0.8 : 1
             }}>
               {downloading ? '⏳ جاري التحميل...' : '📥 تحميل PDF'}
+            </button>
+            <button onClick={sendViaWhatsApp} disabled={sharing} style={{
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: sharing ? 'wait' : 'pointer',
+              fontSize: '1rem',
+              fontFamily: 'Cairo, sans-serif',
+              background: '#25D366',
+              color: 'white',
+              opacity: sharing ? 0.8 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              {sharing ? '⏳ جاري الإرسال...' : '📲 إرسال عبر واتساب'}
             </button>
             <button onClick={onClose} style={{
               padding: '10px 20px',
