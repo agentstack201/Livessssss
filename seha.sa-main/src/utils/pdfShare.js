@@ -58,16 +58,40 @@ export const prefetchLeavePdf = (leave) => {
 
 const getBlob = (leave) => _blobCache.get(cacheKey(leave)) || prefetchLeavePdf(leave)
 
-// تنزيل الملف باسم sickLeaves.pdf.
-export const downloadLeavePdf = (blob) => {
+// تنزيل blob باسم محدَّد.
+export const downloadNamedBlob = (blob, fileName) => {
   const objectUrl = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
-  link.download = PDF_FILE_NAME
+  link.download = fileName
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
   window.URL.revokeObjectURL(objectUrl)
+}
+
+// تنزيل الملف باسم sickLeaves.pdf.
+export const downloadLeavePdf = (blob) => downloadNamedBlob(blob, PDF_FILE_NAME)
+
+/**
+ * مشاركة عدة ملفات PDF دفعة واحدة عبر قائمة مشاركة النظام (لإرسالها مجتمعةً
+ * لواتساب أو أي تطبيق). files مصفوفة من File. إن لم يدعم الجهاز مشاركة عدة ملفات
+ * تُنزَّل كلها. يعيد كائن حالة مثل shareLeavePdf.
+ */
+export const sharePdfFiles = async (files) => {
+  if (!files || !files.length) return { none: true }
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try {
+      await navigator.share({ files })
+      return { shared: true }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return { cancelled: true }
+      throw err
+    }
+  }
+  // الجهاز لا يدعم مشاركة عدة ملفات (سطح المكتب غالبًا) → ننزّلها كلها.
+  files.forEach((f) => downloadNamedBlob(f, f.name))
+  return { downloaded: true }
 }
 
 // هل يدعم الجهاز مشاركة ملفات PDF أصلاً؟
