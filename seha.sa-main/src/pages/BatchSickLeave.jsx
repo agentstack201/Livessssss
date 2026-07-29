@@ -34,6 +34,7 @@ const newPeriod = (single = false, from = '', to = '') => ({
   id: ++_pid, single, from, to, custom: false,
   doctorName: '', doctorNameArabic: '', physicianPosition: '', physicianPositionArabic: '',
   hospitalNameEnglish: '', hospitalNameArabic: '', licenseNumber: '', footerLogo: '',
+  showLicenseNumber: true,
 })
 
 const CUSTOM_KEYS = [
@@ -51,8 +52,9 @@ function BatchSickLeave() {
     // الافتراضيات المشتركة للطبيب/المستشفى/الشعار
     doctorName: '', doctorNameArabic: '', physicianPosition: '', physicianPositionArabic: '',
     hospitalNameEnglish: 'AL NOOR SPECIALIST HOSPITAL', hospitalNameArabic: 'مستشفى النور التخصصي',
-    licenseNumber: '1410845906', footerLogo: '',
+    licenseNumber: '1410845906', footerLogo: '', showLicenseNumber: true,
   })
+  const [createdRecords, setCreatedRecords] = useState([]) // ملخّص الإجازات المُنشأة
   const [periods, setPeriods] = useState([newPeriod(true, todayISO(), todayISO())])
   const [quickDay, setQuickDay] = useState(todayISO())
   const [busy, setBusy] = useState(false)
@@ -70,7 +72,11 @@ function BatchSickLeave() {
     try { return JSON.parse(localStorage.getItem('sl_templates') || '[]') } catch { return [] }
   })
   const persistTemplates = (list) => { setTemplates(list); try { localStorage.setItem('sl_templates', JSON.stringify(list)) } catch { /* تجاهل */ } }
-  const pickTpl = (o) => CUSTOM_KEYS.reduce((acc, k) => { acc[k] = o[k] || ''; return acc }, {})
+  const pickTpl = (o) => {
+    const r = CUSTOM_KEYS.reduce((acc, k) => { acc[k] = o[k] || ''; return acc }, {})
+    r.showLicenseNumber = o.showLicenseNumber !== false
+    return r
+  }
   const saveTemplate = (source) => {
     const name = window.prompt('اسم القالب (مثال: د. أحمد — مستشفى النور):', '')
     if (!name || !name.trim()) return
@@ -129,7 +135,7 @@ function BatchSickLeave() {
       // تفعيل التخصيص: انسخ الافتراضيات المشتركة كنقطة بداية
       const seed = {}
       CUSTOM_KEYS.forEach((k) => { seed[k] = x[k] || shared[k] })
-      return { ...x, custom: true, ...seed }
+      return { ...x, custom: true, ...seed, showLicenseNumber: shared.showLicenseNumber !== false }
     }))
     dirty()
   }
@@ -184,7 +190,8 @@ function BatchSickLeave() {
       position_en: s.physicianPosition.trim(), position_ar: s.physicianPositionArabic.trim(),
       nationality: shared.nationality || 'السعودية', countryId: shared.countryId || undefined,
       hospital_name_en: s.hospitalNameEnglish, hospital_name_ar: s.hospitalNameArabic,
-      license_number: s.licenseNumber || '1410845906', show_license_number: true,
+      license_number: s.licenseNumber || '1410845906',
+      show_license_number: s.showLicenseNumber !== false, // زر بترخيص/بدون
       footer_logo: s.footerLogo || null, // null = الشعار الافتراضي (صحة)
     }
   }
@@ -194,7 +201,7 @@ function BatchSickLeave() {
     const err = validate()
     if (err) { setMsg({ type: 'error', text: err }); return }
 
-    setBusy(true); setMsg(null); setPrepared(null)
+    setBusy(true); setMsg(null); setPrepared(null); setCreatedRecords([])
     const list = validPeriods
     setProgress({ done: 0, total: list.length, phase: 'إنشاء السجلات' })
     try {
@@ -208,10 +215,15 @@ function BatchSickLeave() {
         })
         setProgress((s) => ({ ...s, done: ++created }))
         if (!res.ok) return null
-        return { service_num: payload.service_num, national_id: payload.national_id }
+        return {
+          service_num: payload.service_num, national_id: payload.national_id,
+          name: shared.nameArabic.trim() || shared.name.trim(),
+          from: period.from, to: period.to, single: period.single,
+        }
       }))
       const ok = records.filter(Boolean)
       if (!ok.length) throw new Error('تعذّر إنشاء السجلات')
+      setCreatedRecords(ok)
 
       setProgress({ done: 0, total: ok.length, phase: 'توليد الملفات' })
       let built = 0
@@ -268,10 +280,13 @@ function BatchSickLeave() {
   const validCount = validPeriods.length
 
   const LogoField = ({ value, onPick, onReset }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      <img src={value || DEFAULT_FOOTER_LOGO} alt="logo" style={{ height: 42, border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', padding: 2 }} />
-      <button type="button" style={btn(ORANGE)} onClick={onPick}>اختر من المكتبة</button>
-      <button type="button" style={btn('#64748b')} onClick={onReset}>الافتراضي (صحة)</button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <img src={value || DEFAULT_FOOTER_LOGO} alt="logo"
+        style={{ height: 96, width: 'auto', maxWidth: 200, objectFit: 'contain', border: '2px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 8, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button type="button" style={btn(ORANGE)} onClick={onPick}>🖼️ اختر من المكتبة</button>
+        <button type="button" style={btn('#64748b')} onClick={onReset}>↺ الافتراضي (صحة)</button>
+      </div>
     </div>
   )
 
@@ -332,10 +347,20 @@ function BatchSickLeave() {
             <Field label="مسمّى الطبيب (بالإنجليزية) *"><input style={input} dir="ltr" value={shared.physicianPosition} onChange={(e) => setField('physicianPosition', e.target.value)} /></Field>
             <Field label="المستشفى (بالعربية)"><input style={input} value={shared.hospitalNameArabic} onChange={(e) => setField('hospitalNameArabic', e.target.value)} /></Field>
             <Field label="المستشفى (بالإنجليزية)"><input style={input} dir="ltr" value={shared.hospitalNameEnglish} onChange={(e) => setField('hospitalNameEnglish', e.target.value)} /></Field>
-            <Field label="رقم الترخيص"><input style={input} dir="ltr" value={shared.licenseNumber} onChange={(e) => setField('licenseNumber', e.target.value)} /></Field>
+            <Field label="رقم الترخيص">
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input style={{ ...input, opacity: shared.showLicenseNumber ? 1 : 0.5 }} dir="ltr"
+                  value={shared.licenseNumber} disabled={!shared.showLicenseNumber}
+                  onChange={(e) => setField('licenseNumber', e.target.value)} placeholder={shared.showLicenseNumber ? '' : 'بدون ترخيص'} />
+                <button type="button" onClick={() => setField('showLicenseNumber', !shared.showLicenseNumber)}
+                  title="إظهار أو إخفاء رقم الترخيص في التقرير" style={toggleBtn(shared.showLicenseNumber)}>
+                  {shared.showLicenseNumber ? 'بترخيص ✓' : 'بدون'}
+                </button>
+              </div>
+            </Field>
           </div>
-          <div style={{ marginTop: 10 }}>
-            <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6 }}>الشعار (افتراضي)</label>
+          <div style={{ marginTop: 14 }}>
+            <label style={{ fontSize: 13, color: '#475569', display: 'block', marginBottom: 8, fontWeight: 700 }}>الشعار الافتراضي (يظهر أسفل التقرير)</label>
             <LogoField value={shared.footerLogo} onPick={() => openPicker('shared')} onReset={() => setField('footerLogo', '')} />
           </div>
         </div>
@@ -361,7 +386,7 @@ function BatchSickLeave() {
             {periods.map((p, i) => (
               <div key={p.id} style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#64748b', fontSize: 13, minWidth: 22 }}>{i + 1}.</span>
+                  <span style={{ color: '#fff', background: NAVY, fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' }}>ملف {i + 1}</span>
                   {p.single ? (
                     <Field label="اليوم" inline><input style={input} type="date" value={p.from} onChange={(e) => updatePeriod(p.id, { from: e.target.value, to: e.target.value })} /></Field>
                   ) : (
@@ -393,7 +418,17 @@ function BatchSickLeave() {
                       <Field label="مسمّى (إنجليزي)"><input style={input} dir="ltr" value={p.physicianPosition} onChange={(e) => updatePeriod(p.id, { physicianPosition: e.target.value })} /></Field>
                       <Field label="مستشفى (عربي)"><input style={input} value={p.hospitalNameArabic} onChange={(e) => updatePeriod(p.id, { hospitalNameArabic: e.target.value })} /></Field>
                       <Field label="مستشفى (إنجليزي)"><input style={input} dir="ltr" value={p.hospitalNameEnglish} onChange={(e) => updatePeriod(p.id, { hospitalNameEnglish: e.target.value })} /></Field>
-                      <Field label="رقم الترخيص"><input style={input} dir="ltr" value={p.licenseNumber} onChange={(e) => updatePeriod(p.id, { licenseNumber: e.target.value })} /></Field>
+                      <Field label="رقم الترخيص">
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input style={{ ...input, opacity: p.showLicenseNumber ? 1 : 0.5 }} dir="ltr"
+                            value={p.licenseNumber} disabled={!p.showLicenseNumber}
+                            onChange={(e) => updatePeriod(p.id, { licenseNumber: e.target.value })} placeholder={p.showLicenseNumber ? '' : 'بدون ترخيص'} />
+                          <button type="button" onClick={() => updatePeriod(p.id, { showLicenseNumber: !p.showLicenseNumber })}
+                            title="إظهار أو إخفاء الترخيص لهذا الملف" style={toggleBtn(p.showLicenseNumber)}>
+                            {p.showLicenseNumber ? 'بترخيص ✓' : 'بدون'}
+                          </button>
+                        </div>
+                      </Field>
                     </div>
                     <div style={{ marginTop: 10 }}>
                       <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6 }}>شعار هذا الملف</label>
@@ -405,6 +440,31 @@ function BatchSickLeave() {
             ))}
           </div>
         </div>
+
+        {/* جدول الإجازات المُنشأة */}
+        {createdRecords.length > 0 && (
+          <div style={card}>
+            <h3 style={h3}>✅ الإجازات المُنشأة ({createdRecords.length})</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr>{['#', 'رمز الخدمة', 'الاسم', 'من', 'إلى'].map((t) => <th key={t} style={thTd(true)}>{t}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {createdRecords.map((r, i) => (
+                    <tr key={r.service_num}>
+                      <td style={thTd()}>{i + 1}</td>
+                      <td style={{ ...thTd(), fontFamily: 'monospace', direction: 'ltr' }}>{r.service_num}</td>
+                      <td style={thTd()}>{r.name || '—'}</td>
+                      <td style={{ ...thTd(), direction: 'ltr' }}>{r.from}</td>
+                      <td style={{ ...thTd(), direction: 'ltr' }}>{r.single ? '—' : r.to}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* التوليد والمشاركة */}
         <div style={{ ...card, position: 'sticky', bottom: 12 }}>
@@ -566,5 +626,7 @@ const row = { display: 'flex', gap: 10, background: '#f8fafc', padding: 10, bord
 const input = { width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }
 const btn = (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 })
 const miniBtn = (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '8px 11px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 })
+const toggleBtn = (on) => ({ whiteSpace: 'nowrap', padding: '0 12px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#fff', background: on ? GREEN : '#94a3b8' })
+const thTd = (head) => ({ border: '1px solid #e2e8f0', padding: '8px 10px', textAlign: 'center', background: head ? '#f1f5f9' : '#fff', color: head ? NAVY : '#334155', fontWeight: head ? 800 : 500 })
 
 export default BatchSickLeave

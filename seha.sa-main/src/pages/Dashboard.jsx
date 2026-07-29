@@ -413,7 +413,7 @@ function Dashboard() {
           </Link>
         )}
         {(userPermissions?.can_create_leaves || user?.role === 'admin') && (
-          <Link to="/batch" className={styles.actionBtn}>
+          <Link to="/batch" className={styles.actionBtn} style={{ border: '2px solid #7c3aed', background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)', color: '#6d28d9' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="7" height="7" rx="1" />
               <rect x="14" y="3" width="7" height="7" rx="1" />
