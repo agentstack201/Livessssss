@@ -65,6 +65,21 @@ function BatchSickLeave() {
   const [showPicker, setShowPicker] = useState(false)
   const [pickerTarget, setPickerTarget] = useState(null) // 'shared' | periodId
 
+  // ── قوالب محفوظة (طبيب + مستشفى + شعار) — تُخزَّن محليًا في المتصفح ──────────
+  const [templates, setTemplates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sl_templates') || '[]') } catch { return [] }
+  })
+  const persistTemplates = (list) => { setTemplates(list); try { localStorage.setItem('sl_templates', JSON.stringify(list)) } catch { /* تجاهل */ } }
+  const pickTpl = (o) => CUSTOM_KEYS.reduce((acc, k) => { acc[k] = o[k] || ''; return acc }, {})
+  const saveTemplate = (source) => {
+    const name = window.prompt('اسم القالب (مثال: د. أحمد — مستشفى النور):', '')
+    if (!name || !name.trim()) return
+    persistTemplates([...templates, { id: Date.now(), name: name.trim(), ...pickTpl(source) }])
+  }
+  const deleteTemplate = (id) => { if (window.confirm('حذف هذا القالب؟')) persistTemplates(templates.filter((t) => t.id !== id)) }
+  const applyTemplateToShared = (t) => { setShared((p) => ({ ...p, ...pickTpl(t) })); dirty() }
+  const applyTemplateToRow = (id, t) => updatePeriod(id, { custom: true, ...pickTpl(t) })
+
   // أي تعديل يُلغي الملفات المُجهَّزة (يجب إعادة التوليد) ويغلق المعاينة.
   const dirty = () => { setPrepared(null); setShowPreview(false) }
   const setField = (k, v) => { setShared((p) => ({ ...p, [k]: v })); dirty() }
@@ -296,6 +311,20 @@ function BatchSickLeave() {
         {/* الطبيب/المستشفى/الشعار الافتراضي */}
         <div style={card}>
           <h3 style={h3}>الطبيب والمستشفى والشعار (افتراضي لكل الملفات)</h3>
+
+          {/* القوالب المحفوظة */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottom: '1px dashed #e2e8f0' }}>
+            <span style={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>قوالب:</span>
+            {templates.length === 0 && <span style={{ fontSize: 12, color: '#94a3b8' }}>لا يوجد بعد — احفظ الحالي</span>}
+            {templates.map((t) => (
+              <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${ORANGE}`, borderRadius: 20, overflow: 'hidden', background: '#fff7ed' }}>
+                <button type="button" onClick={() => applyTemplateToShared(t)} title="تطبيق" style={{ border: 'none', background: 'transparent', color: '#c2410c', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>{t.name}</button>
+                <button type="button" onClick={() => deleteTemplate(t.id)} title="حذف" style={{ border: 'none', background: 'transparent', color: '#b91c1c', padding: '5px 8px', cursor: 'pointer', fontWeight: 800 }}>×</button>
+              </span>
+            ))}
+            <button type="button" style={btn(GREEN)} onClick={() => saveTemplate(shared)}>💾 حفظ الحالي كقالب</button>
+          </div>
+
           <div style={grid2}>
             <Field label="اسم الطبيب (بالعربية) *"><input style={input} value={shared.doctorNameArabic} onChange={(e) => setField('doctorNameArabic', e.target.value)} /></Field>
             <Field label="اسم الطبيب (بالإنجليزية) *"><input style={input} dir="ltr" value={shared.doctorName} onChange={(e) => setField('doctorName', e.target.value)} /></Field>
@@ -348,6 +377,15 @@ function BatchSickLeave() {
 
                 {p.custom && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #cbd5e1' }}>
+                    {templates.length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <select style={{ ...input, width: 'auto' }} value=""
+                          onChange={(e) => { const t = templates.find((x) => String(x.id) === e.target.value); if (t) applyTemplateToRow(p.id, t) }}>
+                          <option value="">📋 تطبيق قالب على هذا الملف…</option>
+                          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <div style={grid2}>
                       <Field label="طبيب (عربي)"><input style={input} value={p.doctorNameArabic} onChange={(e) => updatePeriod(p.id, { doctorNameArabic: e.target.value })} /></Field>
                       <Field label="طبيب (إنجليزي)"><input style={input} dir="ltr" value={p.doctorName} onChange={(e) => updatePeriod(p.id, { doctorName: e.target.value })} /></Field>

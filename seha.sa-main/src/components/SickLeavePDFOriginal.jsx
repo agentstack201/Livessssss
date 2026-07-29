@@ -8,12 +8,19 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
   const pdfRef = useRef();
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [preparing, setPreparing] = useState(true);
 
-  // نبدأ تجهيز ملف الـ PDF فور فتح المعاينة، حتى تكون المشاركة/التنزيل فوريَّين.
+  // نجهّز ملف الـ PDF فور فتح المعاينة، ونُبقي زر المشاركة معطّلاً حتى يجهز الملف —
+  // بذلك تنجح المشاركة من أول ضغطة (الملف حاضر ضمن نافذة تفعيل المستخدم).
   useEffect(() => {
+    let alive = true;
     if (data?.service_num && data?.national_id) {
-      prefetchLeavePdf(data);
+      setPreparing(true);
+      prefetchLeavePdf(data)
+        .then(() => { if (alive) setPreparing(false); })
+        .catch(() => { if (alive) setPreparing(false); });
     }
+    return () => { alive = false; };
   }, [data?.service_num, data?.national_id]);
 
   // التحقق من وجود البيانات
@@ -185,21 +192,21 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
             }}>
               {downloading ? '⏳ جاري التحميل...' : '📥 تحميل PDF'}
             </button>
-            <button onClick={shareFile} onPointerDown={() => prefetchLeavePdf(data)} disabled={sharing} style={{
+            <button onClick={shareFile} disabled={sharing || preparing} style={{
               padding: '10px 20px',
               border: 'none',
               borderRadius: '6px',
-              cursor: sharing ? 'wait' : 'pointer',
+              cursor: sharing || preparing ? 'wait' : 'pointer',
               fontSize: '1rem',
               fontFamily: 'Cairo, sans-serif',
               background: '#2f6db4',
               color: 'white',
-              opacity: sharing ? 0.8 : 1,
+              opacity: sharing || preparing ? 0.7 : 1,
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}>
-              {sharing ? '⏳ جاري المشاركة...' : '📤 مشاركة الملف'}
+              {preparing ? '⏳ جاري التجهيز...' : sharing ? '⏳ جاري المشاركة...' : '📤 مشاركة الملف'}
             </button>
             <button onClick={onClose} style={{
               padding: '10px 20px',
