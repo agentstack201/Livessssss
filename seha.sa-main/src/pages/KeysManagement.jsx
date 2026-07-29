@@ -25,17 +25,24 @@ function timeUntil(iso) {
   return h > 0 ? `بعد ${h}س ${m}د` : `بعد ${m}د`
 }
 
+// عدّاد استهلاك المفتاح — يفرغ بصريًّا (أخضر ← برتقالي ← أحمر) كلما استُهلك،
+// مع رقم كبير للمتبقّي.
 function Bar({ percent, remaining, label }) {
-  const p = percent == null ? 0 : percent
-  const color = p >= 90 ? '#dc2626' : p >= 70 ? ORANGE : '#16a34a'
+  const capped = percent == null ? 0 : Math.min(100, Math.max(0, percent))
+  const remainingPct = 100 - capped
+  const color = percent == null ? '#3b82f6' : remainingPct <= 10 ? '#dc2626' : remainingPct <= 30 ? ORANGE : '#16a34a'
   return (
-    <div style={{ marginTop: 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b' }}>
-        <span>{label}</span>
-        <span>{percent == null ? 'بلا حد' : `متبقٍ ${arNum(remaining)}`}</span>
+    <div style={{ background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 12, padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontSize: 13, color: '#475569', fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 11, color: '#94a3b8' }}>{percent == null ? 'بلا حد' : `${Math.round(capped)}٪ مستهلك`}</span>
       </div>
-      <div style={{ height: 6, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden', marginTop: 2 }}>
-        <div style={{ width: `${p}%`, height: '100%', background: color, transition: 'width .3s' }} />
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '6px 0 8px' }}>
+        <span style={{ fontSize: 24, fontWeight: 800, color }}>{percent == null ? '∞' : arNum(remaining)}</span>
+        <span style={{ fontSize: 12, color: '#64748b' }}>متبقٍ</span>
+      </div>
+      <div style={{ height: 9, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' }}>
+        <div style={{ width: `${capped}%`, height: '100%', background: color, transition: 'width .5s ease' }} />
       </div>
     </div>
   )
@@ -115,7 +122,10 @@ function KeysManagement() {
     <div style={page} dir="rtl">
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h1 style={{ color: NAVY, margin: 0, fontSize: 24 }}>🔑 مفاتيح الذكاء الاصطناعي</h1>
+          <div>
+            <h1 style={{ color: NAVY, margin: 0, fontSize: 24 }}>🔑 مفاتيح الذكاء الاصطناعي</h1>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>يُوزَّع الاستخدام تلقائيًّا على المفاتيح، ويُستبعَد المفتاح المُستهلَك حتى يتصفّر. تحديث مباشر كل ١٠ ثوانٍ.</p>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={btn(ORANGE)} onClick={() => setShowAdd(true)}>➕ إضافة مفتاح</button>
             <button style={btn('#64748b')} onClick={() => navigate('/dashboard')}>لوحة التحكم</button>
@@ -123,12 +133,12 @@ function KeysManagement() {
         </div>
 
         {totals && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginTop: 16 }}>
-            <Stat label="إجمالي المفاتيح" value={totals.total} color={NAVY} />
-            <Stat label="نشط" value={totals.active} color="#15803d" />
-            <Stat label="موقوف / تهدئة" value={totals.paused + totals.cooldown} color={ORANGE} />
-            <Stat label="غير صالح / مستهلك" value={totals.invalid + totals.exhausted} color="#b91c1c" />
-            <Stat label="توكنات متبقية اليوم" value={arNum(totals.remainingTokensToday)} color={NAVY} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 18 }}>
+            <Stat label="إجمالي المفاتيح" value={totals.total} color={NAVY} icon="🔑" />
+            <Stat label="نشط" value={totals.active} color="#16a34a" icon="✅" />
+            <Stat label="موقوف / تهدئة" value={totals.paused + totals.cooldown} color={ORANGE} icon="⏸️" />
+            <Stat label="غير صالح / مستهلك" value={totals.invalid + totals.exhausted} color="#b91c1c" icon="⛔" />
+            <Stat label="توكنات متبقية اليوم" value={arNum(totals.remainingTokensToday)} color="#2563eb" icon="⚡" />
           </div>
         )}
 
@@ -145,44 +155,47 @@ function KeysManagement() {
           </div>
         )}
 
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {data.map((k) => {
             const st = STATUS[k.status] || STATUS.active
             const prov = providers.find((p) => p.id === k.provider)
             const tr = testResult[k.id]
             return (
-              <div key={k.id} style={card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div key={k.id} style={{ ...card, borderInlineStart: `6px solid ${st.color}`, padding: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <span style={{ fontWeight: 700, color: NAVY }}>{k.label || k.providerLabel}</span>
-                    <span style={{ marginInlineStart: 8, color: '#64748b', fontSize: 13 }}>{k.providerLabel}</span>
-                    <span style={{ marginInlineStart: 8, direction: 'ltr', display: 'inline-block', fontFamily: 'monospace', color: '#94a3b8', fontSize: 12 }}>{k.fingerprint}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, color: NAVY, fontSize: 16 }}>{k.label || k.providerLabel}</span>
+                      <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{k.providerLabel}</span>
+                    </div>
+                    <span style={{ direction: 'ltr', display: 'inline-block', fontFamily: 'monospace', color: '#94a3b8', fontSize: 12, marginTop: 4 }}>{k.fingerprint}</span>
                   </div>
                   <span style={{ ...badge, color: st.color, background: st.bg }}>{st.label}</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, margin: '14px 0 8px' }}>الاستهلاك اليوم — يفرغ مع كل استخدام</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
                   <Bar label="الطلبات اليوم" percent={k.usagePercent.rpd} remaining={k.remaining.rpd} />
                   <Bar label="التوكنات اليوم" percent={k.usagePercent.tpd} remaining={k.remaining.tpd} />
                 </div>
 
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, fontSize: 12, color: '#64748b' }}>
-                  <span>تصفير: {timeUntil(k.dayResetAt)}</span>
-                  <span>متوسط الاستجابة: {k.avgLatencyMs ? `${k.avgLatencyMs}ms` : '—'}</span>
-                  <span>الأولوية: {k.priority}</span>
-                  {k.cooldownUntil && <span style={{ color: ORANGE }}>تهدئة حتى: {timeUntil(k.cooldownUntil)}</span>}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                  <Chip>↻ تصفير بعد: {timeUntil(k.dayResetAt)}</Chip>
+                  <Chip>⚡ {k.avgLatencyMs ? `${k.avgLatencyMs}ms` : '—'}</Chip>
+                  <Chip>الأولوية: {k.priority}</Chip>
+                  {k.cooldownUntil && <Chip warn>تهدئة حتى: {timeUntil(k.cooldownUntil)}</Chip>}
                 </div>
 
                 {k.lastError && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#b91c1c', direction: 'ltr', textAlign: 'left', background: '#fef2f2', padding: '6px 8px', borderRadius: 6 }}>{k.lastError}</div>
+                  <div style={{ marginTop: 10, fontSize: 12, color: '#b91c1c', direction: 'ltr', textAlign: 'left', background: '#fef2f2', padding: '8px 10px', borderRadius: 8 }}>{k.lastError}</div>
                 )}
                 {tr && (
-                  <div style={{ marginTop: 8, fontSize: 13, color: tr.working ? '#15803d' : '#b91c1c' }}>
+                  <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: tr.working ? '#15803d' : '#b91c1c' }}>
                     {tr.working ? '✅' : '❌'} {tr.message}
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                   <button style={miniBtn('#0ea5e9')} disabled={busyId === k.id} onClick={() => act(k.id, '/test', 'POST')}>اختبار</button>
                   {k.status === 'paused'
                     ? <button style={miniBtn('#16a34a')} disabled={busyId === k.id} onClick={() => patch(k.id, { status: 'active' })}>تشغيل</button>
@@ -290,12 +303,21 @@ function AddKeyModal({ providers, onClose, onSaved, authHeaders }) {
   )
 }
 
-function Stat({ label, value, color }) {
+function Stat({ label, value, color, icon }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 12, padding: 14, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{label}</div>
+    <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.08)', borderTop: `3px solid ${color}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+        <span style={{ fontSize: 26, fontWeight: 800, color }}>{value}</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>{label}</div>
     </div>
+  )
+}
+
+function Chip({ children, warn }) {
+  return (
+    <span style={{ fontSize: 12, color: warn ? '#b45309' : '#475569', background: warn ? '#fff7ed' : '#f1f5f9', border: `1px solid ${warn ? '#fed7aa' : '#e2e8f0'}`, padding: '4px 10px', borderRadius: 20, fontWeight: 600 }}>{children}</span>
   )
 }
 
