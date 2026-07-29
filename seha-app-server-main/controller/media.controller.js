@@ -3,10 +3,11 @@ const fs = require("fs");
 const { Op } = require("sequelize");
 const { createClient } = require("@supabase/supabase-js");
 
-// إعداد Supabase
+// إعداد Supabase (اختياري — يوجد بديل محلي عند غيابه)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseConfigured = !!(supabaseUrl && supabaseServiceKey);
+const supabase = supabaseConfigured ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
 // اسم الـ Bucket
 const BUCKET_NAME = "media";
@@ -37,56 +38,52 @@ try {
   Media = null;
 }
 
-// دالة رفع ملف إلى Supabase Storage
+// قراءة محتوى الملف من الذاكرة أو القرص.
+function readFileBuffer(file) {
+  if (file.buffer) return file.buffer;           // memory storage
+  if (file.path) return fs.readFileSync(file.path); // disk storage
+  throw new Error("No file content available");
+}
+
+// بديل محلي عند غياب/فشل Supabase: نخزّن الصورة كـ data URI (base64) داخل حقل
+// url (TEXT). يعمل في أي بيئة بلا إعداد تخزين خارجي — مناسب للشعارات الصغيرة.
+function toDataUri(file) {
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+  const base64 = readFileBuffer(file).toString("base64");
+  const url = `data:${file.mimetype};base64,${base64}`;
+  return { filename, path: `inline/${filename}`, url, supabasePath: null };
+}
+
+// دالة رفع ملف إلى Supabase Storage — مع بديل data URI عند التعذّر.
 async function uploadToSupabase(file) {
+  // لا يوجد Supabase مُعد → البديل المحلي مباشرة.
+  if (!supabaseConfigured) {
+    return toDataUri(file);
+  }
   try {
     const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
     const filePath = `uploads/${filename}`;
-    
-    // الحصول على محتوى الملف
-    let fileBuffer;
-    if (file.buffer) {
-      // من memory storage
-      fileBuffer = file.buffer;
-    } else if (file.path) {
-      // من disk storage
-      fileBuffer = fs.readFileSync(file.path);
-    } else {
-      throw new Error("No file content available");
-    }
+    const fileBuffer = readFileBuffer(file);
 
-    // رفع الملف إلى Supabase
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(filePath, fileBuffer, {
-        contentType: file.mimetype,
-        upsert: false
-      });
+      .upload(filePath, fileBuffer, { contentType: file.mimetype, upsert: false });
 
-    if (error) {
-      console.error("Supabase upload error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    // الحصول على الرابط العام
-    const { data: publicUrlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(filePath);
-
-    return {
-      filename,
-      path: filePath,
-      url: publicUrlData.publicUrl,
-      supabasePath: data.path
-    };
+    const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    return { filename, path: filePath, url: publicUrlData.publicUrl, supabasePath: data.path };
   } catch (error) {
-    console.error("Upload to Supabase failed:", error);
-    throw error;
+    // فشل Supabase (bucket غير موجود/صلاحيات) → لا نُفشل الرفع، نرجع data URI.
+    console.error("Supabase upload failed, falling back to inline data URI:", error.message);
+    return toDataUri(file);
   }
 }
 
 // دالة حذف ملف من Supabase Storage
 async function deleteFromSupabase(filePath) {
+  // لا شيء لحذفه للملفات المخزَّنة كـ data URI أو عند غياب Supabase.
+  if (!supabase || !filePath || filePath.startsWith("inline/")) return;
   try {
     const { error } = await supabase.storage
       .from(BUCKET_NAME)

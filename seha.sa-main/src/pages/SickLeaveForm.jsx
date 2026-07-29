@@ -2160,7 +2160,7 @@ function SickLeaveForm() {
         onClose={() => setShowMediaPicker(false)}
         onSelect={(media) => {
           // استخدام رابط الصورة من المعرض
-          const imageUrl = media.url.startsWith('http') ? media.url : `${API_BASE_URL}${media.url}`
+          const imageUrl = media.url.startsWith('http') || media.url.startsWith('data:') ? media.url : `${API_BASE_URL}${media.url}`
           setFormData(prev => ({ ...prev, footerLogo: imageUrl }))
           setLogoError('')
         }}

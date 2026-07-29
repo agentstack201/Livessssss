@@ -200,7 +200,7 @@ function MediaPicker({
                       onDoubleClick={() => handleDoubleClick(item)}
                     >
                       {item.mime_type.startsWith('image/') ? (
-                        <img src={item.url.startsWith('http') ? item.url : `${API_BASE_URL}${item.url}`} alt={item.alt_text} />
+                        <img src={item.url.startsWith('http') || item.url.startsWith('data:') ? item.url : `${API_BASE_URL}${item.url}`} alt={item.alt_text} />
                       ) : (
                         <div className={styles.fileIcon}>📄</div>
                       )}

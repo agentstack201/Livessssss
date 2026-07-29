@@ -239,7 +239,9 @@ if (sequelize) {
         sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_hospitals BOOLEAN DEFAULT false;`),
         sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_settings BOOLEAN DEFAULT false;`),
         // رقم جوال الزبون لإرسال التقرير عبر واتساب
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';`)
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';`),
+        // توسيع عمود رابط الوسائط ليتّسع لروابط data:base64 عند الرفع المحلي
+        sequelize.query(`ALTER TABLE media ALTER COLUMN url TYPE TEXT;`)
       ]).then(() => {
         console.log('✅ Database permissions table successfully updated with new columns!');
       }).catch((err) => {

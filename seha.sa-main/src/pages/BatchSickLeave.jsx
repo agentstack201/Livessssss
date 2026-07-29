@@ -271,7 +271,7 @@ function BatchSickLeave() {
   // ── مكتبة الشعارات ─────────────────────────────────────────────────────
   const openPicker = (target) => { setPickerTarget(target); setShowPicker(true) }
   const onPickLogo = (media) => {
-    const url = media.url.startsWith('http') ? media.url : `${API_BASE_URL}${media.url}`
+    const url = media.url.startsWith('http') || media.url.startsWith('data:') ? media.url : `${API_BASE_URL}${media.url}`
     if (pickerTarget === 'shared') setField('footerLogo', url)
     else if (pickerTarget != null) updatePeriod(pickerTarget, { footerLogo: url, custom: true })
     setShowPicker(false)
@@ -282,7 +282,7 @@ function BatchSickLeave() {
   const LogoField = ({ value, onPick, onReset }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <img src={value || DEFAULT_FOOTER_LOGO} alt="logo"
-        style={{ height: 96, width: 'auto', maxWidth: 200, objectFit: 'contain', border: '2px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 8, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }} />
+        style={{ height: 140, width: 'auto', maxWidth: 280, objectFit: 'contain', border: '2px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 10, boxShadow: '0 2px 8px rgba(0,0,0,.1)' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button type="button" style={btn(ORANGE)} onClick={onPick}>🖼️ اختر من المكتبة</button>
         <button type="button" style={btn('#64748b')} onClick={onReset}>↺ الافتراضي (صحة)</button>
