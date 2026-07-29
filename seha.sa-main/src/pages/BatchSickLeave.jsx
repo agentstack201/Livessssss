@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MediaPicker from '../components/MediaPicker'
 import { fetchLeavePdfBlob, sharePdfFiles } from '../utils/pdfShare'
@@ -61,11 +61,12 @@ function BatchSickLeave() {
   const [msg, setMsg] = useState(null)
   const [prefillNote, setPrefillNote] = useState('')
   const [prepared, setPrepared] = useState(null) // { files: File[], count } بعد التوليد
+  const [showPreview, setShowPreview] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const [pickerTarget, setPickerTarget] = useState(null) // 'shared' | periodId
 
-  // أي تعديل يُلغي الملفات المُجهَّزة (يجب إعادة التوليد).
-  const dirty = () => setPrepared(null)
+  // أي تعديل يُلغي الملفات المُجهَّزة (يجب إعادة التوليد) ويغلق المعاينة.
+  const dirty = () => { setPrepared(null); setShowPreview(false) }
   const setField = (k, v) => { setShared((p) => ({ ...p, [k]: v })); dirty() }
 
   const lookupClient = async (id) => {
@@ -366,6 +367,12 @@ function BatchSickLeave() {
               {busy ? '⏳ جارٍ التوليد…' : `🛠️ توليد الملفات (${validCount})`}
             </button>
             <button
+              style={{ ...btn('#0ea5e9'), flex: '1 1 140px', fontSize: 16, padding: '14px', opacity: !prepared?.count ? 0.5 : 1, cursor: !prepared?.count ? 'not-allowed' : 'pointer' }}
+              disabled={!prepared?.count} onClick={() => setShowPreview(true)}
+            >
+              {`👁️ معاينة (${prepared?.count || 0})`}
+            </button>
+            <button
               style={{ ...btn(GREEN), flex: '1 1 200px', fontSize: 16, padding: '14px', opacity: !prepared?.count || sharing ? 0.5 : 1, cursor: !prepared?.count || sharing ? 'not-allowed' : 'pointer' }}
               disabled={!prepared?.count || sharing} onClick={shareNow}
             >
@@ -379,9 +386,51 @@ function BatchSickLeave() {
       </div>
 
       <MediaPicker isOpen={showPicker} onClose={() => setShowPicker(false)} onSelect={onPickLogo} accept="image" category="all" />
+
+      {showPreview && prepared?.files?.length > 0 && (
+        <PreviewModal files={prepared.files} onClose={() => setShowPreview(false)} />
+      )}
     </div>
   )
 }
+
+// معاينة الملفات المُجهَّزة: تبويب لكل ملف + عرض داخلي (سطح المكتب) + فتح في تبويب (الجوال).
+function PreviewModal({ files, onClose }) {
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
+  const [sel, setSel] = useState(0)
+
+  return (
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...card, maxWidth: 760, width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} dir="rtl">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h3 style={{ ...h3, margin: 0 }}>معاينة الملفات ({files.length})</h3>
+          <button style={miniBtn('#b91c1c')} onClick={onClose}>✖ إغلاق</button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {files.map((f, i) => (
+            <button key={i} onClick={() => setSel(i)}
+              style={{ ...miniBtn(i === sel ? NAVY : '#94a3b8'), padding: '6px 12px' }}>
+              ملف {i + 1}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1, minHeight: 320, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#f8fafc' }}>
+          <iframe key={sel} title={`preview-${sel}`} src={urls[sel]} style={{ width: '100%', height: '58vh', border: 'none' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <a href={urls[sel]} target="_blank" rel="noreferrer" style={{ ...btn(ORANGE), textDecoration: 'none' }}>فتح في تبويب جديد ↗</a>
+          <span style={{ fontSize: 12, color: '#64748b' }}>إن لم تظهر المعاينة على الجوال، استخدم «فتح في تبويب جديد».</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const overlay = { position: 'fixed', inset: 0, background: 'rgba(15,37,71,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999 }
 
 function Field({ label, children, inline }) {
   return (
