@@ -36,9 +36,10 @@ const Media = sequelize.define(
       comment: 'مسار الملف على السيرفر',
     },
     url: {
-      type: Sequelize.STRING(500),
+      // TEXT وليس STRING(500) حتى يتّسع لرابط data:base64 عند تعذّر Supabase.
+      type: Sequelize.TEXT,
       allowNull: false,
-      comment: 'رابط الوصول للملف',
+      comment: 'رابط الوصول للملف (أو data URI عند الرفع المحلي)',
     },
     alt_text: {
       type: Sequelize.STRING(255),

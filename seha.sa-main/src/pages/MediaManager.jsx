@@ -374,7 +374,7 @@ function MediaManager() {
                 onClick={() => setPreviewMedia(item)}
               >
                 {item.mime_type.startsWith('image/') ? (
-                  <img src={item.url.startsWith('http') ? item.url : `${API_BASE_URL}${item.url}`} alt={item.alt_text} />
+                  <img src={item.url.startsWith('http') || item.url.startsWith('data:') ? item.url :`${API_BASE_URL}${item.url}`} alt={item.alt_text} />
                 ) : (
                   <div className={styles.fileIcon}>📄</div>
                 )}
@@ -393,7 +393,7 @@ function MediaManager() {
               <div className={styles.mediaActions}>
                 <button 
                   className={styles.actionBtn}
-                  onClick={() => copyToClipboard(item.url.startsWith('http') ? item.url : `${API_BASE_URL}${item.url}`)}
+                  onClick={() => copyToClipboard(item.url.startsWith('http') || item.url.startsWith('data:') ? item.url :`${API_BASE_URL}${item.url}`)}
                   title="نسخ الرابط"
                 >
                   📋
@@ -529,14 +529,14 @@ function MediaManager() {
           <div className={styles.previewContent}>
             <button className={styles.previewClose} onClick={() => setPreviewMedia(null)}>✕</button>
             {previewMedia.mime_type.startsWith('image/') ? (
-              <img src={previewMedia.url.startsWith('http') ? previewMedia.url : `${API_BASE_URL}${previewMedia.url}`} alt={previewMedia.alt_text} />
+              <img src={previewMedia.url.startsWith('http') || previewMedia.url.startsWith('data:') ? previewMedia.url :`${API_BASE_URL}${previewMedia.url}`} alt={previewMedia.alt_text} />
             ) : (
-              <iframe src={previewMedia.url.startsWith('http') ? previewMedia.url : `${API_BASE_URL}${previewMedia.url}`} title={previewMedia.original_name} />
+              <iframe src={previewMedia.url.startsWith('http') || previewMedia.url.startsWith('data:') ? previewMedia.url :`${API_BASE_URL}${previewMedia.url}`} title={previewMedia.original_name} />
             )}
             <div className={styles.previewInfo}>
               <h3>{previewMedia.original_name}</h3>
               <p>{formatFileSize(previewMedia.size)} • {previewMedia.category}</p>
-              <button onClick={() => copyToClipboard(previewMedia.url.startsWith('http') ? previewMedia.url : `${API_BASE_URL}${previewMedia.url}`)}>📋 نسخ الرابط</button>
+              <button onClick={() => copyToClipboard(previewMedia.url.startsWith('http') || previewMedia.url.startsWith('data:') ? previewMedia.url :`${API_BASE_URL}${previewMedia.url}`)}>📋 نسخ الرابط</button>
             </div>
           </div>
         </div>
