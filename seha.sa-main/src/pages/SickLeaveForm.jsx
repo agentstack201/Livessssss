@@ -116,6 +116,9 @@ function SickLeaveForm() {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [serviceNumType, setServiceNumType] = useState('GSL') // PSL or GSL
   const [countries, setCountries] = useState([]) // قائمة الدول من قاعدة البيانات
+  const [activeTab, setActiveTab] = useState(editMode ? 'form' : 'ai')
+  const [aiFieldsFilled, setAiFieldsFilled] = useState(0)
+  const [aiSuccess, setAiSuccess] = useState(false)
   const [doctors, setDoctors] = useState([]) // قائمة الأطباء من قاعدة البيانات
   const [hospitals, setHospitals] = useState([]) // قائمة المستشفيات من قاعدة البيانات
   const footerLogoInputRef = useRef(null)
@@ -803,6 +806,7 @@ function SickLeaveForm() {
         setOriginalServiceNum(record.service_num || '')
         setOriginalLeaveId(record.leave_id || '')
         setMessage('تم العثور على السجل وتحميله للتعديل')
+        setActiveTab('form')
         window.showToast?.('تم العثور على السجل وتحميله للتعديل', 'success')
       } else {
         setSearchError('لم يتم العثور على سجل بهذه البيانات')
@@ -819,17 +823,19 @@ function SickLeaveForm() {
     }
   }
 
-  // Handle AI text extraction
-  const handleAIExtract = async (e) => {
-    e.preventDefault()
+  // Handle AI text extraction — يُستدعى يدوياً من الزر أو تلقائياً عند اللصق
+  const handleAIExtract = async (e, textOverride) => {
+    if (e) e.preventDefault()
+    const sourceText = textOverride ?? aiText
 
-    if (!aiText.trim()) {
+    if (!sourceText.trim()) {
       setAiError('يرجى إدخال معلومات العميل')
       return
     }
 
     setAiLoading(true)
     setAiError('')
+    setAiSuccess(false)
     setMessage('')
 
     try {
@@ -840,7 +846,7 @@ function SickLeaveForm() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ clientInfo: aiText })
+        body: JSON.stringify({ clientInfo: sourceText })
       })
 
       const data = await response.json()
@@ -887,19 +893,34 @@ function SickLeaveForm() {
           }
         }
 
+        // عدّ الحقول المستخرجة فعلاً (غير الفارغة) لعرضها في شاشة النجاح
+        const filledCount = Object.values(sanitizedData).filter(v => v && String(v).trim() !== '').length
+
         // Merge AI data with existing formData
-        setFormData(prev => ({
-          ...prev,
-          ...sanitizedData,
-          nationality: finalNationality || prev.nationality,
-          // Special handling for dates that might have different names in AI output
-          startDate: sanitizedData.startDate || sanitizedData.admissionDate || prev.startDate || '',
-          endDate: sanitizedData.endDate || sanitizedData.dischargeDate || prev.endDate || '',
-          duration: sanitizedData.duration || prev.duration || '',
-        }))
-        setMessage('تم استخراج البيانات وملء النموذج بنجاح باستخدام الذكاء الاصطناعي')
+        setFormData(prev => {
+          const merged = {
+            ...prev,
+            ...sanitizedData,
+            nationality: finalNationality || prev.nationality,
+            // Special handling for dates that might have different names in AI output
+            startDate: sanitizedData.startDate || sanitizedData.admissionDate || prev.startDate || '',
+            endDate: sanitizedData.endDate || sanitizedData.dischargeDate || prev.endDate || '',
+            duration: sanitizedData.duration || prev.duration || '',
+          }
+          // توليد رقم الخدمة تلقائياً إن لم يوجد — النموذج يصبح جاهزاً للحفظ فوراً
+          if (!merged.serviceNum || !String(merged.serviceNum).trim()) {
+            const autoId = generateId(serviceNumType)
+            merged.serviceNum = autoId
+            merged.leaveId = autoId
+          }
+          return merged
+        })
         setIsEditMode(false)
-        setAiText('')
+        setAiFieldsFilled(filledCount)
+        setAiSuccess(true)
+        setMessage('')
+        // ذاكرة العميل: إن كانت الهوية المستخرجة لعميل معروف تُكمَّل بياناته المتكررة
+        if (sanitizedData.nationalID) lookupClient(sanitizedData.nationalID)
       } else {
         setAiError(data.message || data.error || 'فشل في استخراج البيانات')
       }
@@ -915,7 +936,34 @@ function SickLeaveForm() {
   const handleAIChange = (e) => {
     setAiText(e.target.value)
     if (aiError) setAiError('')
+    if (aiSuccess) setAiSuccess(false)
   }
+
+  // الاستخراج التلقائي: بمجرد اللصق يبدأ الاستخراج فوراً دون أي ضغطة زر
+  const handleAIPaste = (e) => {
+    const pasted = e.clipboardData?.getData('text') || ''
+    if (!pasted.trim()) return
+    const target = e.target
+    // ننتظر دورة واحدة حتى يلتصق النص في الحقل ثم نستخرج القيمة الكاملة
+    setTimeout(() => {
+      const fullText = target.value
+      setAiText(fullText)
+      if (fullText.trim().length >= 20) {
+        handleAIExtract(null, fullText)
+      }
+    }, 0)
+  }
+
+  // بعد نجاح الاستخراج: انتقال تلقائي سلس إلى تبويب النموذج بعد لحظة الاحتفال
+  useEffect(() => {
+    if (!aiSuccess) return
+    const t = setTimeout(() => {
+      setActiveTab('form')
+      setAiSuccess(false)
+      setAiText('')
+    }, 1800)
+    return () => clearTimeout(t)
+  }, [aiSuccess])
 
   // Submit form
   const handleSubmit = async (e) => {
@@ -1149,8 +1197,13 @@ function SickLeaveForm() {
     setSearchError('')
     setAiText('')
     setAiError('')
+    setAiSuccess(false)
+    setAiFieldsFilled(0)
     setOriginalServiceNum('')
     setOriginalLeaveId('')
+    setActiveTab('ai')
+    lastLookedUpId.current = ''
+    setClientMemo(null)
   }
 
   // Download PDF - الطريقة الجديدة (Frontend)
@@ -1225,6 +1278,13 @@ function SickLeaveForm() {
     }
   }
 
+  // نسبة اكتمال النموذج — تُعرض كحلقة تقدم حية في شريط التبويبات
+  const REQUIRED_KEYS = ['serviceNum', 'nationalID', 'name', 'nameArabic', 'leaveId', 'nationality',
+    'physicianPosition', 'physicianPositionArabic', 'issueDate', 'admissionDate', 'dischargeDate',
+    'startDate', 'endDate', 'doctorName', 'doctorNameArabic', 'hospitalNameArabic', 'hospitalNameEnglish']
+  const filledRequired = REQUIRED_KEYS.filter(k => formData[k] && String(formData[k]).trim() !== '').length
+  const completionPct = Math.round((filledRequired / REQUIRED_KEYS.length) * 100)
+
   // Check if user has permission
   if (editMode && !canEdit) {
     return (
@@ -1290,120 +1350,206 @@ function SickLeaveForm() {
 
   return (
     <div className={styles.slContainer}>
-      {/* Logo Section */}
-      <div className={styles.logoSection}>
+      {/* Compact Header */}
+      <div className={styles.compactHeader}>
         <div className={styles.logo}>
           <span className={styles.logoIcon}>🏔️</span>
           <span className={styles.logoText}>الجبل</span>
         </div>
-        <p className={styles.logoTagline}>نظام إدارة الإجازات المرضية</p>
-      </div>
-
-      {/* Title Section */}
-      <div className={styles.titleSection}>
-        <h1 className={styles.title}>نموذج الإجازة المرضية</h1>
-        <p className={styles.description}>
-          {isEditMode ? 'تعديل بيانات الإجازة المرضية' : 'يرجى ملء جميع الحقول المطلوبة لإنشاء تقرير الإجازة المرضية'}
-        </p>
-      </div>
-
-      {/* Search Section */}
-      <div className={styles.searchSection}>
-        <h2 className={styles.searchTitle}>البحث عن إجازة مرضية موجودة</h2>
-        <form onSubmit={handleSearch} className={styles.searchForm}>
-          <div className={styles.searchFields}>
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="searchServiceNum">
-                رقم الخدمة
-              </label>
-              <input
-                className={styles.inputField}
-                type="text"
-                id="searchServiceNum"
-                name="serviceNum"
-                value={searchData.serviceNum}
-                onChange={handleSearchChange}
-                placeholder="أدخل رقم الخدمة"
-              />
-            </div>
-
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="searchNationalID">
-                رقم الهوية / الإقامة
-              </label>
-              <input
-                className={styles.inputField}
-                type="text"
-                id="searchNationalID"
-                name="nationalID"
-                value={searchData.nationalID}
-                onChange={handleSearchChange}
-                placeholder="أدخل رقم الهوية"
-              />
-            </div>
-          </div>
-
-          <div className={styles.searchActions}>
-            <button
-              type="submit"
-              className={styles.searchButton}
-              disabled={searchLoading}
-            >
-              {searchLoading ? 'جاري البحث...' : 'بحث'}
-            </button>
-
-            <button
-              type="button"
-              className={styles.resetButton}
-              onClick={handleReset}
-            >
-              نموذج جديد
-            </button>
-          </div>
-        </form>
-
-        {searchError && (
-          <p className={styles.errorMessage}>{searchError}</p>
-        )}
-      </div>
-
-      {/* AI Section */}
-      <div className={styles.aiSection}>
-        <h2 className={styles.aiTitle}>ملء النموذج تلقائياً بالذكاء الاصطناعي</h2>
-        <p className={styles.aiDescription}>
-          أدخل معلومات العميل كما هي وسيقوم الذكاء الاصطناعي بملء النموذج تلقائياً
-        </p>
-        <form onSubmit={handleAIExtract} className={styles.aiForm}>
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="aiClientInfo">
-              معلومات العميل
-            </label>
-            <textarea
-              className={styles.aiTextarea}
-              id="aiClientInfo"
-              name="aiClientInfo"
-              value={aiText}
-              onChange={handleAIChange}
-              placeholder="أدخل معلومات العميل هنا..."
-              rows="8"
+        <div className={styles.headerMeta}>
+          <h1 className={styles.compactTitle}>الإجازات المرضية</h1>
+          {isEditMode && <span className={styles.editBadge}>✏️ وضع التعديل</span>}
+        </div>
+        {/* حلقة اكتمال النموذج الحية */}
+        <div className={styles.progressRing} title={`اكتمال النموذج ${completionPct}%`}>
+          <svg viewBox="0 0 44 44" width="52" height="52">
+            <circle cx="22" cy="22" r="19" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+            <circle
+              cx="22" cy="22" r="19" fill="none"
+              stroke={completionPct === 100 ? '#10b981' : '#7c3aed'}
+              strokeWidth="4" strokeLinecap="round"
+              strokeDasharray={`${(completionPct / 100) * 119.4} 119.4`}
+              transform="rotate(-90 22 22)"
+              style={{ transition: 'stroke-dasharray 0.6s ease, stroke 0.3s ease' }}
             />
-            {aiError && (
-              <span className={styles.errorMessage}>{aiError}</span>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            className={styles.aiButton}
-            disabled={aiLoading}
-          >
-            {aiLoading ? 'جاري المعالجة بالذكاء الاصطناعي...' : 'استخراج البيانات تلقائياً'}
-          </button>
-        </form>
+          </svg>
+          <span className={styles.progressPct}>{completionPct === 100 ? '✓' : `${completionPct}%`}</span>
+        </div>
       </div>
 
-      {/* Form Container */}
-      <div className={styles.formContainer}>
+      {/* ═══════════ Tab Bar ═══════════ */}
+      <div className={styles.tabBar}>
+        <button
+          type="button"
+          className={`${styles.tabBtn} ${styles.tabBtnAi} ${activeTab === 'ai' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('ai')}
+        >
+          <span className={styles.tabIcon}>✨</span>
+          <span className={styles.tabLabel}>الاستخراج الذكي</span>
+          <span className={styles.tabHint}>الصق وانتهى</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.tabBtn} ${activeTab === 'form' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('form')}
+        >
+          <span className={styles.tabIcon}>📋</span>
+          <span className={styles.tabLabel}>النموذج</span>
+          {filledRequired > 0 && (
+            <span className={styles.tabCounter}>{filledRequired}/{REQUIRED_KEYS.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`${styles.tabBtn} ${activeTab === 'search' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('search')}
+        >
+          <span className={styles.tabIcon}>🔍</span>
+          <span className={styles.tabLabel}>بحث وتعديل</span>
+        </button>
+      </div>
+
+      {/* ═══════════ AI Tab — النجم ═══════════ */}
+      {activeTab === 'ai' && (
+        <div className={styles.aiHero}>
+          <div className={styles.aiHeroGlow} aria-hidden="true" />
+          {aiSuccess ? (
+            <div className={styles.aiCelebration}>
+              <div className={styles.aiCelebrationIcon}>🎯</div>
+              <h2 className={styles.aiCelebrationTitle}>تم الاستخراج!</h2>
+              <p className={styles.aiCelebrationText}>
+                عُبّئ <strong>{aiFieldsFilled}</strong> حقلاً تلقائياً — جارٍ نقلك إلى النموذج...
+              </p>
+              <div className={styles.aiCelebrationBar}><span /></div>
+            </div>
+          ) : aiLoading ? (
+            <div className={styles.aiThinking}>
+              <div className={styles.aiOrb}>
+                <span /><span /><span />
+              </div>
+              <h2 className={styles.aiThinkingTitle}>الذكاء الاصطناعي يقرأ البيانات...</h2>
+              <p className={styles.aiThinkingText}>يستخرج الاسم، الهوية، التواريخ، الطبيب، المستشفى...</p>
+            </div>
+          ) : (
+            <>
+              <div className={styles.aiHeroHead}>
+                <span className={styles.aiSpark}>✨</span>
+                <h2 className={styles.aiHeroTitle}>الصق أي نص — واترك الباقي علينا</h2>
+                <p className={styles.aiHeroSub}>
+                  رسالة واتساب، ورقة مستشفى، ملاحظات… أي صيغة كانت.
+                  <br />
+                  <strong>الاستخراج يبدأ تلقائياً لحظة اللصق</strong> — بدون أي ضغطة زر.
+                </p>
+              </div>
+
+              <div className={styles.aiPasteZone}>
+                <textarea
+                  className={styles.aiPasteArea}
+                  id="aiClientInfo"
+                  name="aiClientInfo"
+                  value={aiText}
+                  onChange={handleAIChange}
+                  onPaste={handleAIPaste}
+                  placeholder={'الصق معلومات العميل هنا...\n\nمثال:\nالاسم: أحمد محمد العتيبي\nالهوية: 1098765432\nدخول 2026-07-25 وخروج 2026-07-27\nد. خالد السالم — مستشفى النور'}
+                  rows="9"
+                  autoFocus
+                />
+                <div className={styles.aiPasteFooter}>
+                  <span className={styles.aiPasteHint}>
+                    ⌨️ Ctrl+V {aiText.trim() ? `· ${aiText.trim().length} حرف` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.aiExtractBtn}
+                    onClick={() => handleAIExtract(null)}
+                    disabled={aiLoading || !aiText.trim()}
+                  >
+                    ✨ استخراج الآن
+                  </button>
+                </div>
+              </div>
+
+              {aiError && (
+                <div className={styles.aiErrorBox}>
+                  <span>⚠️ {aiError}</span>
+                  <button type="button" onClick={() => handleAIExtract(null)}>إعادة المحاولة</button>
+                </div>
+              )}
+
+              <div className={styles.aiTrustRow}>
+                <span>🔒 لا يُحفظ النص</span>
+                <span>⚡ أسرع ١٠ مرات من الإدخال اليدوي</span>
+                <span>🎯 يفهم العربية والإنجليزية</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════ Search Tab ═══════════ */}
+      {activeTab === 'search' && (
+        <div className={styles.searchSection}>
+          <h2 className={styles.searchTitle}>🔍 البحث عن إجازة مرضية موجودة</h2>
+          <form onSubmit={handleSearch} className={styles.searchForm}>
+            <div className={styles.searchFields}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="searchServiceNum">
+                  رقم الخدمة
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="searchServiceNum"
+                  name="serviceNum"
+                  value={searchData.serviceNum}
+                  onChange={handleSearchChange}
+                  placeholder="أدخل رقم الخدمة"
+                />
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="searchNationalID">
+                  رقم الهوية / الإقامة
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="searchNationalID"
+                  name="nationalID"
+                  value={searchData.nationalID}
+                  onChange={handleSearchChange}
+                  placeholder="أدخل رقم الهوية"
+                />
+              </div>
+            </div>
+
+            <div className={styles.searchActions}>
+              <button
+                type="submit"
+                className={styles.searchButton}
+                disabled={searchLoading}
+              >
+                {searchLoading ? 'جاري البحث...' : 'بحث'}
+              </button>
+
+              <button
+                type="button"
+                className={styles.resetButton}
+                onClick={handleReset}
+              >
+                نموذج جديد
+              </button>
+            </div>
+          </form>
+
+          {searchError && (
+            <p className={styles.errorMessage}>{searchError}</p>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════ Form Tab ═══════════ */}
+      <div className={styles.formContainer} style={{ display: activeTab === 'form' ? undefined : 'none' }}>
         <form onSubmit={handleSubmit} className={styles.slForm}>
           {/* Service Number */}
           <div className={styles.fieldGroup}>

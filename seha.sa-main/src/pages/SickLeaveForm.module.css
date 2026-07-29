@@ -923,3 +923,474 @@
     border-color: #e2e8f0 !important;
     box-shadow: none !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Multi-Tab Redesign — AI-first experience
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Compact Header ── */
+.compactHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.25rem 1.25rem;
+    flex-wrap: wrap;
+}
+
+.headerMeta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    justify-content: center;
+}
+
+.compactTitle {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.editBadge {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+
+.progressRing {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+}
+
+.progressPct {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #4c1d95;
+}
+
+/* ── Tab Bar ── */
+.tabBar {
+    display: flex;
+    gap: 0.6rem;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem;
+    border-radius: 18px;
+    box-shadow: 0 2px 14px rgba(15, 23, 42, 0.07);
+    margin-bottom: 1.5rem;
+    position: sticky;
+    top: 8px;
+    z-index: 20;
+}
+
+.tabBtn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.7rem 0.5rem;
+    border: 2px solid transparent;
+    border-radius: 14px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    color: #64748b;
+    transition: all 0.25s ease;
+    position: relative;
+}
+
+.tabBtn:hover {
+    background: #f1f5f9;
+    color: #334155;
+    transform: translateY(-1px);
+}
+
+.tabIcon {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.tabLabel {
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.tabHint {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #a78bfa;
+}
+
+.tabCounter {
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #ede9fe;
+    color: #6d28d9;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+}
+
+.tabActive {
+    background: white;
+    color: #1e293b;
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+/* التبويب الذكي — النجم: توهج دائم يجذب العين */
+.tabBtnAi {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(59, 130, 246, 0.08));
+}
+
+.tabBtnAi .tabIcon {
+    animation: sparkle 2.4s ease-in-out infinite;
+}
+
+.tabBtnAi.tabActive {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 6px 22px rgba(124, 58, 237, 0.45);
+}
+
+.tabBtnAi.tabActive .tabHint {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+@keyframes sparkle {
+    0%, 100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+    50% { transform: scale(1.18) rotate(8deg); filter: brightness(1.35); }
+}
+
+/* ── AI Hero Zone ── */
+.aiHero {
+    position: relative;
+    background: linear-gradient(160deg, #1e1b4b 0%, #312e81 45%, #1e1b4b 100%);
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    min-height: 430px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.aiHeroGlow {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 560px;
+    height: 320px;
+    background: radial-gradient(ellipse, rgba(139, 92, 246, 0.45), transparent 70%);
+    pointer-events: none;
+    animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+.aiHeroHead {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.aiSpark {
+    font-size: 2.4rem;
+    display: inline-block;
+    animation: sparkle 2.4s ease-in-out infinite;
+}
+
+.aiHeroTitle {
+    color: white;
+    font-size: 1.65rem;
+    font-weight: 800;
+    margin: 0.5rem 0 0.6rem;
+}
+
+.aiHeroSub {
+    color: #c7d2fe;
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.aiHeroSub strong {
+    color: #fbbf24;
+}
+
+/* منطقة اللصق */
+.aiPasteZone {
+    position: relative;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px dashed rgba(167, 139, 250, 0.5);
+    border-radius: 18px;
+    padding: 0.9rem;
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.aiPasteZone:focus-within {
+    border-color: #a78bfa;
+    border-style: solid;
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+}
+
+.aiPasteArea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    color: #f1f5f9;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.8;
+    min-height: 180px;
+}
+
+.aiPasteArea::placeholder {
+    color: #818cf8;
+    opacity: 0.75;
+}
+
+.aiPasteFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.aiPasteHint {
+    color: #a5b4fc;
+    font-size: 0.85rem;
+}
+
+.aiExtractBtn {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #451a03;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    border: none;
+    border-radius: 12px;
+    padding: 0.65rem 1.6rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.4);
+}
+
+.aiExtractBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(251, 191, 36, 0.55);
+}
+
+.aiExtractBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.aiErrorBox {
+    margin-top: 1rem;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    color: #fecaca;
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.92rem;
+}
+
+.aiErrorBox button {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.aiTrustRow {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1.4rem;
+    flex-wrap: wrap;
+}
+
+.aiTrustRow span {
+    color: #a5b4fc;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+/* حالة التفكير */
+.aiThinking {
+    text-align: center;
+    position: relative;
+}
+
+.aiOrb {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+}
+
+.aiOrb span {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a78bfa, #6366f1);
+    animation: orbBounce 1.2s ease-in-out infinite;
+    box-shadow: 0 0 18px rgba(139, 92, 246, 0.8);
+}
+
+.aiOrb span:nth-child(2) { animation-delay: 0.15s; }
+.aiOrb span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes orbBounce {
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
+    50% { transform: translateY(-18px) scale(1.15); opacity: 1; }
+}
+
+.aiThinkingTitle {
+    color: white;
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0 0 0.5rem;
+}
+
+.aiThinkingText {
+    color: #c7d2fe;
+    font-size: 0.95rem;
+    margin: 0;
+    animation: fadeInOut 2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+
+/* شاشة الاحتفال */
+.aiCelebration {
+    text-align: center;
+    position: relative;
+    animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.aiCelebrationIcon {
+    font-size: 4rem;
+    animation: sparkle 1.2s ease-in-out infinite;
+}
+
+.aiCelebrationTitle {
+    color: #4ade80;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0.5rem 0;
+}
+
+.aiCelebrationText {
+    color: #e0e7ff;
+    font-size: 1.05rem;
+    margin: 0 0 1.4rem;
+}
+
+.aiCelebrationText strong {
+    color: #fbbf24;
+    font-size: 1.3rem;
+}
+
+.aiCelebrationBar {
+    width: 220px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+.aiCelebrationBar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #22d3ee);
+    border-radius: 999px;
+    animation: fillBar 1.8s linear forwards;
+}
+
+@keyframes fillBar {
+    from { width: 0%; }
+    to { width: 100%; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+    .compactHeader {
+        justify-content: center;
+    }
+
+    .tabBar {
+        gap: 0.35rem;
+        padding: 0.35rem;
+    }
+
+    .tabBtn {
+        padding: 0.55rem 0.3rem;
+    }
+
+    .tabLabel {
+        font-size: 0.8rem;
+    }
+
+    .tabHint {
+        display: none;
+    }
+
+    .aiHero {
+        padding: 1.75rem 1rem;
+        min-height: 380px;
+    }
+
+    .aiHeroTitle {
+        font-size: 1.25rem;
+    }
+
+    .aiTrustRow {
+        gap: 0.8rem;
+    }
+}
