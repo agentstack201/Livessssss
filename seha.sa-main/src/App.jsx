@@ -17,6 +17,7 @@ import DoctorManagement from './pages/DoctorManagement'
 import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
 import KeysManagement from './pages/KeysManagement'
+import BatchSickLeave from './pages/BatchSickLeave'
 import './App.css'
 
 function App() {
@@ -48,6 +49,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SickLeaveForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/batch"
+            element={
+              <ProtectedRoute>
+                <BatchSickLeave />
               </ProtectedRoute>
             }
           />
