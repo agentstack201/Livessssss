@@ -119,6 +119,23 @@ function BatchSickLeave() {
     dirty()
   }
 
+  // ── التقويم البصري ─────────────────────────────────────────────────────
+  // الأيام المحددة = الفترات المفردة (يوم واحد). النقر على يوم يضيفه/يزيله.
+  const selectedSet = new Set(periods.filter((p) => p.single && p.from && p.from === p.to).map((p) => p.from))
+  const toggleDay = (isoDate) => {
+    const existing = periods.find((p) => p.single && p.from === isoDate && p.to === isoDate)
+    if (existing) { removePeriod(existing.id); return }
+    setPeriods((p) => [...p, newPeriod(true, isoDate, isoDate)]); dirty()
+  }
+  const skipWeekends = () => {
+    setPeriods((ps) => ps.filter((p) => {
+      if (!(p.single && p.from && p.from === p.to)) return true
+      const dow = new Date(`${p.from}T00:00:00`).getDay()
+      return dow !== 5 && dow !== 6 // الجمعة=5، السبت=6
+    }))
+    dirty()
+  }
+
   const validPeriods = periods
     .map((p) => ({ ...p, to: p.single ? p.from : p.to }))
     .filter((p) => p.from && p.to && new Date(p.from) <= new Date(p.to))
@@ -298,11 +315,16 @@ function BatchSickLeave() {
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ ...h3, margin: 0 }}>الأيام / الفترات ({validCount})</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input style={{ ...input, width: 'auto' }} type="date" value={quickDay} onChange={(e) => setQuickDay(e.target.value)} />
-              <button style={btn(ORANGE)} onClick={addDay}>+ أضف يومًا</button>
-              <button style={btn(NAVY)} onClick={addRange}>+ أضف فترة</button>
-            </div>
+            <button style={btn('#64748b')} onClick={skipWeekends} title="إزالة الجمعة والسبت من المحدد">تخطَّ الجمعة/السبت</button>
+          </div>
+          <p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 10px' }}>
+            انقر أيام الغياب على التقويم — كل يوم يصبح ملفًا مستقلًا. للفترات المتصلة استخدم «أضف فترة».
+          </p>
+          <MonthCalendar selectedSet={selectedSet} onToggle={toggleDay} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+            <input style={{ ...input, width: 'auto' }} type="date" value={quickDay} onChange={(e) => setQuickDay(e.target.value)} />
+            <button style={btn(ORANGE)} onClick={addDay}>+ أضف يومًا</button>
+            <button style={btn(NAVY)} onClick={addRange}>+ أضف فترة</button>
           </div>
 
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -430,6 +452,63 @@ function PreviewModal({ files, onClose }) {
   )
 }
 
+// تقويم شهري: انقر يومًا لتحديده/إلغائه. نهايات الأسبوع (جمعة/سبت) بلون مميّز.
+const MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+const DOW_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت']
+const pad2 = (n) => String(n).padStart(2, '0')
+
+function MonthCalendar({ selectedSet, onToggle }) {
+  const now = new Date()
+  const [view, setView] = useState({ y: now.getFullYear(), m: now.getMonth() })
+
+  const firstDow = new Date(view.y, view.m, 1).getDay() // 0=الأحد
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate()
+  const todayISO = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
+  const cells = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+  const shift = (delta) => setView((v) => { const d = new Date(v.y, v.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } })
+
+  const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 5 }
+
+  return (
+    <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <button type="button" onClick={() => shift(-1)} style={navBtn}>‹</button>
+        <div style={{ fontWeight: 800, color: NAVY }}>{MONTHS_AR[view.m]} {view.y}</div>
+        <button type="button" onClick={() => shift(1)} style={navBtn}>›</button>
+      </div>
+      <div style={{ ...gridStyle, marginBottom: 6 }}>
+        {DOW_AR.map((d, i) => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: i >= 5 ? '#b45309' : '#94a3b8' }}>{d}</div>
+        ))}
+      </div>
+      <div style={gridStyle}>
+        {cells.map((d, i) => {
+          if (!d) return <div key={`e${i}`} />
+          const iso = `${view.y}-${pad2(view.m + 1)}-${pad2(d)}`
+          const dow = new Date(view.y, view.m, d).getDay()
+          const weekend = dow === 5 || dow === 6
+          const sel = selectedSet.has(iso)
+          const isToday = iso === todayISO
+          return (
+            <button key={iso} type="button" onClick={() => onToggle(iso)}
+              style={{
+                aspectRatio: '1 / 1', minHeight: 34, borderRadius: 9, cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
+                border: isToday ? `2px solid ${ORANGE}` : '1px solid #e2e8f0',
+                background: sel ? GREEN : weekend ? '#fef2f2' : '#f8fafc',
+                color: sel ? '#fff' : weekend ? '#b91c1c' : NAVY,
+                transition: 'background .15s',
+              }}>
+              {d}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const navBtn = { width: 34, height: 34, borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', color: NAVY, fontSize: 18, fontWeight: 800, cursor: 'pointer', lineHeight: 1 }
 const overlay = { position: 'fixed', inset: 0, background: 'rgba(15,37,71,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999 }
 
 function Field({ label, children, inline }) {
