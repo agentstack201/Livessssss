@@ -12,7 +12,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 // اسم الملف الثابت المطلوب — بدون أي زيادة أو نقصان.
-export const PDF_FILE_NAME = 'sickLeaves.pdf'
+export const PDF_FILE_NAME = 'SickLeaves.pdf'
 
 // جلب ملف PDF من الخادم (يُنشأ عبر Chromium page.pdf() بنفس شكل المعاينة).
 export const fetchLeavePdfBlob = async (leave) => {
@@ -70,7 +70,7 @@ export const downloadNamedBlob = (blob, fileName) => {
   window.URL.revokeObjectURL(objectUrl)
 }
 
-// تنزيل الملف باسم sickLeaves.pdf.
+// تنزيل الملف باسم SickLeaves.pdf.
 export const downloadLeavePdf = (blob) => downloadNamedBlob(blob, PDF_FILE_NAME)
 
 /**

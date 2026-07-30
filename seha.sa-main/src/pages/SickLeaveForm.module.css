@@ -1394,3 +1394,36 @@
         gap: 0.8rem;
     }
 }
+
+/* ── التحرير الدقيق للتواريخ (قابل للطي) ── */
+.preciseDates {
+    border: 1.5px dashed #e2e8f0;
+    border-radius: 12px;
+    padding: 0.6rem 1rem;
+    background: #fafafa;
+}
+
+.preciseDates summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #64748b;
+    padding: 0.3rem 0;
+    user-select: none;
+}
+
+.preciseDates summary:hover {
+    color: #7c3aed;
+}
+
+.preciseDates[open] {
+    border-color: #ddd6fe;
+    background: #faf5ff;
+}
+
+.preciseGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 0.8rem;
+}

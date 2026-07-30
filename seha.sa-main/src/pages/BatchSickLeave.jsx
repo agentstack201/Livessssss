@@ -234,7 +234,7 @@ function BatchSickLeave() {
         while (idx < ok.length) {
           const i = idx++
           const blob = await fetchLeavePdfBlob(ok[i])
-          files[i] = new File([blob], `sickLeaves-${i + 1}.pdf`, { type: 'application/pdf' })
+          files[i] = new File([blob], `SickLeaves-${i + 1}.pdf`, { type: 'application/pdf' })
           setProgress((s) => ({ ...s, done: ++built }))
         }
       }

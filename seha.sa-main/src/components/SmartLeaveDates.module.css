@@ -1,0 +1,402 @@
+/* Smart Leave Dates — بطاقة التواريخ الذكية */
+.card {
+    background: linear-gradient(160deg, #faf5ff 0%, #eff6ff 100%);
+    border: 1.5px solid #ddd6fe;
+    border-radius: 18px;
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+.head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.headIcon {
+    font-size: 1.9rem;
+    filter: drop-shadow(0 2px 4px rgba(124, 58, 237, 0.25));
+}
+
+.headTitle {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #4c1d95;
+}
+
+.headSub {
+    margin: 0.1rem 0 0;
+    font-size: 0.82rem;
+    color: #7c3aed;
+}
+
+/* الإدخال الذكي */
+.nlRow {
+    display: flex;
+    gap: 0.6rem;
+    align-items: stretch;
+}
+
+.nlInput {
+    flex: 1;
+    border: 1.5px solid #c4b5fd;
+    border-radius: 12px;
+    padding: 0.7rem 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: white;
+    color: #1e293b;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nlInput:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+}
+
+.nlInput::placeholder {
+    color: #a78bfa;
+}
+
+.nlApply {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0 1.1rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    animation: slideIn 0.25s ease;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-8px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.nlHit {
+    margin: -0.5rem 0 0;
+    font-size: 0.85rem;
+    color: #059669;
+    font-weight: 600;
+}
+
+.nlMiss {
+    margin: -0.5rem 0 0;
+    font-size: 0.82rem;
+    color: #b45309;
+}
+
+/* الشرائح */
+.chipsGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.chipGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.chipLabel {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #6b21a8;
+    min-width: 88px;
+}
+
+.chips {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.chip {
+    background: white;
+    border: 1.5px solid #e9d5ff;
+    color: #6d28d9;
+    border-radius: 999px;
+    padding: 0.4rem 0.95rem;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.chip:hover {
+    border-color: #a78bfa;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.18);
+}
+
+.chipOn {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    background: white;
+    border: 1.5px solid #e9d5ff;
+    border-radius: 999px;
+    padding: 0.15rem 0.3rem;
+}
+
+.stepper button {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: #f3e8ff;
+    color: #6d28d9;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s ease;
+}
+
+.stepper button:hover {
+    background: #e9d5ff;
+}
+
+.stepper b {
+    min-width: 26px;
+    text-align: center;
+    color: #4c1d95;
+    font-size: 0.95rem;
+}
+
+/* التقويم */
+.calendar {
+    background: white;
+    border: 1.5px solid #ede9fe;
+    border-radius: 14px;
+    padding: 0.9rem;
+}
+
+.calHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+
+.calTitle {
+    font-weight: 800;
+    color: #4c1d95;
+    font-size: 0.98rem;
+}
+
+.calNav {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: #f5f3ff;
+    color: #6d28d9;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.calNav:hover {
+    background: #ede9fe;
+}
+
+.calGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+
+.calWd {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #a78bfa;
+    padding-bottom: 4px;
+}
+
+.calDay {
+    aspect-ratio: 1;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: #334155;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.13s ease;
+}
+
+.calDay:hover {
+    background: #f3e8ff;
+    transform: scale(1.08);
+}
+
+.calToday {
+    box-shadow: inset 0 0 0 1.5px #a78bfa;
+}
+
+.calRange {
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 4px;
+}
+
+.calEdge {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: white;
+    border-radius: 9px;
+    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.4);
+}
+
+.calHint {
+    margin: 0.6rem 0 0;
+    text-align: center;
+    font-size: 0.83rem;
+    color: #7c3aed;
+    animation: pulseHint 1.4s ease-in-out infinite;
+}
+
+@keyframes pulseHint {
+    0%, 100% { opacity: 0.65; }
+    50% { opacity: 1; }
+}
+
+/* الملخص */
+.summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    border-radius: 14px;
+    padding: 0.9rem 1.1rem;
+    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(6px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.summaryDays {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #fbbf24;
+    min-width: 52px;
+    text-align: center;
+    line-height: 1;
+}
+
+.summaryDays::after {
+    content: 'يوم';
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 2px;
+}
+
+.summaryText {
+    flex: 1;
+}
+
+.summaryMain {
+    margin: 0;
+    color: white;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.summaryMain b {
+    color: #fde68a;
+    font-weight: 700;
+}
+
+.summaryHijri {
+    margin: 0.25rem 0 0;
+    color: #c7d2fe;
+    font-size: 0.8rem;
+}
+
+.summaryEmpty {
+    margin: 0;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.88rem;
+    padding: 0.6rem;
+    border: 1.5px dashed #ddd6fe;
+    border-radius: 12px;
+}
+
+/* تاريخ الإصدار */
+.issueRow {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    padding-top: 0.2rem;
+    border-top: 1px dashed #ddd6fe;
+}
+
+.issueValue {
+    font-size: 0.82rem;
+    color: #059669;
+    font-weight: 600;
+}
+
+/* الأخطاء */
+.errBox {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.85rem;
+    color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+    .card {
+        padding: 1rem;
+    }
+
+    .chipLabel {
+        min-width: 100%;
+    }
+
+    .nlRow {
+        flex-direction: column;
+    }
+
+    .nlApply {
+        padding: 0.6rem;
+    }
+
+    .summaryDays {
+        font-size: 1.6rem;
+    }
+}

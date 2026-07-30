@@ -4,6 +4,7 @@ import styles from './SickLeaveForm.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import MediaPicker from '../components/MediaPicker'
 import NationalityPicker from '../components/NationalityPicker'
+import SmartLeaveDates, { toHijriDMY } from '../components/SmartLeaveDates'
 
 // API Configuration from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -548,11 +549,14 @@ function SickLeaveForm() {
       const dischargeDate = name === 'dischargeDate' ? value : formData.dischargeDate
 
       // مزامنة "تبدأ من" مع تاريخ الدخول و "وحتى" مع تاريخ الخروج تلقائياً
+      // مع تحديث المقابل الهجري حتى لا يبقى قديماً بعد تعديل الميلادي
       setFormData(prev => ({
         ...prev,
         [name]: value,
         startDate: name === 'admissionDate' ? value : prev.startDate,
-        endDate: name === 'dischargeDate' ? value : prev.endDate
+        endDate: name === 'dischargeDate' ? value : prev.endDate,
+        admissionDateAr: name === 'admissionDate' ? toHijriDMY(value) : prev.admissionDateAr,
+        dischargeDateAr: name === 'dischargeDate' ? toHijriDMY(value) : prev.dischargeDateAr
       }))
 
       if (admissionDate) {
@@ -787,6 +791,8 @@ function SickLeaveForm() {
           issueDate: formatDate(record.issue_date),
           admissionDate: formatDate(record.admission_date_en),
           dischargeDate: formatDate(record.discharge_date_en),
+          admissionDateAr: record.admission_date_ar || '',
+          dischargeDateAr: record.discharge_date_ar || '',
           startDate: formatDate(record.admission_date_en),
           endDate: formatDate(record.discharge_date_en),
           duration: record.leave_days || '',
@@ -1550,7 +1556,9 @@ function SickLeaveForm() {
 
       {/* ═══════════ Form Tab ═══════════ */}
       <div className={styles.formContainer} style={{ display: activeTab === 'form' ? undefined : 'none' }}>
-        <form onSubmit={handleSubmit} className={styles.slForm}>
+        {/* noValidate: التحقق المخصص (validateForm) يعرض الرسائل العربية؛
+            التحقق الأصلي للمتصفح يعلق صامتاً على حقول required داخل details مغلق */}
+        <form onSubmit={handleSubmit} className={styles.slForm} noValidate>
           {/* Service Number */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="serviceNum">
@@ -1750,130 +1758,135 @@ function SickLeaveForm() {
             )}
           </div>
 
-          {/* Issue Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="issueDate">
-              تاريخ إصدار تقرير الإجازة *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="issueDate"
-              name="issueDate"
-              value={formData.issueDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.issueDate && (
-              <span className={styles.errorMessage}>{errors.issueDate}</span>
-            )}
-          </div>
+          {/* Smart Dates — نظام التواريخ الذكي */}
+          <SmartLeaveDates
+            admissionDate={formData.admissionDate}
+            dischargeDate={formData.dischargeDate}
+            issueDate={formData.issueDate}
+            errors={errors}
+            onApply={(patch) => {
+              setFormData(prev => {
+                const next = { ...prev, ...patch }
+                // تحديث الهجري مع كل تغيير ميلادي حتى لا تُطبع تواريخ هجرية قديمة
+                if (patch.admissionDate && patch.admissionDate !== prev.admissionDate) {
+                  next.admissionDateAr = toHijriDMY(patch.admissionDate)
+                }
+                if (patch.dischargeDate && patch.dischargeDate !== prev.dischargeDate) {
+                  next.dischargeDateAr = toHijriDMY(patch.dischargeDate)
+                }
+                return next
+              })
+              setErrors(prev => {
+                const next = { ...prev }
+                Object.keys(patch).forEach(k => { delete next[k] })
+                return next
+              })
+              if (success) { setSuccess(false); setMessage(''); setPdfError('') }
+            }}
+          />
 
-          {/* Admission Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="admissionDate">
-              تاريخ الدخول للمستشفى *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="admissionDate"
-              name="admissionDate"
-              value={formData.admissionDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.admissionDate && (
-              <span className={styles.errorMessage}>{errors.admissionDate}</span>
-            )}
-            <small className={styles.helpText}>
-              سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري
-            </small>
-          </div>
+          {/* التحرير الدقيق للتواريخ — للحالات النادرة */}
+          <details className={styles.preciseDates}>
+            <summary>⚙️ تحرير دقيق للتواريخ (اختياري)</summary>
+            <div className={styles.preciseGrid}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="admissionDate">تاريخ الدخول *</label>
+                <input
+                  className={styles.inputField}
+                  type="date"
+                  id="admissionDate"
+                  name="admissionDate"
+                  value={formData.admissionDate}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.admissionDate && (
+                  <span className={styles.errorMessage}>{errors.admissionDate}</span>
+                )}
+              </div>
 
-          {/* Discharge Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="dischargeDate">
-              تاريخ الخروج من المستشفى *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="dischargeDate"
-              name="dischargeDate"
-              value={formData.dischargeDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.dischargeDate && (
-              <span className={styles.errorMessage}>{errors.dischargeDate}</span>
-            )}
-            <small className={styles.helpText}>
-              سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري
-            </small>
-          </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="dischargeDate">تاريخ الخروج *</label>
+                <input
+                  className={styles.inputField}
+                  type="date"
+                  id="dischargeDate"
+                  name="dischargeDate"
+                  value={formData.dischargeDate}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.dischargeDate && (
+                  <span className={styles.errorMessage}>{errors.dischargeDate}</span>
+                )}
+              </div>
 
-          {/* Start Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="startDate">
-              تبدأ من *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="startDate"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.startDate && (
-              <span className={styles.errorMessage}>{errors.startDate}</span>
-            )}
-          </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="issueDate">تاريخ إصدار التقرير *</label>
+                <input
+                  className={styles.inputField}
+                  type="date"
+                  id="issueDate"
+                  name="issueDate"
+                  value={formData.issueDate}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.issueDate && (
+                  <span className={styles.errorMessage}>{errors.issueDate}</span>
+                )}
+              </div>
 
-          {/* End Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="endDate">
-              وحتى *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="endDate"
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.endDate && (
-              <span className={styles.errorMessage}>{errors.endDate}</span>
-            )}
-          </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="startDate">تبدأ من *</label>
+                <input
+                  className={styles.inputField}
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  value={formData.startDate}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.startDate && (
+                  <span className={styles.errorMessage}>{errors.startDate}</span>
+                )}
+              </div>
 
-          {/* Duration */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="duration">
-              المدة بالأيام * (تحسب تلقائياً)
-            </label>
-            <input
-              className={`${styles.inputField} ${styles.readOnlyInput}`}
-              type="number"
-              id="duration"
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder="سيتم حسابها تلقائياً"
-              readOnly
-              style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
-            />
-            <small className={styles.helperText}>
-              ⚡ يتم حساب المدة تلقائياً من تاريخ الدخول والخروج
-            </small>
-            {errors.duration && (
-              <span className={styles.errorMessage}>{errors.duration}</span>
-            )}
-          </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="endDate">وحتى *</label>
+                <input
+                  className={styles.inputField}
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  value={formData.endDate}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.endDate && (
+                  <span className={styles.errorMessage}>{errors.endDate}</span>
+                )}
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="duration">المدة بالأيام (تلقائية)</label>
+                <input
+                  className={`${styles.inputField} ${styles.readOnlyInput}`}
+                  type="number"
+                  id="duration"
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  readOnly
+                  style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
+                />
+                {errors.duration && (
+                  <span className={styles.errorMessage}>{errors.duration}</span>
+                )}
+              </div>
+            </div>
+          </details>
 
           {/* Doctor Name (English) */}
           <div className={styles.fieldGroup}>

@@ -28,7 +28,7 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     return null;
   }
 
-  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة) باسم sickLeaves.pdf.
+  // تنزيل ملف PDF حقيقي (نصوص قابلة للنسخ والبحث + جودة متجهية حادة) باسم SickLeaves.pdf.
   const generatePDF = async () => {
     if (downloading) return;
 
