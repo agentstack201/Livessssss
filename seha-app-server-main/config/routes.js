@@ -120,6 +120,17 @@ try {
   }));
 }
 
+let setupRoute;
+try {
+  setupRoute = require("../routes/setup.route");
+  console.log("✅ Setup route loaded");
+} catch (error) {
+  console.error("❌ Setup route failed:", error.message);
+  const express = require("express");
+  setupRoute = express.Router();
+  setupRoute.all("*", (req, res) => res.status(503).send("Setup service unavailable"));
+}
+
 module.exports = {
   loginRoute,
   countryRoute,
@@ -130,4 +141,5 @@ module.exports = {
   doctorRoute,
   hospitalRoute,
   keysRoute,
+  setupRoute,
 };
