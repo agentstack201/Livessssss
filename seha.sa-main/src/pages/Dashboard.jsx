@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import styles from './Dashboard.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
+import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 import WelcomePopup from '../components/WelcomePopup'
 import { shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare'
 
@@ -752,12 +753,19 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* PDF Modal */}
+      {/* PDF Modal — القالب يُختار حسب نوع المستند المحفوظ */}
       {showPdfModal && selectedLeave && (
-        <SickLeavePDFOriginal
-          data={selectedLeave}
-          onClose={() => setShowPdfModal(false)}
-        />
+        selectedLeave.document_type === 'companion_visit' ? (
+          <CompanionVisitPDFOriginal
+            data={selectedLeave}
+            onClose={() => setShowPdfModal(false)}
+          />
+        ) : (
+          <SickLeavePDFOriginal
+            data={selectedLeave}
+            onClose={() => setShowPdfModal(false)}
+          />
+        )
       )}
 
       {/* Welcome Popup - يظهر كل 5 دقائق للمستخدمين غير simo */}

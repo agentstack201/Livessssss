@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import styles from './SickLeaveForm.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
+import CompanionVisitPDFOriginal, { calcWaitingPeriod } from '../components/CompanionVisitPDFOriginal'
 import MediaPicker from '../components/MediaPicker'
 import NationalityPicker from '../components/NationalityPicker'
 
@@ -11,6 +12,22 @@ const API_SICK_LEAVES = import.meta.env.VITE_API_SICK_LEAVES || '/sick-leaves'
 const API_URL = `${API_BASE_URL}${API_SICK_LEAVES}`
 const DEFAULT_FOOTER_LOGO = '/images/1.png'
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
+
+// أنواع المستندات المدعومة. «إجازة مرضية» هي السلوك الحالي بحذافيره،
+// و«مشهد مراجعة لمرافق» قالب جديد يستخدم نفس نظام الحفظ والمعاينة والطباعة.
+const DOC_SICK_LEAVE = 'sick_leave'
+const DOC_COMPANION = 'companion_visit'
+
+// حقول قالب «مشهد مراجعة لمرافق» فقط — تُضاف للنموذج بقيم فارغة دائماً حتى
+// تبقى الحقول متحكَّماً بها (controlled) في الحالتين.
+const COMPANION_FIELD_DEFAULTS = {
+  admissionTime: '',
+  dischargeTime: '',
+  relationArabic: '',
+  relationEnglish: '',
+  visitTypeArabic: '',
+  visitTypeEnglish: ''
+}
 
 // Convert a stored PDF-format report time ("5:30 PM") into an <input type="time">
 // value ("17:30"). Returns '' when the value is missing or not parseable so the
@@ -85,8 +102,13 @@ function SickLeaveForm() {
     showLicenseNumber: true,
     reportTime: '',
     reportDate: '',
-    footerLogo: ''
+    footerLogo: '',
+    ...COMPANION_FIELD_DEFAULTS
   })
+
+  // نوع المستند المختار — الافتراضي هو الإجازة المرضية (النظام الحالي كما هو).
+  const [documentType, setDocumentType] = useState(DOC_SICK_LEAVE)
+  const isCompanion = documentType === DOC_COMPANION
 
   // Search data state
   const [searchData, setSearchData] = useState({
@@ -489,8 +511,16 @@ function SickLeaveForm() {
         reportDate: parsePdfReportDate(leaveData.report_date),
         footerLogo: leaveData.footer_logo
           ? (leaveData.footer_logo.startsWith('http') || leaveData.footer_logo.startsWith('data:') ? leaveData.footer_logo : `${API_BASE_URL}${leaveData.footer_logo}`)
-          : ''
+          : '',
+        // حقول «مشهد مراجعة لمرافق» — فارغة للسجلات القديمة
+        admissionTime: parsePdfReportTime(leaveData.admission_time),
+        dischargeTime: parsePdfReportTime(leaveData.discharge_time),
+        relationArabic: leaveData.relation_ar || '',
+        relationEnglish: leaveData.relation_en || '',
+        visitTypeArabic: leaveData.visit_type_ar || '',
+        visitTypeEnglish: leaveData.visit_type_en || ''
       })
+      setDocumentType(leaveData.document_type === DOC_COMPANION ? DOC_COMPANION : DOC_SICK_LEAVE)
       setIsEditMode(true)
       setOriginalServiceNum(leaveData.service_num || '')
       setOriginalLeaveId(leaveData.leave_id || '')
@@ -640,7 +670,30 @@ function SickLeaveForm() {
   // Validate form
   const validateForm = () => {
     const newErrors = {}
-    const requiredFields = {
+    // الحقول المشتركة بين القالبين
+    const requiredFields = isCompanion ? {
+      serviceNum: 'رقم الخدمة مطلوب',
+      nationalID: 'رقم الهوية مطلوب',
+      name: 'اسم المرافق بالإنجليزية مطلوب',
+      nameArabic: 'اسم المرافق بالعربية مطلوب',
+      leaveId: 'رقم الإجازة مطلوب',
+      nationality: 'الجنسية مطلوبة',
+      physicianPosition: 'المسمى الوظيفي بالإنجليزية مطلوب',
+      physicianPositionArabic: 'المسمى الوظيفي بالعربية مطلوب',
+      issueDate: 'تاريخ إصدار التقرير مطلوب',
+      admissionDate: 'تاريخ الدخول مطلوب',
+      admissionTime: 'وقت الدخول مطلوب',
+      dischargeDate: 'تاريخ الخروج مطلوب',
+      dischargeTime: 'وقت الخروج مطلوب',
+      doctorName: 'اسم الممارس الصحي بالإنجليزية مطلوب',
+      doctorNameArabic: 'اسم الممارس الصحي بالعربية مطلوب',
+      relationArabic: 'صلة القرابة بالعربية مطلوبة',
+      relationEnglish: 'صلة القرابة بالإنجليزية مطلوبة',
+      visitTypeArabic: 'نوع الزيارة بالعربية مطلوب',
+      visitTypeEnglish: 'نوع الزيارة بالإنجليزية مطلوب',
+      hospitalNameArabic: 'اسم المنشأة الصحية بالعربية مطلوب',
+      hospitalNameEnglish: 'اسم المنشأة الصحية بالإنجليزية مطلوب'
+    } : {
       serviceNum: 'رقم الخدمة مطلوب',
       nationalID: 'رقم الهوية مطلوب',
       name: 'الاسم بالإنجليزية مطلوب',
@@ -683,8 +736,8 @@ function SickLeaveForm() {
       }
     })
 
-    // التحقق من أن المدة تم حسابها تلقائياً
-    if (!formData.duration || formData.duration === '0') {
+    // التحقق من أن المدة تم حسابها تلقائياً (الإجازة المرضية فقط — المشهد لا يحوي مدة)
+    if (!isCompanion && (!formData.duration || formData.duration === '0')) {
       newErrors.duration = 'يرجى تحديد تاريخ الدخول والخروج لحساب المدة'
     }
 
@@ -695,10 +748,18 @@ function SickLeaveForm() {
       }
     }
 
-    if (formData.startDate && formData.endDate) {
+    if (!isCompanion && formData.startDate && formData.endDate) {
       if (new Date(formData.startDate) > new Date(formData.endDate)) {
         newErrors.endDate = 'تاريخ نهاية الإجازة يجب أن يكون بعد تاريخ البداية'
       }
+    }
+
+    // المشهد: وقت الخروج يجب أن يكون بعد وقت الدخول في نفس اليوم
+    if (isCompanion && formData.admissionDate && formData.dischargeDate &&
+        formData.admissionTime && formData.dischargeTime &&
+        formData.admissionDate === formData.dischargeDate &&
+        formData.admissionTime > formData.dischargeTime) {
+      newErrors.dischargeTime = 'وقت الخروج يجب أن يكون بعد وقت الدخول'
     }
 
     // تم إزالة التحقق من المدة لأنها تحسب تلقائياً
@@ -800,8 +861,16 @@ function SickLeaveForm() {
             ? (record.footer_logo.startsWith('http') || record.footer_logo.startsWith('data:') ? record.footer_logo : `${API_BASE_URL}${record.footer_logo}`)
             : '',
           reportTime: parsePdfReportTime(record.report_time),
-          reportDate: parsePdfReportDate(record.report_date)
+          reportDate: parsePdfReportDate(record.report_date),
+          // حقول «مشهد مراجعة لمرافق» — فارغة للسجلات القديمة
+          admissionTime: parsePdfReportTime(record.admission_time),
+          dischargeTime: parsePdfReportTime(record.discharge_time),
+          relationArabic: record.relation_ar || '',
+          relationEnglish: record.relation_en || '',
+          visitTypeArabic: record.visit_type_ar || '',
+          visitTypeEnglish: record.visit_type_en || ''
         })
+        setDocumentType(record.document_type === DOC_COMPANION ? DOC_COMPANION : DOC_SICK_LEAVE)
         setIsEditMode(true)
         setOriginalServiceNum(record.service_num || '')
         setOriginalLeaveId(record.leave_id || '')
@@ -1008,7 +1077,16 @@ function SickLeaveForm() {
         show_license_number: formData.showLicenseNumber,
         report_time: formatTimeForPDF(formData.reportTime),
         report_date: formatDateForPDF(formData.reportDate),
-        footer_logo: formData.footerLogo || null
+        footer_logo: formData.footerLogo || null,
+        // نوع المستند وحقول «مشهد مراجعة لمرافق». مع الإجازة المرضية تُرسل فارغة
+        // فلا يتغيّر أي سلوك قائم.
+        document_type: documentType,
+        admission_time: isCompanion ? (formatTimeForPDF(formData.admissionTime) || '') : '',
+        discharge_time: isCompanion ? (formatTimeForPDF(formData.dischargeTime) || '') : '',
+        relation_en: isCompanion ? formData.relationEnglish : '',
+        relation_ar: isCompanion ? formData.relationArabic : '',
+        visit_type_en: isCompanion ? formData.visitTypeEnglish : '',
+        visit_type_ar: isCompanion ? formData.visitTypeArabic : ''
       }
 
       // Debug: طباعة البيانات المرسلة
@@ -1034,7 +1112,8 @@ function SickLeaveForm() {
       const data = await response.json()
 
       if (response.ok) {
-        const successMsg = isEditMode ? 'تم تحديث الإجازة المرضية بنجاح' : 'تم إنشاء الإجازة المرضية بنجاح'
+        const docLabel = isCompanion ? 'مشهد المراجعة للمرافق' : 'الإجازة المرضية'
+        const successMsg = isEditMode ? `تم تحديث ${docLabel} بنجاح` : `تم إنشاء ${docLabel} بنجاح`
         setMessage(`نجح: ${data.message}`)
         setErrors({})
         setSuccess(true)
@@ -1137,7 +1216,8 @@ function SickLeaveForm() {
           dischargeDateAr: '',
           reportTime: '',
           reportDate: '',
-          footerLogo: ''
+          footerLogo: '',
+          ...COMPANION_FIELD_DEFAULTS
         })
         setSearchData({ serviceNum: '', nationalID: '' })
         setIsEditMode(false)
@@ -1186,7 +1266,8 @@ function SickLeaveForm() {
       dischargeDateAr: '',
       reportTime: '',
       reportDate: '',
-      footerLogo: ''
+      footerLogo: '',
+      ...COMPANION_FIELD_DEFAULTS
     })
     setSearchData({ serviceNum: '', nationalID: '' })
     setIsEditMode(false)
@@ -1254,7 +1335,16 @@ function SickLeaveForm() {
             country_name_ar: formData.nationality,
             country_name_en: countryNameEn
           },
-          footer_logo: formData.footerLogo || null
+          footer_logo: formData.footerLogo || null,
+
+          // Mapping required by CompanionVisitPDFOriginal.jsx
+          document_type: documentType,
+          admission_time: isCompanion ? (formatTimeForPDF(formData.admissionTime) || '') : '',
+          discharge_time: isCompanion ? (formatTimeForPDF(formData.dischargeTime) || '') : '',
+          relation_en: formData.relationEnglish,
+          relation_ar: formData.relationArabic,
+          visit_type_en: formData.visitTypeEnglish,
+          visit_type_ar: formData.visitTypeArabic
         }
         setPdfData(pdfDataToUse)
         setShowPdfModal(true)
@@ -1279,11 +1369,22 @@ function SickLeaveForm() {
   }
 
   // نسبة اكتمال النموذج — تُعرض كحلقة تقدم حية في شريط التبويبات
-  const REQUIRED_KEYS = ['serviceNum', 'nationalID', 'name', 'nameArabic', 'leaveId', 'nationality',
-    'physicianPosition', 'physicianPositionArabic', 'issueDate', 'admissionDate', 'dischargeDate',
-    'startDate', 'endDate', 'doctorName', 'doctorNameArabic', 'hospitalNameArabic', 'hospitalNameEnglish']
+  const REQUIRED_KEYS = isCompanion
+    ? ['serviceNum', 'nationalID', 'name', 'nameArabic', 'leaveId', 'nationality',
+      'physicianPosition', 'physicianPositionArabic', 'issueDate', 'admissionDate', 'admissionTime',
+      'dischargeDate', 'dischargeTime', 'doctorName', 'doctorNameArabic', 'relationArabic',
+      'relationEnglish', 'visitTypeArabic', 'visitTypeEnglish', 'hospitalNameArabic', 'hospitalNameEnglish']
+    : ['serviceNum', 'nationalID', 'name', 'nameArabic', 'leaveId', 'nationality',
+      'physicianPosition', 'physicianPositionArabic', 'issueDate', 'admissionDate', 'dischargeDate',
+      'startDate', 'endDate', 'doctorName', 'doctorNameArabic', 'hospitalNameArabic', 'hospitalNameEnglish']
   const filledRequired = REQUIRED_KEYS.filter(k => formData[k] && String(formData[k]).trim() !== '').length
   const completionPct = Math.round((filledRequired / REQUIRED_KEYS.length) * 100)
+
+  // فترة الانتظار الحية للمشهد — نفس الحساب المستخدم في المعاينة وملف الـ PDF.
+  const companionWaiting = calcWaitingPeriod(
+    formData.admissionDate, formData.admissionTime,
+    formData.dischargeDate, formData.dischargeTime
+  )
 
   // Check if user has permission
   if (editMode && !canEdit) {
@@ -1357,7 +1458,7 @@ function SickLeaveForm() {
           <span className={styles.logoText}>الجبل</span>
         </div>
         <div className={styles.headerMeta}>
-          <h1 className={styles.compactTitle}>الإجازات المرضية</h1>
+          <h1 className={styles.compactTitle}>{isCompanion ? 'مشهد مراجعة لمرافق' : 'الإجازات المرضية'}</h1>
           {isEditMode && <span className={styles.editBadge}>✏️ وضع التعديل</span>}
         </div>
         {/* حلقة اكتمال النموذج الحية */}
@@ -1551,6 +1652,36 @@ function SickLeaveForm() {
       {/* ═══════════ Form Tab ═══════════ */}
       <div className={styles.formContainer} style={{ display: activeTab === 'form' ? undefined : 'none' }}>
         <form onSubmit={handleSubmit} className={styles.slForm}>
+          {/* نوع المستند — إجازة مرضية (الافتراضي) أو مشهد مراجعة لمرافق */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="documentType">
+              نوع المستند *
+            </label>
+            <select
+              className={styles.inputField}
+              id="documentType"
+              name="documentType"
+              value={documentType}
+              onChange={(e) => {
+                setDocumentType(e.target.value)
+                setErrors({})
+              }}
+              style={{
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                background: documentType === DOC_COMPANION ? '#eef2ff' : '#f8fafc'
+              }}
+            >
+              <option value={DOC_SICK_LEAVE}>إجازة مرضية</option>
+              <option value={DOC_COMPANION}>مشهد مراجعة لمرافق</option>
+            </select>
+            <small className={styles.helpText}>
+              {isCompanion
+                ? 'سيتم إصدار مستند «مشهد مراجعة لمرافق (Companion Statement of Visit)»'
+                : 'سيتم إصدار «تقرير إجازة مرضية (Sick Leave Report)» كالمعتاد'}
+            </small>
+          </div>
+
           {/* Service Number */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="serviceNum">
@@ -1657,7 +1788,7 @@ function SickLeaveForm() {
           {/* Name (English) */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="name">
-              الاسم (بالإنجليزية) *
+              {isCompanion ? 'اسم المرافق (بالإنجليزية) *' : 'الاسم (بالإنجليزية) *'}
             </label>
             <input
               className={styles.inputField}
@@ -1676,7 +1807,7 @@ function SickLeaveForm() {
           {/* Name (Arabic) */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="nameArabic">
-              الاسم (بالعربية) *
+              {isCompanion ? 'اسم المرافق (بالعربية) *' : 'الاسم (بالعربية) *'}
             </label>
             <input
               className={styles.inputField}
@@ -1732,6 +1863,72 @@ function SickLeaveForm() {
             )}
           </div>
 
+          {/* Relation — مشهد مراجعة لمرافق فقط */}
+          {isCompanion && (
+            <>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="relationArabic">
+                  صلة القرابة (بالعربية) *
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="relationArabic"
+                  name="relationArabic"
+                  value={formData.relationArabic}
+                  onChange={handleChange}
+                  list="relations-ar-list"
+                  placeholder="مثال: ابن"
+                  required
+                />
+                <datalist id="relations-ar-list">
+                  <option value="ابن" />
+                  <option value="ابنة" />
+                  <option value="أب" />
+                  <option value="أم" />
+                  <option value="زوج" />
+                  <option value="زوجة" />
+                  <option value="أخ" />
+                  <option value="أخت" />
+                </datalist>
+                {errors.relationArabic && (
+                  <span className={styles.errorMessage}>{errors.relationArabic}</span>
+                )}
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="relationEnglish">
+                  صلة القرابة (بالإنجليزية) *
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="relationEnglish"
+                  name="relationEnglish"
+                  value={formData.relationEnglish}
+                  onChange={handleChange}
+                  list="relations-en-list"
+                  placeholder="Son"
+                  dir="ltr"
+                  required
+                />
+                <datalist id="relations-en-list">
+                  <option value="Son" />
+                  <option value="Daughter" />
+                  <option value="Father" />
+                  <option value="Mother" />
+                  <option value="Husband" />
+                  <option value="Wife" />
+                  <option value="Brother" />
+                  <option value="Sister" />
+                </datalist>
+                {errors.relationEnglish && (
+                  <span className={styles.errorMessage}>{errors.relationEnglish}</span>
+                )}
+              </div>
+            </>
+          )}
+
           {/* Employer */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="employer">
@@ -1772,7 +1969,7 @@ function SickLeaveForm() {
           {/* Admission Date */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="admissionDate">
-              تاريخ الدخول للمستشفى *
+              {isCompanion ? 'تاريخ الدخول *' : 'تاريخ الدخول للمستشفى *'}
             </label>
             <input
               className={styles.inputField}
@@ -1791,10 +1988,31 @@ function SickLeaveForm() {
             </small>
           </div>
 
+          {/* Admission Time — مشهد مراجعة لمرافق فقط */}
+          {isCompanion && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="admissionTime">
+                🕐 وقت الدخول *
+              </label>
+              <input
+                className={styles.inputField}
+                type="time"
+                id="admissionTime"
+                name="admissionTime"
+                value={formData.admissionTime}
+                onChange={handleChange}
+                required
+              />
+              {errors.admissionTime && (
+                <span className={styles.errorMessage}>{errors.admissionTime}</span>
+              )}
+            </div>
+          )}
+
           {/* Discharge Date */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="dischargeDate">
-              تاريخ الخروج من المستشفى *
+              {isCompanion ? 'تاريخ الخروج *' : 'تاريخ الخروج من المستشفى *'}
             </label>
             <input
               className={styles.inputField}
@@ -1813,73 +2031,119 @@ function SickLeaveForm() {
             </small>
           </div>
 
-          {/* Start Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="startDate">
-              تبدأ من *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="startDate"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.startDate && (
-              <span className={styles.errorMessage}>{errors.startDate}</span>
-            )}
-          </div>
+          {/* Discharge Time + Waiting Period — مشهد مراجعة لمرافق فقط */}
+          {isCompanion && (
+            <>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="dischargeTime">
+                  🕐 وقت الخروج *
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="time"
+                  id="dischargeTime"
+                  name="dischargeTime"
+                  value={formData.dischargeTime}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.dischargeTime && (
+                  <span className={styles.errorMessage}>{errors.dischargeTime}</span>
+                )}
+              </div>
 
-          {/* End Date */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="endDate">
-              وحتى *
-            </label>
-            <input
-              className={styles.inputField}
-              type="date"
-              id="endDate"
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleChange}
-              required
-            />
-            {errors.endDate && (
-              <span className={styles.errorMessage}>{errors.endDate}</span>
-            )}
-          </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="waitingPeriod">
+                  فترة الانتظار (تحسب تلقائياً)
+                </label>
+                <input
+                  className={`${styles.inputField} ${styles.readOnlyInput}`}
+                  type="text"
+                  id="waitingPeriod"
+                  value={companionWaiting.ar}
+                  readOnly
+                  style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
+                />
+                <small className={styles.helperText}>
+                  ⚡ تُحسب من تاريخ ووقت الدخول والخروج — {companionWaiting.en}
+                </small>
+              </div>
+            </>
+          )}
 
-          {/* Duration */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="duration">
-              المدة بالأيام * (تحسب تلقائياً)
-            </label>
-            <input
-              className={`${styles.inputField} ${styles.readOnlyInput}`}
-              type="number"
-              id="duration"
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder="سيتم حسابها تلقائياً"
-              readOnly
-              style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
-            />
-            <small className={styles.helperText}>
-              ⚡ يتم حساب المدة تلقائياً من تاريخ الدخول والخروج
-            </small>
-            {errors.duration && (
-              <span className={styles.errorMessage}>{errors.duration}</span>
-            )}
-          </div>
+          {/* Start Date — الإجازة المرضية فقط */}
+          {!isCompanion && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="startDate">
+                تبدأ من *
+              </label>
+              <input
+                className={styles.inputField}
+                type="date"
+                id="startDate"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleChange}
+                required
+              />
+              {errors.startDate && (
+                <span className={styles.errorMessage}>{errors.startDate}</span>
+              )}
+            </div>
+          )}
+
+          {/* End Date — الإجازة المرضية فقط */}
+          {!isCompanion && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="endDate">
+                وحتى *
+              </label>
+              <input
+                className={styles.inputField}
+                type="date"
+                id="endDate"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleChange}
+                required
+              />
+              {errors.endDate && (
+                <span className={styles.errorMessage}>{errors.endDate}</span>
+              )}
+            </div>
+          )}
+
+          {/* Duration — الإجازة المرضية فقط */}
+          {!isCompanion && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="duration">
+                المدة بالأيام * (تحسب تلقائياً)
+              </label>
+              <input
+                className={`${styles.inputField} ${styles.readOnlyInput}`}
+                type="number"
+                id="duration"
+                name="duration"
+                value={formData.duration}
+                onChange={handleChange}
+                placeholder="سيتم حسابها تلقائياً"
+                readOnly
+                style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
+              />
+              <small className={styles.helperText}>
+                ⚡ يتم حساب المدة تلقائياً من تاريخ الدخول والخروج
+              </small>
+              {errors.duration && (
+                <span className={styles.errorMessage}>{errors.duration}</span>
+              )}
+            </div>
+          )}
 
           {/* Doctor Name (English) */}
           <div className={styles.fieldGroup}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className={styles.label} htmlFor="doctorName">
-                اسم الطبيب (بالإنجليزية) *
+                {isCompanion ? 'اسم الممارس الصحي (بالإنجليزية) *' : 'اسم الطبيب (بالإنجليزية) *'}
               </label>
               <button
                 type="button"
@@ -1920,7 +2184,7 @@ function SickLeaveForm() {
           <div className={styles.fieldGroup}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className={styles.label} htmlFor="doctorNameArabic">
-                اسم الطبيب (بالعربية) *
+                {isCompanion ? 'اسم الممارس الصحي (بالعربية) *' : 'اسم الطبيب (بالعربية) *'}
               </label>
               <button
                 type="button"
@@ -1961,7 +2225,7 @@ function SickLeaveForm() {
           <div className={styles.fieldGroup}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className={styles.label} htmlFor="hospitalNameArabic">
-                اسم المستشفى (بالعربية) *
+                {isCompanion ? 'اسم المنشأة الصحية (بالعربية) *' : 'اسم المستشفى (بالعربية) *'}
               </label>
               <button
                 type="button"
@@ -2002,7 +2266,7 @@ function SickLeaveForm() {
           <div className={styles.fieldGroup}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className={styles.label} htmlFor="hospitalNameEnglish">
-                اسم المستشفى (بالإنجليزية) *
+                {isCompanion ? 'اسم المنشأة الصحية (بالإنجليزية) *' : 'اسم المستشفى (بالإنجليزية) *'}
               </label>
               <button
                 type="button"
@@ -2123,7 +2387,7 @@ function SickLeaveForm() {
           {/* Physician Position (English) */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="physicianPosition">
-              منصب/تخصص الطبيب (بالإنجليزية) *
+              {isCompanion ? 'المسمى الوظيفي (بالإنجليزية) *' : 'منصب/تخصص الطبيب (بالإنجليزية) *'}
             </label>
             <input
               className={styles.inputField}
@@ -2142,7 +2406,7 @@ function SickLeaveForm() {
           {/* Physician Position (Arabic) */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="physicianPositionArabic">
-              منصب/تخصص الطبيب (بالعربية) *
+              {isCompanion ? 'المسمى الوظيفي (بالعربية) *' : 'منصب/تخصص الطبيب (بالعربية) *'}
             </label>
             <input
               className={styles.inputField}
@@ -2157,6 +2421,63 @@ function SickLeaveForm() {
               <span className={styles.errorMessage}>{errors.physicianPositionArabic}</span>
             )}
           </div>
+
+          {/* Visit Type — مشهد مراجعة لمرافق فقط */}
+          {isCompanion && (
+            <>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="visitTypeArabic">
+                  نوع الزيارة (بالعربية) *
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="visitTypeArabic"
+                  name="visitTypeArabic"
+                  value={formData.visitTypeArabic}
+                  onChange={handleChange}
+                  list="visit-types-ar-list"
+                  placeholder="مثال: عيادات"
+                  required
+                />
+                <datalist id="visit-types-ar-list">
+                  <option value="عيادات" />
+                  <option value="طوارئ" />
+                  <option value="تنويم" />
+                  <option value="عيادات خارجية" />
+                </datalist>
+                {errors.visitTypeArabic && (
+                  <span className={styles.errorMessage}>{errors.visitTypeArabic}</span>
+                )}
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="visitTypeEnglish">
+                  نوع الزيارة (بالإنجليزية) *
+                </label>
+                <input
+                  className={styles.inputField}
+                  type="text"
+                  id="visitTypeEnglish"
+                  name="visitTypeEnglish"
+                  value={formData.visitTypeEnglish}
+                  onChange={handleChange}
+                  list="visit-types-en-list"
+                  placeholder="OutPatient"
+                  dir="ltr"
+                  required
+                />
+                <datalist id="visit-types-en-list">
+                  <option value="OutPatient" />
+                  <option value="Emergency" />
+                  <option value="InPatient" />
+                </datalist>
+                {errors.visitTypeEnglish && (
+                  <span className={styles.errorMessage}>{errors.visitTypeEnglish}</span>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Report Fields Section - مميز */}
           <div className={styles.reportSection}>
@@ -2209,7 +2530,9 @@ function SickLeaveForm() {
           {/* Form Actions */}
           <div className={styles.formActions}>
             <button type="submit" className={styles.submitButton}>
-              {isEditMode ? 'تحديث الإجازة المرضية' : 'إنشاء إجازة مرضية جديدة'}
+              {isCompanion
+                ? (isEditMode ? 'تحديث مشهد المراجعة' : 'إنشاء مشهد مراجعة لمرافق')
+                : (isEditMode ? 'تحديث الإجازة المرضية' : 'إنشاء إجازة مرضية جديدة')}
             </button>
 
             {isEditMode && (
@@ -2219,7 +2542,7 @@ function SickLeaveForm() {
                 onClick={() => setShowDeleteModal(true)}
                 disabled={deleteLoading}
               >
-                {deleteLoading ? 'جاري الحذف...' : 'حذف الإجازة المرضية'}
+                {deleteLoading ? 'جاري الحذف...' : (isCompanion ? 'حذف مشهد المراجعة' : 'حذف الإجازة المرضية')}
               </button>
             )}
           </div>
@@ -2292,12 +2615,19 @@ function SickLeaveForm() {
         </div>
       )}
 
-      {/* PDF Modal */}
+      {/* PDF Modal — نفس نظام المعاينة، والقالب يُختار حسب نوع المستند */}
       {showPdfModal && pdfData && (
-        <SickLeavePDFOriginal
-          data={pdfData}
-          onClose={() => setShowPdfModal(false)}
-        />
+        pdfData.document_type === DOC_COMPANION ? (
+          <CompanionVisitPDFOriginal
+            data={pdfData}
+            onClose={() => setShowPdfModal(false)}
+          />
+        ) : (
+          <SickLeavePDFOriginal
+            data={pdfData}
+            onClose={() => setShowPdfModal(false)}
+          />
+        )
       )}
 
       {/* Media Picker Modal */}

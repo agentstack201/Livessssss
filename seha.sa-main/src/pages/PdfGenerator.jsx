@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './SickLeaveForm.module.css'
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
+import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 
 // API Configuration from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -213,12 +214,19 @@ function PdfGenerator() {
         </Link>
       </div>
 
-      {/* PDF Modal */}
+      {/* PDF Modal — القالب يُختار حسب نوع المستند المحفوظ */}
       {showPdfModal && leaveData && (
-        <SickLeavePDFOriginal
-          data={leaveData}
-          onClose={() => setShowPdfModal(false)}
-        />
+        leaveData.document_type === 'companion_visit' ? (
+          <CompanionVisitPDFOriginal
+            data={leaveData}
+            onClose={() => setShowPdfModal(false)}
+          />
+        ) : (
+          <SickLeavePDFOriginal
+            data={leaveData}
+            onClose={() => setShowPdfModal(false)}
+          />
+        )
       )}
     </div>
   )
