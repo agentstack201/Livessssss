@@ -123,6 +123,51 @@ const leaves = sequelize.define(
       allowNull: true,
       comment: 'صورة شعار المرفق في تذييل التقرير (Base64 أو رابط)',
     },
+    // ── نوع المستند وحقول قالب «مشهد مراجعة لمرافق» ─────────────────────────
+    // كل الحقول التالية اختيارية ولا تؤثر على الإجازة المرضية الحالية إطلاقاً:
+    // السجلات القديمة تبقى document_type = 'sick_leave' وتُطبع كما هي.
+    document_type: {
+      type: Sequelize.STRING(32),
+      allowNull: true,
+      defaultValue: 'sick_leave',
+      comment: "نوع المستند: sick_leave (إجازة مرضية) أو companion_visit (مشهد مراجعة لمرافق)",
+    },
+    admission_time: {
+      type: Sequelize.STRING(32),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'وقت الدخول بصيغة 12 ساعة (مشهد مراجعة لمرافق)',
+    },
+    discharge_time: {
+      type: Sequelize.STRING(32),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'وقت الخروج بصيغة 12 ساعة (مشهد مراجعة لمرافق)',
+    },
+    relation_en: {
+      type: Sequelize.STRING(191),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'صلة القرابة بالإنجليزية (مشهد مراجعة لمرافق)',
+    },
+    relation_ar: {
+      type: Sequelize.STRING(191),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'صلة القرابة بالعربية (مشهد مراجعة لمرافق)',
+    },
+    visit_type_en: {
+      type: Sequelize.STRING(191),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'نوع الزيارة بالإنجليزية (مشهد مراجعة لمرافق)',
+    },
+    visit_type_ar: {
+      type: Sequelize.STRING(191),
+      allowNull: true,
+      defaultValue: '',
+      comment: 'نوع الزيارة بالعربية (مشهد مراجعة لمرافق)',
+    },
     created_by: {
       type: Sequelize.STRING(191),
       allowNull: true,

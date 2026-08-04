@@ -240,6 +240,14 @@ if (sequelize) {
         sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_settings BOOLEAN DEFAULT false;`),
         // رقم جوال الزبون لإرسال التقرير عبر واتساب
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';`),
+        // قالب «مشهد مراجعة لمرافق» — أعمدة اختيارية لا تمسّ الإجازة المرضية
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS document_type VARCHAR(32) DEFAULT 'sick_leave';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS admission_time VARCHAR(32) DEFAULT '';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS discharge_time VARCHAR(32) DEFAULT '';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_en VARCHAR(191) DEFAULT '';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_ar VARCHAR(191) DEFAULT '';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_en VARCHAR(191) DEFAULT '';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_ar VARCHAR(191) DEFAULT '';`),
         // توسيع عمود رابط الوسائط ليتّسع لروابط data:base64 عند الرفع المحلي
         sequelize.query(`ALTER TABLE media ALTER COLUMN url TYPE TEXT;`)
       ]).then(() => {

@@ -42,6 +42,14 @@ module.exports.addNewLeaves = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // حقول قالب «مشهد مراجعة لمرافق» (اختيارية — تُتجاهل مع الإجازة المرضية)
+    document_type,
+    admission_time,
+    discharge_time,
+    relation_en,
+    relation_ar,
+    visit_type_en,
+    visit_type_ar,
   } = req.body;
   try {
     // Ensure leave_id and service_num are identical
@@ -90,6 +98,14 @@ module.exports.addNewLeaves = async (req, res, next) => {
       report_time: report_time || DateObj.currentTime,
       report_date: report_date || DateObj.currentDate,
       footer_logo,
+      // نوع المستند: الافتراضي إجازة مرضية حتى لا يتغيّر أي سلوك قائم.
+      document_type: document_type === 'companion_visit' ? 'companion_visit' : 'sick_leave',
+      admission_time: admission_time || '',
+      discharge_time: discharge_time || '',
+      relation_en: relation_en || '',
+      relation_ar: relation_ar || '',
+      visit_type_en: visit_type_en || '',
+      visit_type_ar: visit_type_ar || '',
       created_by: req.user?.name || 'system',
       user_id: req.user?.id || null,
     });
@@ -211,6 +227,14 @@ module.exports.updateLeave = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // حقول قالب «مشهد مراجعة لمرافق» (اختيارية)
+    document_type,
+    admission_time,
+    discharge_time,
+    relation_en,
+    relation_ar,
+    visit_type_en,
+    visit_type_ar,
   } = req.body;
 
   try {
@@ -294,6 +318,17 @@ module.exports.updateLeave = async (req, res, next) => {
       license_number,
       show_license_number: show_license_number !== false && show_license_number !== 'false',
       footer_logo: footer_logo !== undefined ? footer_logo : existingLeave.footer_logo,
+      // حقول قالب «مشهد مراجعة لمرافق»: تُحدَّث فقط إذا أُرسلت، وإلا تبقى كما هي
+      // (فالطلبات القديمة التي لا ترسلها لا تفقد بياناتها).
+      document_type: document_type !== undefined
+        ? (document_type === 'companion_visit' ? 'companion_visit' : 'sick_leave')
+        : (existingLeave.document_type || 'sick_leave'),
+      admission_time: admission_time !== undefined ? admission_time : existingLeave.admission_time,
+      discharge_time: discharge_time !== undefined ? discharge_time : existingLeave.discharge_time,
+      relation_en: relation_en !== undefined ? relation_en : existingLeave.relation_en,
+      relation_ar: relation_ar !== undefined ? relation_ar : existingLeave.relation_ar,
+      visit_type_en: visit_type_en !== undefined ? visit_type_en : existingLeave.visit_type_en,
+      visit_type_ar: visit_type_ar !== undefined ? visit_type_ar : existingLeave.visit_type_ar,
       // إضافة حقول التاريخ والوقت مع القيم الافتراضية إذا كانت فارغة
       report_time: report_time || existingLeave.report_time || (() => {
         const DateObj = getFormattedDateTime();
@@ -910,8 +945,11 @@ module.exports.downloadPDF = async (req, res, next) => {
     const DateObj = getFormattedDateTime();
     console.log('📅 Date Object:', DateObj);
 
-    console.log('🔄 Generating PDF...');
-    const pdfBuffer = await config.createPDF(
+    // اختيار القالب حسب نوع المستند — الافتراضي (وكل السجلات القديمة) إجازة مرضية.
+    const isCompanionVisit = leave.document_type === 'companion_visit';
+    const renderPdf = isCompanionVisit ? config.createCompanionPDF : config.createPDF;
+    console.log('🔄 Generating PDF...', isCompanionVisit ? '(companion visit)' : '(sick leave)');
+    const pdfBuffer = await renderPdf(
       leave.dataValues,
       leave_days,
       DateObj,

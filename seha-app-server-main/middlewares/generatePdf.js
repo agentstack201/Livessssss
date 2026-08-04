@@ -746,3 +746,15 @@ module.exports = async (data, leave_days, DateObj, country) => {
     throw new Error(`Failed to generate PDF: ${error.message}`);
   }
 };
+
+// ── Shared internals ───────────────────────────────────────────────────────
+// Sibling templates (e.g. the Companion Statement of Visit) render through the
+// SAME asset inliner, font faces and — importantly — the SAME shared Chromium
+// instance. Exposing them here keeps one browser per process instead of one per
+// template. Nothing above is modified: this only publishes existing helpers.
+module.exports._internals = {
+  dataUriFromPublic,
+  fontFaceCss,
+  resolveFooterLogo,
+  getBrowser,
+};
