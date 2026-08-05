@@ -168,11 +168,16 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
     const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
-    // Generate the verification QR locally (data URI) instead of calling the
-    // external api.qrserver.com service on every render.
+    // الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل. قابل للتغيير عبر
+    // متغيّر البيئة QR_TARGET_URL دون تعديل الكود.
+    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/users';
+
+    // Generate the QR locally (data URI) instead of calling the external
+    // api.qrserver.com service on every render. الحجم كما هو (150px توليداً،
+    // 90px عرضاً) فلا يتغيّر شكل التقرير.
     let qrDataUri = '';
     try {
-      qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+      qrDataUri = await QRCode.toDataURL(qrTargetUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
     } catch (qrErr) {
       console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
     }
