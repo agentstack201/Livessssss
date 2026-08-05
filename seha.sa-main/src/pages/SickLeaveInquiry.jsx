@@ -22,15 +22,13 @@ function SickLeaveInquiry() {
     setFieldError(null)
     setError(null)
 
-    const url = `${API_URL}?service_num=${sNum}&national_id=${nId}`
+    const url = `${API_URL}?service_num=${encodeURIComponent(sNum)}&national_id=${encodeURIComponent(nId)}`
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      // بلا ترويسة Content-Type: طلب GET بلا جسم، ووجودها كان يجعل المتصفح
+      // يرسل طلب preflight (OPTIONS) قبل كل استعلام — أي رحلة شبكة كاملة
+      // إضافية. حذفها يجعل الطلب "بسيطاً" فيذهب مباشرةً ويختصر الزمن للنصف.
+      const response = await fetch(url, { method: 'GET' })
       const data = await response.json()
 
       if (data.length > 0) {
@@ -67,9 +65,17 @@ function SickLeaveInquiry() {
     }
 
     if (sNum && nId) {
+      // قادم من رمز الـ QR أو من الرابط أسفله: تُملأ الحقول فوراً ويُنفَّذ
+      // الاستعلام مرة واحدة فقط دون انتظار ضغطة من المستخدم.
       setServiceNum(sNum)
       setNationalID(nId)
       performSearch(sNum, nId)
+    } else {
+      // إيقاظ مبكر للخادم: خطة الاستضافة المجانية تُنيم الخادم بعد فترة خمول،
+      // فيستغرق أول طلب وقتاً طويلاً. نبضة خفيفة فور فتح الصفحة تجعل الخادم
+      // يستيقظ بينما يكتب المستخدم بياناته، فيصبح الاستعلام شبه فوري.
+      // fire-and-forget: أي فشل هنا لا يؤثر على الصفحة إطلاقاً.
+      fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {})
     }
   }, [])
 

@@ -159,6 +159,10 @@ module.exports.getOneLeaveDetails = async (req, res, next) => {
     // visitors on this public endpoint.
     const whereCondition = { national_id, service_num };
 
+    // ملاحظة أداء: لا نضمّ جدول المستخدمين (creator) هنا. هذه النقطة عامة
+    // ويستهلكها الاستعلام والمعاينة وتحميل الـ PDF، ولا أحد منها يقرأ اسم
+    // المُنشئ (لوحة التحكم وحدها تعرضه وتجلبه من /sick-leaves/all). حذف الضمّ
+    // يوفّر JOIN كاملاً على كل استعلام دون أي تغيير في المخرجات المستخدَمة.
     const leave = await leaves.findOne({
       where: whereCondition,
       include: [
@@ -167,11 +171,6 @@ module.exports.getOneLeaveDetails = async (req, res, next) => {
           as: 'country',
           attributes: ['country_name_en', 'country_name_ar'],
         },
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['name']
-        }
       ],
     });
 

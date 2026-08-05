@@ -4,10 +4,6 @@ import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf, prefetchLeavePdf } 
 // استخدام الصور والخطوط من مجلد public في الفرونت اند
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
-// الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل — يجب أن يطابق قيمة
-// QR_TARGET_URL في مولّد الـ PDF بالخادم حتى تتطابق المعاينة مع الملف النهائي.
-const QR_TARGET_URL = import.meta.env.VITE_QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry'
-
 const SickLeavePDFOriginal = ({ data, onClose }) => {
   const pdfRef = useRef();
   const [downloading, setDownloading] = useState(false);
@@ -116,8 +112,10 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
     ? (data.footer_logo.startsWith('http') || data.footer_logo.startsWith('data:') ? data.footer_logo : `${API_BASE_URL}${data.footer_logo}`)
     : DEFAULT_FOOTER_LOGO;
 
+  // رابط واحد لرمز الـ QR وللرابط الظاهر أسفله: صفحة الاستعلام العامة ومعها
+  // رمز الخدمة ورقم الهوية، فتُملأ الحقول تلقائياً عند فتحه.
   const frontendUrl = window.location.origin;
-  const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
+  const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
   const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
   // تحويل leave_days للاستخدام في template
@@ -642,7 +640,7 @@ font-family: "NotoSansArabic", sans-serif;
     <!-- QR Code Section -->
     <div class="qr-section">
     <div style="margin-left: 45px !important;">
-             <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(QR_TARGET_URL)}" alt="QR Code">
+             <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
       <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>

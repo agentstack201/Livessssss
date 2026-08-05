@@ -164,20 +164,22 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const footerLogoSrc = resolveFooterLogo(data.footer_logo);
     const fontFaceInline = fontFaceCss();
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
-    const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
+    // عنوان الواجهة العامة. الافتراضي هو الموقع المنشور حتى لا يَطبع التقرير
+    // رابط localhost إن لم تُضبط FRONTEND_URL على الخادم.
+    const frontendUrl = process.env.FRONTEND_URL || 'https://livessssss.vercel.app';
 
-    // الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل. قابل للتغيير عبر
-    // متغيّر البيئة QR_TARGET_URL دون تعديل الكود.
-    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry';
+    // رابط واحد يستخدمه رمز الـ QR والرابط الظاهر أسفله معاً: صفحة الاستعلام
+    // العامة ومعها رمز الخدمة ورقم الهوية، فتُملأ حقول الاستعلام تلقائياً عند
+    // فتحه ولا يحتاج المستخدم إلا للضغط على «استعلام».
+    const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
+    const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
     // Generate the QR locally (data URI) instead of calling the external
     // api.qrserver.com service on every render. الحجم كما هو (150px توليداً،
     // 90px عرضاً) فلا يتغيّر شكل التقرير.
     let qrDataUri = '';
     try {
-      qrDataUri = await QRCode.toDataURL(qrTargetUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+      qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
     } catch (qrErr) {
       console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
     }
