@@ -116,9 +116,13 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
 
+    // الرابط المُشفَّر داخل رمز الـ QR — نفس رابط قالب الإجازة المرضية تماماً،
+    // وقابل للتغيير عبر متغيّر البيئة QR_TARGET_URL. الحجم لم يتغيّر.
+    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry';
+
     let qrDataUri = '';
     try {
-      qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+      qrDataUri = await QRCode.toDataURL(qrTargetUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
     } catch (qrErr) {
       console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
     }
