@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const YouTubeIcon = () => (
@@ -69,6 +70,31 @@ export default function Footer() {
         viewport={{ once: true, amount: 0.2 }}
         variants={containerVariants}
       >
+        <motion.div className="footer-about" variants={itemVariants}>
+          <img
+            className="footer-logo"
+            alt="Seha"
+            src="https://seha.sa/assets/logo-white-CKxLEirV.svg"
+          />
+          <p className="footer-about-text">
+            منصة صحة تخدم جميع المنشآت الطبية من خلال تقديم الخدمات الصحية
+            إلكترونياً لجميع المنشآت الطبية وتسعى إلى توحيد وأتمتة الاجراءات
+            والخدمات بما في دوره رفع جودة الاداء وخفض التكاليف.
+          </p>
+        </motion.div>
+
+        <motion.div className="footer-menu" variants={itemVariants}>
+          <h3 className="footer-heading">القائمة الرئيسية</h3>
+          <ul className="footer-menu-list">
+            <li><a href="https://seha.sa/#/services">الخدمات</a></li>
+            <li><a href="#">صحة بلس</a></li>
+            <li><Link to="/inquiries/slenquiry">الاستعلامات</Link></li>
+            <li><a href="https://seha.sa/#/faq">الأسئلة الشائعة</a></li>
+            <li><a href="#">الأثر البيئي</a></li>
+            <li><a href="https://seha.sa/#/ContactUs">تواصل معنا</a></li>
+          </ul>
+        </motion.div>
+
         <motion.h3 className="footer-heading" variants={itemVariants}>
           تواصل معنا
         </motion.h3>
