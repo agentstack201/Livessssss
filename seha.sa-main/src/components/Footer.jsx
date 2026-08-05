@@ -1,5 +1,4 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const YouTubeIcon = () => (
@@ -33,6 +32,15 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
+const AccessibilityIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="6.5" r="1.6" fill="currentColor" stroke="none" />
+    <path d="M5.5 8.7c4.3 1.4 8.7 1.4 13 0" />
+    <path d="M12 9.5v4.7" />
+    <path d="M9.2 20.5l2.2-6.3h1.2l2.2 6.3" />
+  </svg>
+);
+
 const containerVariants = {
   hidden: { opacity: 0, y: 30 },
   visible: {
@@ -61,62 +69,11 @@ export default function Footer() {
         viewport={{ once: true, amount: 0.2 }}
         variants={containerVariants}
       >
-        {/* عن المنصة (يمين) */}
-        <motion.div className="footer-section about-column" variants={itemVariants}>
-          <div className="footer-logo-main">
-            <img
-              alt="Seha White Logo"
-              src="https://seha.sa/assets/logo-white-CKxLEirV.svg"
-              style={{ width: "160px" }}
-            />
-          </div>
-          <p
-            className="footer-about-text"
-            style={{
-              boxSizing: "border-box",
-              width: "100%",
-              marginTop: "40px",
-              fontFamily: "Cairo, sans-serif",
-              paddingLeft: "1%",
-              paddingRight: "1%",
-              backgroundPosition: "95% 50%",
-              flex: "1 1 0%",
-              backgroundRepeat: "no-repeat",
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20xmlns:xlink='http://www.w3.org/1999/xlink'%20width='257'%20height='223'%20viewBox='0%200%20257%20223'%3e%3cdefs%3e%3cclipPath%20id='clip-path'%3e%3cpath%20id='Path_8215'%20data-name='Path%208215'%20d='M1212.569,243.378a6.068,6.068,0,0,0,0,12.137h45.692a6.068,6.068,0,0,0,0-12.137Z'%20transform='translate(-1206.501%20-243.378)'%20fill='%23fff'/%3e%3c/clipPath%3e%3c/defs%3e%3cg%20id='seha-logo'%20transform='translate(-549.744%20-155)'%20opacity='0.05'%3e%3cg%20id='Group_4351'%20data-name='Group%204351'%20transform='translate(742.27%20155)'%3e%3cg%20id='Group_4350'%20data-name='Group%204350'%20transform='translate(0%200)'%20clip-path='url(https://seha.sa/assets/%23clip-path)'%3e%3crect%20id='Rectangle_9432'%20data-name='Rectangle%209432'%20width='57.828'%20height='12.137'%20transform='translate(0%200)'%20fill='%23fff'/%3e%3c/g%3e%3c/g%3e%3crect%20id='Rectangle_9450'%20data-name='Rectangle%209450'%20width='59'%20height='12'%20rx='6'%20transform='translate(741.744%20155)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9451'%20data-name='Rectangle%209451'%20width='76'%20height='13'%20rx='6.5'%20transform='translate(730.744%20170)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9452'%20data-name='Rectangle%209452'%20width='83'%20height='12'%20rx='6'%20transform='translate(718.744%20188)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9453'%20data-name='Rectangle%209453'%20width='83'%20height='12'%20rx='6'%20transform='translate(707.744%20203)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9454'%20data-name='Rectangle%209454'%20width='83'%20height='12'%20rx='6'%20transform='translate(695.744%20220)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9455'%20data-name='Rectangle%209455'%20width='83'%20height='12'%20rx='6'%20transform='translate(684.744%20236)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9456'%20data-name='Rectangle%209456'%20width='84'%20height='12'%20rx='6'%20transform='translate(671.744%20252)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9457'%20data-name='Rectangle%209457'%20width='84'%20height='13'%20rx='6.5'%20transform='translate(659.744%20268)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9458'%20data-name='Rectangle%209458'%20width='82'%20height='12'%20rx='6'%20transform='translate(649.744%20285)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9459'%20data-name='Rectangle%209459'%20width='90'%20height='12'%20rx='6'%20transform='translate(549.744%20285)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9462'%20data-name='Rectangle%209462'%20width='158'%20height='11'%20rx='5.5'%20transform='translate(562.744%20301)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9463'%20data-name='Rectangle%209463'%20width='132'%20height='13'%20rx='6.5'%20transform='translate(576.744%20317)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9464'%20data-name='Rectangle%209464'%20width='107'%20height='12'%20rx='6'%20transform='translate(590.744%20333)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9465'%20data-name='Rectangle%209465'%20width='80'%20height='12'%20rx='6'%20transform='translate(604.744%20350)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9466'%20data-name='Rectangle%209466'%20width='54'%20height='13'%20rx='6.5'%20transform='translate(618.744%20365)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9460'%20data-name='Rectangle%209460'%20width='69'%20height='13'%20rx='6.5'%20transform='translate(549.744%20268)'%20fill='%23fff'/%3e%3crect%20id='Rectangle_9461'%20data-name='Rectangle%209461'%20width='35'%20height='12'%20rx='6'%20transform='translate(562.744%20252)'%20fill='%23fff'/%3e%3c/g%3e%3c/svg%3e\")",
-              backgroundSize: "contain",
-            }}
-          >
-            منصة صحة تخدم جميع المنشآت الطبية من خلال تقديم الخدمات
-            <br />
-            الصحية إلكترونياً لجميع المنشآت الطبية وتسعى إلى توحيد وأتمتة
-            <br />
-            الاجراءات والخدمات بما في دوره رفع جودة الاداء وخفض التكاليف.
-          </p>
-        </motion.div>
+        <motion.h3 className="footer-heading" variants={itemVariants}>
+          تواصل معنا
+        </motion.h3>
 
-        {/* القائمة الرئيسية (منتصف) */}
-        <motion.div className="footer-section links-column" variants={itemVariants}>
-          <h3>القائمة الرئيسية</h3>
-          <ul className="footer-links-list">
-            <motion.li whileHover={{ x: -10 }} transition={{ type: "spring", stiffness: 300 }}>
-              <a href="https://seha.sa/#/services" className="footer-link">- الخدمات</a>
-            </motion.li>
-            <motion.li whileHover={{ x: -10 }} transition={{ type: "spring", stiffness: 300 }}>
-              <Link to="/inquiries/slenquiry" className="footer-link">- الاستعلامات</Link>
-            </motion.li>
-            <motion.li whileHover={{ x: -10 }} transition={{ type: "spring", stiffness: 300 }}>
-              <a href="https://seha.sa/#/faq" className="footer-link">- الأسئلة الشائعة</a>
-            </motion.li>
-            <motion.li whileHover={{ x: -10 }} transition={{ type: "spring", stiffness: 300 }}>
-              <a href="https://seha.sa/#/ContactUs" className="footer-link">- تواصل معنا</a>
-            </motion.li>
-          </ul>
-        </motion.div>
-
-        {/* قسم التواصل (يسار) */}
-        <motion.div className="footer-section contact-column" variants={itemVariants}>
-          <h3>تواصل معنا</h3>
+        <motion.div className="footer-top-row" variants={itemVariants}>
           <div className="contact-items">
             <motion.a
               href="tel:920002005"
@@ -145,49 +102,55 @@ export default function Footer() {
               <span>920002005</span>
             </motion.a>
           </div>
-          <p className="work-hours">
-            أوقات العمل: الأحد حتى الخميس 8 ص - 11م
-          </p>
-          <div className="footer-social-links">
-            <motion.a
-              href="https://www.youtube.com/channel/UCb9ZrS2YcriYqIPIHNp9wcQ"
-              className="social-btn"
-              target="_blank"
-              rel="noreferrer"
-              whileHover={{ y: -5, scale: 1.2 }}
-            >
-              <YouTubeIcon />
-            </motion.a>
-            <motion.a
-              href="https://twitter.com/seha_services"
-              className="social-btn"
-              target="_blank"
-              rel="noreferrer"
-              whileHover={{ y: -5, scale: 1.2 }}
-            >
-              <XIcon />
-            </motion.a>
-          </div>
-          <motion.div
-            className="secondary-logos"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            <img alt="لين" src="https://seha.sa/assets/lean-logo-De0NEeoI.svg" style={{ height: "55px" }} />
+
+          <div className="footer-logos">
+            <img alt="لين" src="https://seha.sa/assets/lean-logo-De0NEeoI.svg" />
             <div className="logo-sep" />
-            <img alt="وزارة الصحة" src="https://seha.sa/assets/MOH-logo-DYiHZCSg.svg" style={{ height: "55px" }} />
-          </motion.div>
-          <div className="footer-bottom-info">
-            <p>منصة صحة معتمدة من قبل وزارة الصحة © 2026</p>
-            <div className="bottom-links">
-              <a href="#">سياسة الخصوصية وشروط الاستخدام</a>
-              <span>|</span>
-              <a href="#">دليل الاستخدام</a>
-            </div>
+            <img alt="وزارة الصحة" src="https://seha.sa/assets/MOH-logo-DYiHZCSg.svg" />
           </div>
         </motion.div>
+
+        <motion.p className="work-hours" variants={itemVariants}>
+          أوقات العمل: الأحد حتى الخميس 8 ص - 11م
+        </motion.p>
+
+        <motion.div className="footer-social-links" variants={itemVariants}>
+          <motion.a
+            href="https://www.youtube.com/channel/UCb9ZrS2YcriYqIPIHNp9wcQ"
+            className="social-btn"
+            target="_blank"
+            rel="noreferrer"
+            whileHover={{ y: -5, scale: 1.2 }}
+          >
+            <YouTubeIcon />
+          </motion.a>
+          <motion.a
+            href="https://twitter.com/seha_services"
+            className="social-btn"
+            target="_blank"
+            rel="noreferrer"
+            whileHover={{ y: -5, scale: 1.2 }}
+          >
+            <XIcon />
+          </motion.a>
+        </motion.div>
       </motion.div>
+
+      <div className="footer-bottom-bar">
+        <div className="footer-bottom-text">
+          <p className="footer-copyright">منصة صحة معتمدة من قبل وزارة الصحة © 2026</p>
+          <div className="bottom-links">
+            <a href="#">سياسة الخصوصية</a>
+            <span>|</span>
+            <a href="#">شروط الاستخدام</a>
+            <span>|</span>
+            <a href="#">دليل الاستخدام</a>
+          </div>
+        </div>
+        <button type="button" className="accessibility-btn" aria-label="إعدادات إتاحة الوصول">
+          <AccessibilityIcon />
+        </button>
+      </div>
     </footer>
   );
 }
