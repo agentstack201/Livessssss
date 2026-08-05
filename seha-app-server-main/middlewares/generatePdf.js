@@ -170,7 +170,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     // الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل. قابل للتغيير عبر
     // متغيّر البيئة QR_TARGET_URL دون تعديل الكود.
-    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/users';
+    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry';
 
     // Generate the QR locally (data URI) instead of calling the external
     // api.qrserver.com service on every render. الحجم كما هو (150px توليداً،

@@ -118,7 +118,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     // الرابط المُشفَّر داخل رمز الـ QR — نفس رابط قالب الإجازة المرضية تماماً،
     // وقابل للتغيير عبر متغيّر البيئة QR_TARGET_URL. الحجم لم يتغيّر.
-    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/users';
+    const qrTargetUrl = process.env.QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry';
 
     let qrDataUri = '';
     try {

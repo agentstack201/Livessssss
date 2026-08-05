@@ -13,7 +13,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000
 
 // الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل — نفس قيمة قالب الإجازة
 // المرضية، ويجب أن يطابق QR_TARGET_URL في مولّد الـ PDF بالخادم.
-const QR_TARGET_URL = import.meta.env.VITE_QR_TARGET_URL || 'https://livessssss.vercel.app/users'
+const QR_TARGET_URL = import.meta.env.VITE_QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry'
 
 const padTwo = (value) => String(value).padStart(2, '0');
 

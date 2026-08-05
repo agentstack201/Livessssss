@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000
 
 // الرابط المُشفَّر داخل رمز الـ QR المطبوع في التذييل — يجب أن يطابق قيمة
 // QR_TARGET_URL في مولّد الـ PDF بالخادم حتى تتطابق المعاينة مع الملف النهائي.
-const QR_TARGET_URL = import.meta.env.VITE_QR_TARGET_URL || 'https://livessssss.vercel.app/users'
+const QR_TARGET_URL = import.meta.env.VITE_QR_TARGET_URL || 'https://livessssss.vercel.app/inquiries/slenquiry'
 
 const SickLeavePDFOriginal = ({ data, onClose }) => {
   const pdfRef = useRef();
