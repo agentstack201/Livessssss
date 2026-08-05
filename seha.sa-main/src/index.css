@@ -571,22 +571,74 @@ nav {
     text-decoration: underline;
 }
 
-/* التجاوب - نفس الشكل على الجوال */
-@media (max-width: 480px) {
+/* التجاوب - نفس الشكل على الجوال (أحجام أصغر وأكثر تراصاً) */
+@media (max-width: 767px) {
     .footer {
-        padding: 32px 5% 0;
+        padding: 28px 5% 0;
+    }
+    .footer-logo {
+        width: 150px;
+        margin-bottom: 20px;
+    }
+    .footer-about {
+        padding-bottom: 24px;
+    }
+    .footer-about-text {
+        font-size: 0.85rem;
+        line-height: 1.8;
+    }
+    .footer-menu {
+        padding-bottom: 16px;
+    }
+    .footer-menu-list a {
+        font-size: 0.95rem;
+        padding: 12px 0;
     }
     .footer-heading {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
     }
     .footer-top-row {
         gap: 16px;
+        margin-bottom: 16px;
+    }
+    .footer-contact-item {
+        font-size: 0.9rem;
+    }
+    .contact-icon-wrapper svg {
+        width: 16px;
+        height: 16px;
     }
     .footer-logos img {
-        height: 48px;
+        height: 44px;
+    }
+    .work-hours {
+        font-size: 0.8rem;
+        margin-bottom: 16px;
+    }
+    .footer-social-links {
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+    .social-btn svg {
+        width: 18px;
+        height: 18px;
     }
     .footer-bottom-bar {
         justify-content: flex-start;
+        padding: 14px 0 20px;
+        gap: 12px;
+    }
+    .accessibility-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .footer-copyright {
+        font-size: 0.75rem;
+    }
+    .bottom-links {
+        font-size: 0.7rem;
     }
 }
 
