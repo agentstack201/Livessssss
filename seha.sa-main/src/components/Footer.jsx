@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+
+const TERMS_STORAGE_KEY = "seha-assistant-terms-accepted";
 
 const YouTubeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -33,32 +35,109 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
+/* الوحدات هنا هي بكسلات المرجع الفعلية: الرأس 15px، الذراعان 45px عرضاً،
+   والجذع والساقان بسماكة 11px و6.5px تباعاً. */
 const AccessibilityIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="6.5" r="1.6" fill="currentColor" stroke="none" />
-    <path d="M5.5 8.7c4.3 1.4 8.7 1.4 13 0" />
-    <path d="M12 9.5v4.7" />
-    <path d="M9.2 20.5l2.2-6.3h1.2l2.2 6.3" />
+  <svg width="19.45" height="21.74" viewBox="0 0 51 57" fill="none" stroke="currentColor">
+    <circle cx="26" cy="7.2" r="7.3" fill="currentColor" stroke="none" />
+    <path d="M6 20.6Q26 24.8 45 20.6" strokeWidth="5.2" strokeLinecap="round" />
+    <path d="M26 27v14.5" strokeWidth="10.5" />
+    <path d="M26 41 17.6 53.4" strokeWidth="6" strokeLinecap="round" />
+    <path d="M26 41 34.6 53.4" strokeWidth="6" strokeLinecap="round" />
   </svg>
 );
 
+/* سهم مصمت لا محدّد: في المرجع عرض رأسه 25px فعلي وسماكة ساقه 6px وطوله 33px */
 const ArrowUpIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="19" x2="12" y2="5" />
-    <polyline points="5 12 12 5 19 12" />
+  <svg width="9.54" height="12.59" viewBox="0 0 25 33" fill="none" stroke="currentColor">
+    <path
+      d="M12.5 2.6 22.4 12.5M12.5 2.6 2.6 12.5M12.5 3.6v26.8"
+      strokeWidth="6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
+/* فقاعة مصمتة بأركان مستديرة عدا الركن الأسفل الأيسر، مقاسها 36×33 بكسل فعلي */
 const ChatDotsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-    <circle cx="8.5" cy="11.5" r="0.8" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="11.5" r="0.8" fill="currentColor" stroke="none" />
-    <circle cx="15.5" cy="11.5" r="0.8" fill="currentColor" stroke="none" />
+  <svg width="13.73" height="12.59" viewBox="0 0 36 33" fill="none">
+    <path
+      d="M9.4 0h17.2A9.4 9.4 0 0 1 36 9.4v14.2a9.4 9.4 0 0 1-9.4 9.4H0V9.4A9.4 9.4 0 0 1 9.4 0Z"
+      fill="currentColor"
+    />
+    <circle cx="10.4" cy="16.5" r="2.6" fill="#3169b5" />
+    <circle cx="18" cy="16.5" r="2.6" fill="#3169b5" />
+    <circle cx="25.6" cy="16.5" r="2.6" fill="#3169b5" />
   </svg>
 );
 
 export default function Footer() {
+  const [showTerms, setShowTerms] = useState(false);
+  const [closingTerms, setClosingTerms] = useState(false);
+  const [assistantReady, setAssistantReady] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    try {
+      setAssistantReady(localStorage.getItem(TERMS_STORAGE_KEY) === "1");
+    } catch {
+      /* التخزين المحلي قد يكون معطلاً، تُعرض النافذة عندها في كل مرة */
+    }
+  }, []);
+
+  // المرجع يخلو من زر الرجوع للأعلى ما دامت الصفحة في أعلاها، ويظهر بعد بدء التمرير
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 120);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const closeTerms = useCallback(() => {
+    setClosingTerms(true);
+    window.setTimeout(() => {
+      setShowTerms(false);
+      setClosingTerms(false);
+    }, 180);
+  }, []);
+
+  // بعد قبول الشروط تُفتح المحادثة مباشرة. لا توجد خدمة محادثة في هذا المستودع،
+  // فيُطلق الحدث ليلتقطه أي تكامل لاحق دون تغيير هذه البوابة.
+  const openAssistant = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("seha:assistant-open"));
+  }, []);
+
+  // الضغط على زر المحادثة لا يفتحها مباشرة: تُعرض الشروط أولاً ما لم تُقبل سابقاً
+  const requestAssistant = useCallback(() => {
+    if (assistantReady) {
+      openAssistant();
+      return;
+    }
+    setClosingTerms(false);
+    setShowTerms(true);
+  }, [assistantReady, openAssistant]);
+
+  const acceptTerms = useCallback(() => {
+    try {
+      localStorage.setItem(TERMS_STORAGE_KEY, "1");
+    } catch {
+      /* تعذّر الحفظ: تُعرض الشروط مجدداً في الزيارة القادمة */
+    }
+    setAssistantReady(true);
+    closeTerms();
+    openAssistant();
+  }, [closeTerms, openAssistant]);
+
+  useEffect(() => {
+    if (!showTerms) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeTerms();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showTerms, closeTerms]);
+
   return (
     <footer className="footer">
       <div className="footer-container">
@@ -175,26 +254,84 @@ export default function Footer() {
         <AccessibilityIcon />
       </button>
 
-      {/* عنصر شكلي فقط لمطابقة تصميم المرجع - غير متصل بأي خدمة حقيقية، لا ينفّذ أي إجراء عند الضغط */}
-      <div className="floating-widget-cluster">
-        <div className="ai-widget-pill" aria-hidden="true">
-          <span className="ai-orb" />
-          <span className="ai-chat-icon">
-            <ChatDotsIcon />
-          </span>
-        </div>
+      {/* زر المساعد: الكرة يمينها زر المحادثة، وكلاهما يمرّ عبر بوابة الشروط والأحكام */}
+      <div className={`ai-widget-pill${assistantReady ? " is-active" : ""}`}>
         <button
           type="button"
-          className="scroll-top-btn"
-          aria-label="العودة إلى الأعلى"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="ai-orb-wrap"
+          aria-label="التحدث إلى المساعد الرقمي"
+          onClick={requestAssistant}
         >
-          <ArrowUpIcon />
+          <span className="ai-orb">
+            <span className="ai-ripple" />
+            <span className="ai-ripple-2" />
+          </span>
         </button>
-        <p className="powered-by-text" aria-hidden="true">
-          Powered by ElevenLabs <span className="powered-by-link">Agents</span>
-        </p>
+        <button
+          type="button"
+          className="ai-chat-icon"
+          aria-label="بدء المحادثة مع المساعد الرقمي"
+          aria-haspopup="dialog"
+          onClick={requestAssistant}
+        >
+          <ChatDotsIcon />
+        </button>
       </div>
+
+      <button
+        type="button"
+        className={`scroll-top-btn${scrolled ? " is-visible" : ""}`}
+        aria-label="العودة إلى الأعلى"
+        aria-hidden={scrolled ? undefined : "true"}
+        tabIndex={scrolled ? undefined : -1}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        <ArrowUpIcon />
+      </button>
+
+      <p className="powered-by-text" aria-hidden="true">
+        Powered by ElevenLabs <span className="powered-by-link">Agents</span>
+      </p>
+
+      {showTerms && (
+        <>
+          <button
+            type="button"
+            className={`tc-backdrop${closingTerms ? " is-closing" : ""}`}
+            aria-label="إغلاق نافذة الشروط والأحكام"
+            onClick={closeTerms}
+          />
+          <div
+            className={`tc-card${closingTerms ? " is-closing" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tc-title"
+          >
+            <h2 className="tc-title" id="tc-title">الشروط والأحكام</h2>
+            <p className="tc-body">
+              يتم تسجيل وحفظ محتوى المحادثة وبيانات استخدامها لأغراض تشغيل الخدمة
+              وتحسينها، وذلك وفقًا{" "}
+              <strong>
+                لشروط الاستخدام وسياسة الخصوصية المعتمدة في منصة صحة
+              </strong>
+              . تُولّد ردود المساعد الرقمي آليًا، وهي مخصصة لتقديم معلومات عامة
+              فقط، ولا تُعد استشارة طبية، ولا ينبغي الاعتماد عليها في التعامل مع
+              الحالات الطارئة أو في اتخاذ أي قرارات علاجية دون الرجوع إلى طبيب أو
+              مختص صحي. يتحمل المستخدم كامل المسؤولية عن استخدام هذه المعلومات أو
+              الاعتماد عليها، ويُعد استخدام الخدمة موافقة على هذه الأحكام،
+              بالإضافة إلى شروط الاستخدام وسياسة الخصوصية المعتمدة.
+            </p>
+            <div className="tc-actions">
+              <button type="button" className="tc-btn tc-btn-cancel" onClick={closeTerms}>
+                إلغاء
+              </button>
+              <button type="button" className="tc-btn tc-btn-start" onClick={acceptTerms}>
+                ابدأ المحادثة
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </footer>
   );
 }

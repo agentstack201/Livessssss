@@ -271,21 +271,26 @@ nav {
     margin-left: 1rem;
 }
 
+/* المرجع: الأسطر الثلاثة تشغل 58×40 بكسل فعلي (22.1×15.3 CSS) وتبدأ على
+   بعد 88px فعلي من الحافة اليسرى، ومركزها منطبق على مركز الهيدر. */
 .nav-toggle {
-    width: 24px;
-    height: 24px;
+    width: 21.8px;
+    height: 14.8px;
+    background-size: 21.8px 14.8px;
     background-image: url("data:image/svg+xml,%3csvg%20id='ios-menu'%20xmlns='http://www.w3.org/2000/svg'%20width='23.2'%20height='15.75'%20viewBox='0%200%2023.2%2015.75'%3e%3cpath%20id='Path_8753'%20data-name='Path%208753'%20d='M26.734,12.375H5.467A1.058,1.058,0,0,1,4.5,11.25a1.058,1.058,0,0,1,.967-1.125H26.734A1.058,1.058,0,0,1,27.7,11.25,1.058,1.058,0,0,1,26.734,12.375Z'%20transform='translate(-4.5%20-10.125)'%20fill='%237eb7db'/%3e%3cpath%20id='Path_8754'%20data-name='Path%208754'%20d='M26.734,19.125H5.467a1.138,1.138,0,0,1,0-2.25H26.734a1.138,1.138,0,0,1,0,2.25Z'%20transform='translate(-4.5%20-10.125)'%20fill='%237eb7db'/%3e%3cpath%20id='Path_8755'%20data-name='Path%208755'%20d='M26.734,25.875H5.467a1.138,1.138,0,0,1,0-2.25H26.734a1.138,1.138,0,0,1,0,2.25Z'%20transform='translate(-4.5%20-10.125)'%20fill='%237eb7db'/%3e%3c/svg%3e");
     background-position: center;
     background-repeat: no-repeat;
     position: absolute;
     top: 50%;
-    left: 2rem;
+    left: 33.6px;
     transform: translateY(-50%);
     -webkit-tap-highlight-color: transparent;
     display: none
 }
 
 .nav-toggle[aria-expanded=true] {
+    /* علامة الإغلاق مربّعة، فلا تُمدّ بأبعاد الأسطر الثلاثة المستطيلة */
+    background-size: 14.8px 14.8px;
     background-image: url("data:image/svg+xml,%3csvg%20id='ios-menu'%20xmlns='http://www.w3.org/2000/svg'%20width='17.997'%20height='17.996'%20viewBox='0%200%2017.997%2017.996'%3e%3cpath%20id='Path_8753'%20data-name='Path%208753'%20d='M22.234,2.25H.967A1.058,1.058,0,0,1,0,1.125,1.058,1.058,0,0,1,.967,0H22.234A1.058,1.058,0,0,1,23.2,1.125,1.058,1.058,0,0,1,22.234,2.25Z'%20transform='translate(0%2016.405)%20rotate(-45)'%20fill='%237eb7db'/%3e%3cpath%20id='Path_8755'%20data-name='Path%208755'%20d='M22.234,2.25H.967A1.058,1.058,0,0,1,0,1.125,1.058,1.058,0,0,1,.967,0H22.234A1.058,1.058,0,0,1,23.2,1.125,1.058,1.058,0,0,1,22.234,2.25Z'%20transform='translate(16.406%2017.996)%20rotate(-135)'%20fill='%237eb7db'/%3e%3c/svg%3e")
 }
 
@@ -559,81 +564,69 @@ nav {
     text-align: right;
 }
 
-/* أزرار عائمة ثابتة أسفل الصفحة (لا تتحرك مع التمرير) */
+/* ===========================================================================
+   العناصر العائمة الثابتة (قياسات مأخوذة بالبكسل من الصور المرجعية،
+   مقاسة على عرض 1080px فعلي / 412px CSS بكثافة 2.625)
+   =========================================================================== */
+
+/* أيقونة إمكانية الوصول: القطر 98px فعلي، الحلقة البيضاء 4px، وتبعد 43px
+   عن الحافة اليسرى و43px عن أسفل النافذة في المرجع. */
 .accessibility-btn-fixed {
     position: fixed;
-    left: 20px;
-    bottom: 20px;
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
+    left: 16.4px;
+    bottom: 16.4px;
+    width: 37.4px;
+    height: 37.4px;
     border-radius: 50%;
-    border: none;
+    border: 1.6px solid #fff;
     background: #306db5;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
     cursor: pointer;
-    transition: 0.3s;
-    z-index: 40;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+    z-index: 42;
 }
 
-/* المرجع: الحلقة البيضاء مزاحة للداخل ويبقى إطار أزرق حولها،
-   لا حداً ملتصقاً بحافة الدائرة. الإزاحة ≈7.2% من القطر والسماكة ≈4.5%. */
-.accessibility-btn-fixed::before {
-    content: '';
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    pointer-events: none;
+.accessibility-btn-fixed svg {
+    display: block;
 }
 
 .accessibility-btn-fixed:hover {
-    color: #7eb7db;
+    background: #2c5f9e;
 }
 
-/* مجموعة عناصر عائمة ثابتة: ويدجت شكلي (بدون وظيفة حقيقية) + زر عودة للأعلى فعلي + نص "Powered by" */
-.floating-widget-cluster {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    z-index: 40;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    pointer-events: none;
-}
-
-.floating-widget-cluster > * {
-    pointer-events: auto;
-}
-
-/* سطح زجاجي لامع: تدرج قاعدي أبيض دافئ (لا #fff خالص) + طبقات إضاءة متعددة
-   + انعكاس Specular ينساب فوق السطح + ظل خارجي ناعم مع Bloom خفيف */
+/* ------------------------------ زر المساعد ------------------------------ */
+/* المرجع: 273×156 بكسل فعلي، على بعد 105px من الحافة اليمنى و105px من الأسفل،
+   أي 40px CSS من كل جهة. الحشو 30.5px فعلي والفجوة بين الدائرتين 20px. */
 .ai-widget-pill {
-    position: relative;
+    position: fixed;
+    right: 40px;
+    bottom: 40px;
+    z-index: 45;
     isolation: isolate;
     overflow: hidden;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7.6px;
+    padding: 11.5px 11.9px;
     border-radius: 999px;
-    padding: 6px;
     direction: ltr;
+    /* السطح أبيض كما في المرجع (قياس الصورة 255,255,255 في كل نقطة مسطحة)،
+       والزجاجية تأتي من طبقات الإضاءة فوقه لا من تلوين القاعدة. */
     background:
-        radial-gradient(120% 150% at 50% 125%, rgba(190, 203, 222, 0.6) 0%, rgba(190, 203, 222, 0) 62%),
-        linear-gradient(158deg, #fbf9f5 0%, #f6f5f1 32%, #ebeff5 68%, #dde4ee 100%);
+        radial-gradient(118% 155% at 22% -18%, #ffffff 0%, #ffffff 68%, #fdfefe 86%, #fafcfe 100%);
+    /* ظل داكن ناعم فقط: المرجع يعتم الأزرق أسفل الزر من 49,109,181 إلى 44,99,166
+       ويتلاشى خلال ~40px فعلي. أي وهج أبيض خارجي يقلب الاتجاه فيُفتّح بدل أن يُعتّم. */
     box-shadow:
-        0 18px 38px rgba(14, 38, 71, 0.22),
-        0 5px 12px rgba(14, 38, 71, 0.12),
-        0 0 26px rgba(255, 255, 255, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.98),
-        inset 0 -1px 2px rgba(116, 137, 165, 0.20);
+        0 1px 5px rgba(6, 26, 52, 0.10),
+        0 4px 12px rgba(6, 26, 52, 0.075),
+        0 10px 24px rgba(6, 26, 52, 0.05);
 }
 
-/* الطبقة الأولى: إضاءة محيطية واسعة وناعمة من أعلى اليسار */
+/* الطبقة الأولى: ضوء محيطي ناعم من أعلى اليسار + انعكاس مرتد خافت من أسفل اليمين */
 .ai-widget-pill::before {
     content: '';
     position: absolute;
@@ -642,110 +635,388 @@ nav {
     border-radius: inherit;
     pointer-events: none;
     background:
-        radial-gradient(78% 130% at 16% -12%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.26) 42%, rgba(255, 255, 255, 0) 72%),
-        radial-gradient(40% 70% at 88% 108%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 70%);
+        radial-gradient(70% 120% at 18% -10%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0) 74%),
+        radial-gradient(45% 80% at 86% 112%, rgba(214, 228, 244, 0.5) 0%, rgba(214, 228, 244, 0) 72%);
+    /* حافة زجاجية داخلية: خط ضوء علوي وظل سفلي خفيف جداً */
+    /* التوهّج الناعم داخلي: هالة بيضاء عند الحافة العليا وظل رقيق عند السفلى */
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        inset 0 2px 6px rgba(255, 255, 255, 0.9),
+        inset 0 -1px 1px rgba(146, 168, 196, 0.12);
 }
 
-/* الطبقة الثانية: انعكاس Specular قطري ينزلق فوق السطح كأن الضوء ينساب */
+/* الطبقة الثانية: انعكاس Specular قطري ينساب فوق السطح من أعلى اليسار */
 .ai-widget-pill::after {
     content: '';
     position: absolute;
     top: -60%;
     bottom: -60%;
     left: -80%;
-    width: 70%;
+    width: 62%;
     z-index: 0;
     pointer-events: none;
     transform: rotate(18deg) translateX(0);
-    /* الجناحان الداكنان الخفيفان هما ما يجعل الانعكاس مرئياً فوق سطح فاتح،
-       تماماً كما ينزلق الضوء على الزجاج: عتمة ثم ذروة لامعة ثم عتمة */
     background: linear-gradient(
         90deg,
         rgba(255, 255, 255, 0) 0%,
-        rgba(146, 166, 193, 0.13) 24%,
-        rgba(255, 255, 255, 0.55) 42%,
-        rgba(255, 255, 255, 0.97) 50%,
-        rgba(255, 255, 255, 0.55) 58%,
-        rgba(146, 166, 193, 0.13) 76%,
+        rgba(178, 197, 222, 0.10) 26%,
+        rgba(255, 255, 255, 0.7) 44%,
+        rgba(255, 255, 255, 1) 50%,
+        rgba(255, 255, 255, 0.7) 56%,
+        rgba(178, 197, 222, 0.10) 74%,
         rgba(255, 255, 255, 0) 100%);
     filter: blur(0.5px);
-    /* linear لا ease: الضوء ينساب بسرعة ثابتة فوق السطح ثم يستريح قبل الدورة التالية */
+    /* linear لا ease: الضوء ينساب بسرعة ثابتة ثم يستريح قبل الدورة التالية */
     animation: ai-pill-sheen 8s linear infinite;
 }
 
 @keyframes ai-pill-sheen {
     0% { transform: rotate(18deg) translateX(0); }
-    52% { transform: rotate(18deg) translateX(300%); }
-    100% { transform: rotate(18deg) translateX(300%); }
+    52% { transform: rotate(18deg) translateX(320%); }
+    100% { transform: rotate(18deg) translateX(320%); }
 }
 
 /* المحتوى فوق طبقات الانعكاس فيبقى واضحاً غير مغسول */
-.ai-orb,
+.ai-orb-wrap,
 .ai-chat-icon {
     position: relative;
     z-index: 1;
 }
 
-.ai-orb {
-    width: 48px;
-    height: 48px;
+/* الكرة: 95.5px فعلي = 36.4px CSS في المرجع */
+.ai-orb-wrap {
+    width: 36.4px;
+    height: 36.4px;
     border-radius: 50%;
-    background: conic-gradient(from 180deg, #0a2f6b, #2f6fc9, #9fd0f5, #0a2f6b);
-    animation: ai-orb-spin 4s linear infinite;
+    display: block;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+    /* التموّج يخرج من داخل الدائرة فلا يُقص عند حوافها */
+    overflow: visible;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ai-orb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    /* النبض: تنفّس بطيء جداً في الحجم والسطوع معاً، لا تكبير مجرّد */
+    animation: ai-orb-pulse 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* بتلات الكرة: القيم مأخوذة بأخذ عيّنة من الصورة المرجعية كل 12 درجة */
+.ai-orb::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        #91c0df 0deg,
+        #205092 12deg,
+        #689fcb 24deg,
+        #abcde5 36deg,
+        #7eb5d6 48deg,
+        #5696c6 60deg,
+        #3368a5 72deg,
+        #153e85 84deg,
+        #b1d1e9 96deg,
+        #90c0df 108deg,
+        #bad8ea 120deg,
+        #f7fbfe 132deg,
+        #c9e1f1 144deg,
+        #143884 156deg,
+        #3167a4 168deg,
+        #4c88bd 180deg,
+        #407bb4 192deg,
+        #245196 204deg,
+        #19478a 216deg,
+        #fefefe 228deg,
+        #fefffe 240deg,
+        #e9f3f8 252deg,
+        #8fc0de 264deg,
+        #5093c2 276deg,
+        #2d5f9e 288deg,
+        #052267 300deg,
+        #03174d 312deg,
+        #285a9c 324deg,
+        #356da8 336deg,
+        #5ea1cb 348deg,
+        #91c0df 360deg);
+    animation: ai-orb-spin 9s linear infinite;
+}
+
+/* التموّج (Ripple): حلقتان تنطلقان من مركز الكرة إلى حافتها وتتلاشى شفافيتهما
+   تدريجياً. مقصوصتان داخل الكرة فلا تظهران فوق السطح الأبيض للزر. */
+.ai-orb .ai-ripple,
+.ai-orb .ai-ripple-2 {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 100%;
+    height: 100%;
+    margin: -50% 0 0 -50%;
+    border-radius: 50%;
+    border: 1.2px solid rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.08);
+    animation: ai-orb-ripple 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+
+.ai-orb .ai-ripple-2 {
+    animation-delay: 1.6s;
+}
+
+/* عمق كروي: تعتيم لطيف عند المركز وتفتيح عند الحافة العليا اليسرى */
+.ai-orb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+        radial-gradient(closest-side at 50% 50%, rgba(6, 30, 62, 0.55) 0%, rgba(6, 30, 62, 0.16) 22%, rgba(6, 30, 62, 0) 52%),
+        radial-gradient(closest-side at 30% 22%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 62%);
 }
 
 @keyframes ai-orb-spin {
     to { transform: rotate(360deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .ai-orb,
-    .ai-widget-pill::after {
-        animation: none;
-    }
+@keyframes ai-orb-pulse {
+    0%   { transform: scale(1);     filter: brightness(1); }
+    50%  { transform: scale(1.045); filter: brightness(1.09); }
+    100% { transform: scale(1);     filter: brightness(1); }
 }
 
+@keyframes ai-orb-ripple {
+    0%   { transform: scale(0.08); opacity: 0; }
+    12%  { opacity: 0.32; }
+    70%  { opacity: 0.10; }
+    100% { transform: scale(1);    opacity: 0; }
+}
+
+/* دائرة المحادثة: 95.5px فعلي = 36.4px CSS، بنفس أزرق المرجع */
 .ai-chat-icon {
-    width: 40px;
-    height: 40px;
+    width: 36.4px;
+    height: 36.4px;
     border-radius: 50%;
-    background: #306db5;
+    background: #3169b5;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.25s ease;
 }
 
+.ai-chat-icon:hover {
+    background: #2c5f9e;
+}
+
+.ai-chat-icon svg {
+    display: block;
+}
+
+/* --------------------------- زر الرجوع للأعلى --------------------------- */
+/* المرجع: 105×104 فعلي على بعد 80px من اليمين و52px من الأسفل، نصف قطر 30px فعلي.
+   يقع تحت زر المساعد في ترتيب الطبقات فيظهر ركنه الأيسر العلوي مختفياً خلفه. */
 .scroll-top-btn {
-    margin-top: -16px;
-    margin-left: 10px;
+    position: fixed;
+    right: 30px;
+    bottom: 20px;
     width: 40px;
     height: 40px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: none;
-    background: #fff;
+    background: #f0f3f8;
     color: #306db5;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-    transition: 0.3s;
+    z-index: 44;
+    box-shadow: 0 2px 8px rgba(13, 34, 63, 0.10);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s ease, background-color 0.25s ease;
+}
+
+/* لا يظهر إلا بعد بدء التمرير، تماماً كالمرجع الذي يخلو منه في أعلى الصفحة */
+.scroll-top-btn.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 .scroll-top-btn:hover {
-    background: #f0f3f8;
-    transform: translateY(-2px);
+    background: #e6ebf3;
 }
 
+.scroll-top-btn svg {
+    display: block;
+}
+
+/* سطر "Powered by": ثابت أسفل النافذة، حافته اليمنى على بعد 137px فعلي */
 .powered-by-text {
-    margin: 8px 4px 0 0;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.55);
+    position: fixed;
+    right: 52.3px;
+    bottom: 12.6px;
+    margin: 0;
+    z-index: 41;
+    pointer-events: none;
+    font-family: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 8.9px;
+    line-height: 1.35;
+    letter-spacing: 0;
+    white-space: nowrap;
+    color: rgba(6, 32, 62, 0.52);
 }
 
 .powered-by-link {
     text-decoration: underline;
+}
+
+/* ------------------------ نافذة الشروط والأحكام ------------------------ */
+/* المرجع: البطاقة على بعد 105px فعلي من كل من اليمين واليسار والأسفل،
+   نصف القطر 64.5px فعلي = 24.6px CSS، بلا أي تعتيم للخلفية. */
+.tc-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: default;
+    animation: tc-backdrop-in 0.2s ease-out both;
+}
+
+.tc-backdrop.is-closing {
+    animation: tc-backdrop-in 0.18s ease-in both reverse;
+}
+
+.tc-card {
+    position: fixed;
+    left: 40px;
+    right: 40px;
+    bottom: 40px;
+    z-index: 61;
+    direction: ltr;
+    text-align: left;
+    background: #fff;
+    border-radius: 24.6px;
+    padding: 20px 11px 11px;
+    box-shadow: 0 6px 28px rgba(13, 34, 63, 0.16);
+    transform-origin: 100% 100%;
+    animation: tc-card-in 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.tc-card.is-closing {
+    animation: tc-card-in 0.18s cubic-bezier(0.55, 0.06, 0.68, 0.19) both reverse;
+}
+
+@keyframes tc-backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes tc-card-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.tc-title {
+    margin: 0 0 21px;
+    padding-inline: 9px;
+    font-family: Cairo, sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0;
+    color: #111;
+}
+
+.tc-body {
+    margin: 0;
+    padding-inline: 9px;
+    font-family: Cairo, sans-serif;
+    /* المرجع يوزّع النص على 10 أسطر بمسافة سطر 51.4px فعلي؛ هذا المقاس يعطي
+       التوزيع نفسه بخط Cairo دون تبديل الخط. */
+    font-size: 11.5px;
+    line-height: 19.6px;
+    letter-spacing: 0;
+    text-align: justify;
+    color: #101010;
+}
+
+.tc-body strong {
+    font-weight: 700;
+}
+
+.tc-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 7.2px;
+    margin-top: 15px;
+}
+
+.tc-btn {
+    height: 36px;
+    border-radius: 999px;
+    font-family: Cairo, sans-serif;
+    font-size: 15px;
+    line-height: 1;
+    font-weight: 400;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.tc-btn-cancel {
+    width: 56px;
+    background: #fff;
+    border: 1px solid #e7e7e7;
+    color: #111;
+}
+
+.tc-btn-cancel:hover {
+    background: #f6f7f9;
+}
+
+.tc-btn-start {
+    width: 97.6px;
+    background: #3169b5;
+    border: 1px solid #3169b5;
+    color: #fff;
+}
+
+.tc-btn-start:hover {
+    background: #2c5f9e;
+    border-color: #2c5f9e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-orb,
+    .ai-orb::before,
+    .ai-orb .ai-ripple,
+    .ai-orb .ai-ripple-2,
+    .ai-widget-pill::after {
+        animation: none;
+    }
+    .tc-card,
+    .tc-backdrop {
+        animation-duration: 0.01ms;
+    }
 }
 
 .footer-copyright {
@@ -832,17 +1103,10 @@ nav {
     .footer-bottom-bar {
         padding: 14px 0 20px;
     }
-    .accessibility-btn-fixed {
-        width: 40px;
-        height: 40px;
-        left: 16px;
-        bottom: 16px;
-    }
-    .scroll-top-btn {
-        width: 40px;
-        height: 40px;
-        right: 16px;
-        bottom: 16px;
+    /* المرجع يقيس الخط الفاصل بعرض 790px فعلي، أي 13.42% من عرض النافذة
+       من كل جهة. حشو الفوتر 5% فيبقى على العنصر 8.42%. */
+    .footer-menu-list li {
+        margin-inline: 8.42vw;
     }
     .footer-copyright {
         font-size: 0.75rem;
@@ -856,8 +1120,10 @@ nav {
     .navbar {
         padding-inline: 1rem !important;
     }
+    /* ارتفاع الهيدر في المرجع 185px فعلي = 70px CSS، والشعار 298×133 فعلي
+       تعلوه 18px وتفصله 78px عن الحافة اليمنى. */
     .logo-wrapper {
-        padding: 10px 12px 10px 16px;
+        padding: 7px 14px 12px 16px;
     }
     /* مسار التنقل يلتزم بهامش الصفحة نفسه فلا يلتصق بالحافة */
     .breadcrumb {
@@ -872,8 +1138,8 @@ nav {
         margin-top: 22px;
     }
     .logo {
-        width: 110px !important;
-        height: 48px !important;
+        width: 114px !important;
+        height: 51px !important;
     }
     /* قائمة الجوال: طبقة بيضاء كاملة العرض تغطي محتوى الصفحة أسفلها */
     .nav-wrapper {
