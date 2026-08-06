@@ -508,42 +508,66 @@ nav {
     opacity: 1;
 }
 
-/* الشريط السفلي: زر إتاحة الوصول + الحقوق وروابط الأسفل */
+/* الشريط السفلي: الحقوق وروابط الأسفل */
 .footer-bottom-bar {
     max-width: 900px;
     margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
     padding: 18px 0 24px;
     position: relative;
     z-index: 1;
 }
 
-.accessibility-btn {
+.footer-bottom-text {
+    text-align: right;
+}
+
+/* أزرار عائمة ثابتة أسفل الصفحة (لا تتحرك مع التمرير) */
+.accessibility-btn-fixed {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
     flex-shrink: 0;
     width: 44px;
     height: 44px;
     border-radius: 50%;
     border: 1.5px solid rgba(255, 255, 255, 0.6);
-    background: transparent;
+    background: #306db5;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: 0.3s;
+    z-index: 40;
 }
 
-.accessibility-btn:hover {
+.accessibility-btn-fixed:hover {
     border-color: #fff;
     color: #7eb7db;
 }
 
-.footer-bottom-text {
-    text-align: right;
+.scroll-top-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    background: #fff;
+    color: #306db5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    transition: 0.3s;
+    z-index: 40;
+}
+
+.scroll-top-btn:hover {
+    background: #f0f3f8;
+    transform: translateY(-2px);
 }
 
 .footer-copyright {
@@ -571,37 +595,37 @@ nav {
     text-decoration: underline;
 }
 
-/* التجاوب - نفس الشكل على الجوال (أحجام أصغر وأكثر تراصاً) */
+/* التجاوب - نفس الشكل على الجوال (قياسات مأخوذة من قياس دقيق للصورة المرجعية) */
 @media (max-width: 767px) {
     .footer {
-        padding: 28px 5% 0;
+        padding: 72px 5% 0;
     }
     .footer-logo {
-        width: 150px;
-        margin-bottom: 20px;
+        width: 135px;
+        margin-bottom: 43px;
     }
     .footer-about {
-        padding-bottom: 24px;
+        padding-bottom: 90px;
     }
     .footer-about-text {
-        font-size: 0.85rem;
+        font-size: 1rem;
         line-height: 1.8;
     }
     .footer-menu {
-        padding-bottom: 16px;
+        padding-bottom: 85px;
     }
     .footer-menu-list a {
         font-size: 0.95rem;
-        padding: 12px 0;
+        padding: 13px 0;
     }
     .footer-heading {
         font-size: 1.15rem;
         padding-bottom: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 23px;
     }
     .footer-top-row {
         gap: 16px;
-        margin-bottom: 16px;
+        margin-bottom: 18px;
     }
     .footer-contact-item {
         font-size: 0.9rem;
@@ -611,7 +635,7 @@ nav {
         height: 16px;
     }
     .footer-logos img {
-        height: 44px;
+        height: 47px;
     }
     .work-hours {
         font-size: 0.8rem;
@@ -626,13 +650,19 @@ nav {
         height: 18px;
     }
     .footer-bottom-bar {
-        justify-content: flex-start;
         padding: 14px 0 20px;
-        gap: 12px;
     }
-    .accessibility-btn {
+    .accessibility-btn-fixed {
         width: 40px;
         height: 40px;
+        left: 16px;
+        bottom: 16px;
+    }
+    .scroll-top-btn {
+        width: 40px;
+        height: 40px;
+        right: 16px;
+        bottom: 16px;
     }
     .footer-copyright {
         font-size: 0.75rem;
