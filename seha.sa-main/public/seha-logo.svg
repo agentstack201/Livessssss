@@ -3,74 +3,71 @@
     <clipPath id="clip-path">
       <path id="Rectangle_9425" data-name="Rectangle 9425" d="M1.393,0H6.521A1.393,1.393,0,0,1,7.914,1.393v0A1.393,1.393,0,0,1,6.521,2.786H1.393A1.393,1.393,0,0,1,0,1.393v0A1.393,1.393,0,0,1,1.393,0Z" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient" x1="-21.23" y1="24.628" x2="-21.208" y2="24.628" gradientUnits="objectBoundingBox">
-      <stop offset="0" stop-color="#2c6bb7"/>
-      <stop offset="1" stop-color="#7cb6dd"/>
-    </linearGradient>
+    <linearGradient id="linear-gradient" gradientUnits="userSpaceOnUse" x1="-2.941" y1="0" x2="54.414" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-2">
       <path id="Path_8209" data-name="Path 8209" d="M1115.354,372.15a1.393,1.393,0,0,0,0,2.786h16.455a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1113.961 -372.15)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-2" x1="-10.037" y1="24.628" x2="-10.028" y2="24.628" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-2" gradientUnits="userSpaceOnUse" x1="-28.036" y1="0" x2="29.319" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-3">
       <path id="Path_8210" data-name="Path 8210" d="M1131.356,350.689a1.393,1.393,0,1,0,0,2.786h16.184a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1129.963 -350.689)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-3" x1="-10.326" y1="25.967" x2="-10.317" y2="25.967" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-3" gradientUnits="userSpaceOnUse" x1="-30.810" y1="0" x2="26.545" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-4">
       <path id="Path_8211" data-name="Path 8211" d="M1145.868,329.227a1.393,1.393,0,1,0,0,2.786h16.4a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1144.475 -329.227)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-4" x1="-10.342" y1="27.3" x2="-10.333" y2="27.3" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-4" gradientUnits="userSpaceOnUse" x1="-33.326" y1="0" x2="24.029" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-5">
       <path id="Path_8212" data-name="Path 8212" d="M1162.242,307.764a1.393,1.393,0,0,0,0,2.786h16.111a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1160.849 -307.764)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-5" x1="-10.649" y1="28.634" x2="-10.64" y2="28.634" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-5" gradientUnits="userSpaceOnUse" x1="-36.164" y1="0" x2="21.191" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-6">
       <path id="Path_8213" data-name="Path 8213" d="M1176.754,286.3a1.393,1.393,0,0,0,0,2.786h16.32a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1175.361 -286.303)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-6" x1="-10.665" y1="29.971" x2="-10.656" y2="29.971" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-6" gradientUnits="userSpaceOnUse" x1="-38.680" y1="0" x2="18.675" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-7">
       <path id="Path_8214" data-name="Path 8214" d="M1192.756,264.841a1.393,1.393,0,0,0,0,2.786h14.569a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1191.363 -264.841)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-7" x1="-11.9" y1="31.307" x2="-11.89" y2="31.307" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-7" gradientUnits="userSpaceOnUse" x1="-41.454" y1="0" x2="15.901" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-8">
       <path id="Path_8215" data-name="Path 8215" d="M1207.894,243.378a1.393,1.393,0,0,0,0,2.786h10.49a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1206.501 -243.378)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-8" x1="-15.754" y1="32.64" x2="-15.741" y2="32.64" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-8" gradientUnits="userSpaceOnUse" x1="-44.079" y1="0" x2="13.276" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-9">
       <path id="Path_8216" data-name="Path 8216" d="M953.634,393.613a1.393,1.393,0,1,0,0,2.786h12.8a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-952.241 -393.613)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-9" x1="-10.594" y1="23.294" x2="-10.583" y2="23.294" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-9" gradientUnits="userSpaceOnUse" x1="0.000" y1="0" x2="57.355" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-10">
       <path id="Path_8217" data-name="Path 8217" d="M1099.54,393.613a1.393,1.393,0,1,0,0,2.786h16.377a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1098.147 -393.613)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-10" x1="-9.934" y1="23.294" x2="-9.925" y2="23.294" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-10" gradientUnits="userSpaceOnUse" x1="-25.294" y1="0" x2="32.061" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-11">
       <path id="Path_8218" data-name="Path 8218" d="M953.634,415.075a1.393,1.393,0,1,0,0,2.786h17.589a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-952.241 -415.075)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-11" x1="-8.102" y1="21.96" x2="-8.094" y2="21.96" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-11" gradientUnits="userSpaceOnUse" x1="0.000" y1="0" x2="57.355" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-12">
       <path id="Path_8219" data-name="Path 8219" d="M1084.513,415.075a1.393,1.393,0,0,0,0,2.786h16.3a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1083.12 -415.075)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-12" x1="-9.836" y1="21.96" x2="-9.827" y2="21.96" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-12" gradientUnits="userSpaceOnUse" x1="-22.689" y1="0" x2="34.666" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-13">
       <path id="Path_8220" data-name="Path 8220" d="M970.13,436.536a1.393,1.393,0,1,0,0,2.786h33.241a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-968.737 -436.536)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-13" x1="-4.662" y1="20.622" x2="-4.657" y2="20.622" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-13" gradientUnits="userSpaceOnUse" x1="-2.860" y1="0" x2="54.495" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-14">
       <path id="Path_8221" data-name="Path 8221" d="M987.81,458a1.393,1.393,0,0,0,0,2.786h27.6a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-986.417 -457.999)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-14" x1="-5.627" y1="19.288" x2="-5.622" y2="19.288" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-14" gradientUnits="userSpaceOnUse" x1="-5.925" y1="0" x2="51.430" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-15">
       <path id="Path_8222" data-name="Path 8222" d="M1007.346,479.46a1.393,1.393,0,1,0,0,2.786h21.615a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1005.953 -479.46)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-15" x1="-7.147" y1="17.953" x2="-7.14" y2="17.953" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-15" gradientUnits="userSpaceOnUse" x1="-9.312" y1="0" x2="48.043" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-16">
       <path id="Path_8223" data-name="Path 8223" d="M1025.9,500.922a1.393,1.393,0,0,0,0,2.786h15.739a1.393,1.393,0,0,0,0-2.786Z" transform="translate(-1024.511 -500.922)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-16" x1="-9.587" y1="16.617" x2="-9.578" y2="16.617" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-16" gradientUnits="userSpaceOnUse" x1="-12.529" y1="0" x2="44.826" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
     <clipPath id="clip-path-17">
       <path id="Path_8224" data-name="Path 8224" d="M1045.3,522.385a1.393,1.393,0,0,0,0,2.786h9.553a1.393,1.393,0,1,0,0-2.786Z" transform="translate(-1043.911 -522.385)" fill="none"/>
     </clipPath>
-    <linearGradient id="linear-gradient-17" x1="-14.667" y1="15.282" x2="-14.653" y2="15.282" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-17" gradientUnits="userSpaceOnUse" x1="-15.892" y1="0" x2="41.463" y2="0"><stop offset="0" stop-color="#2c6bb7"/><stop offset="1" stop-color="#7cb6dd"/></linearGradient>
   </defs>
   <g id="seha-logo" transform="translate(0 0)">
     <g id="Group_4337" data-name="Group 4337" transform="translate(68.533 22.324)">
