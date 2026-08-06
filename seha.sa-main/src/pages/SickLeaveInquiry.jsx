@@ -107,7 +107,16 @@ function SickLeaveInquiry() {
   }
 
   return (
-    <div className="sl-container">
+    <>
+      <nav className="breadcrumb" aria-label="مسار التنقل">
+        <a href="https://www.seha.sa/#/">الرئيسية</a>
+        <span className="breadcrumb-sep" aria-hidden="true">‹</span>
+        <Link to="/" data-discover="true">الاستعلامات</Link>
+        <span className="breadcrumb-sep" aria-hidden="true">‹</span>
+        <span className="breadcrumb-current" aria-current="page">الإجازات المرضية</span>
+      </nav>
+
+      <div className="sl-container">
       <div>
         <h1 className="title">الإجازات المرضية</h1>
         <p>خدمة الاستعلام عن الإجازات المرضية تتيح لك الاستعلام عن حالة طلبك للإجازة ويمكنك طباعتها عن طريق تطبيق صحتي</p>
@@ -227,7 +236,8 @@ function SickLeaveInquiry() {
           <button className="back-button">رجوع للاستعلامات</button>
         </Link>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 

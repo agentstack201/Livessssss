@@ -42,6 +42,7 @@ body {
 .breadcrumb {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin-inline: 55px;
     padding-inline: 12px;
@@ -51,6 +52,14 @@ body {
 
 .breadcrumb a {
     color: #306db5
+}
+
+.breadcrumb-sep {
+    color: #798ca1
+}
+
+.breadcrumb-current {
+    color: #333
 }
 
 h1.heading {
@@ -705,6 +714,18 @@ nav {
     }
     .logo-wrapper {
         padding: 10px 12px 10px 16px;
+    }
+    /* مسار التنقل يلتزم بهامش الصفحة نفسه فلا يلتصق بالحافة */
+    .breadcrumb {
+        margin-inline: 0;
+        margin-top: 32px;
+        padding-inline: 1rem;
+        gap: 8px;
+        height: 56px;
+        font-size: 0.875rem;
+    }
+    .breadcrumb + .sl-container {
+        margin-top: 22px;
     }
     .logo {
         width: 110px !important;
