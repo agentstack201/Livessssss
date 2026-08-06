@@ -18,11 +18,14 @@ function Header() {
     }
   }, [])
 
+  const closeMenu = () => setIsMenuOpen(false)
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setIsLoggedIn(false)
     setUser(null)
+    closeMenu()
     navigate('/')
   }
 
@@ -62,19 +65,22 @@ function Header() {
           <nav>
             <ul className="nav-links">
               <li>
-                <a href="https://www.seha.sa/#/">الرئيسية</a>
+                <a href="https://www.seha.sa/#/" onClick={closeMenu}>الرئيسية</a>
               </li>
               <li>
-                <a href="https://www.seha.sa/#/services">الخدمات</a>
+                <a href="https://www.seha.sa/#/services" onClick={closeMenu}>الخدمات</a>
               </li>
               <li>
-                <Link to="/inquiries/slenquiry" className="query active" data-discover="true">الاستعلامات</Link>
+                <a href="https://www.seha.sa/#/sehaplus" onClick={closeMenu}>صحة بلس</a>
               </li>
               <li>
-                <a href="https://www.seha.sa/#/faq">الأسئلة الشائعة</a>
+                <Link to="/inquiries/slenquiry" className="query active" data-discover="true" onClick={closeMenu}>الاستعلامات</Link>
               </li>
               <li>
-                <a href="https://www.seha.sa/#/ContactUs">تواصل معنا</a>
+                <a href="https://www.seha.sa/#/faq" onClick={closeMenu}>الأسئلة الشائعة</a>
+              </li>
+              <li>
+                <a href="https://www.seha.sa/#/ContactUs" onClick={closeMenu}>تواصل معنا</a>
               </li>
             </ul>
           </nav>
@@ -107,10 +113,10 @@ function Header() {
               </>
             ) : (
               <>
-                <a href="https://www.seha.sa/#/account/signup" className="nav-link">
+                <a href="https://www.seha.sa/#/account/signup" className="nav-link" onClick={closeMenu}>
                   <p>إنشاء حساب</p>
                 </a>
-                <a href="https://www.seha.sa/#/account/login" className="login nav-link">
+                <a href="https://www.seha.sa/#/account/login" className="login nav-link" onClick={closeMenu}>
                   <svg
                     width="10"
                     height="12"
@@ -128,15 +134,14 @@ function Header() {
           </div>
         </div>
 
+        {/* الأسطر الثلاثة تتحول إلى زر X عند فتح القائمة (الخلفية تُبدَّل في CSS) */}
         <button
+          type="button"
           className="nav-toggle"
           aria-expanded={isMenuOpen ? 'true' : 'false'}
+          aria-label={isMenuOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
+        />
       </div>
     </motion.header>
   )
