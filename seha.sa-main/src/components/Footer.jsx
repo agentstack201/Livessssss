@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-const TERMS_STORAGE_KEY = "seha-assistant-terms-accepted";
-
 const YouTubeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
     <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
@@ -73,16 +71,7 @@ const ChatDotsIcon = () => (
 
 export default function Footer() {
   const [showTerms, setShowTerms] = useState(false);
-  const [assistantReady, setAssistantReady] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    try {
-      setAssistantReady(localStorage.getItem(TERMS_STORAGE_KEY) === "1");
-    } catch {
-      /* التخزين المحلي قد يكون معطلاً، تُعرض النافذة عندها في كل مرة */
-    }
-  }, []);
 
   // المرجع يخلو من زر الرجوع للأعلى ما دامت الصفحة في أعلاها، ويظهر بعد بدء التمرير
   useEffect(() => {
@@ -96,22 +85,8 @@ export default function Footer() {
   // فلا مؤقّت خروج ولا حالة إغلاق وسيطة.
   const closeTerms = useCallback(() => setShowTerms(false), []);
 
-  // الضغط على زر المحادثة يعرض الشروط فقط، ولا يفتح أي واجهة محادثة
-  const requestAssistant = useCallback(() => {
-    if (assistantReady) return;
-    setShowTerms(true);
-  }, [assistantReady]);
-
-  // «ابدأ المحادثة» يحفظ الموافقة ويغلق النافذة، ولا شيء غير ذلك
-  const acceptTerms = useCallback(() => {
-    try {
-      localStorage.setItem(TERMS_STORAGE_KEY, "1");
-    } catch {
-      /* تعذّر الحفظ: تُعرض الشروط مجدداً في الزيارة القادمة */
-    }
-    setAssistantReady(true);
-    setShowTerms(false);
-  }, []);
+  // الضغط على زر المحادثة يعرض الشروط فقط، في كل مرة، ولا يفتح أي واجهة محادثة
+  const requestAssistant = useCallback(() => setShowTerms(true), []);
 
   useEffect(() => {
     if (!showTerms) return undefined;
@@ -236,7 +211,7 @@ export default function Footer() {
       {/* زر المساعد: الكرة يمينها زر المحادثة، وكلاهما يمرّ عبر بوابة الشروط
           والأحكام. يختفي الزر تماماً ما دامت النافذة مفتوحة كما في الفيديو. */}
       {!showTerms && (
-      <div className={`ai-widget-pill${assistantReady ? " is-active" : ""}`}>
+      <div className="ai-widget-pill">
         <button
           type="button"
           className="ai-orb-wrap"
@@ -307,7 +282,7 @@ export default function Footer() {
               <button type="button" className="tc-btn tc-btn-cancel" onClick={closeTerms}>
                 إلغاء
               </button>
-              <button type="button" className="tc-btn tc-btn-start" onClick={acceptTerms}>
+              <button type="button" className="tc-btn tc-btn-start" onClick={closeTerms}>
                 ابدأ المحادثة
               </button>
             </div>

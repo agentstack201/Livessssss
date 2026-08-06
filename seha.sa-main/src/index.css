@@ -666,36 +666,8 @@ nav {
         inset 0 -1px 1px rgba(146, 168, 196, 0.12);
 }
 
-/* الطبقة الثانية: انعكاس Specular قطري ينساب فوق السطح من أعلى اليسار */
-.ai-widget-pill::after {
-    content: '';
-    position: absolute;
-    top: -60%;
-    bottom: -60%;
-    left: -80%;
-    width: 62%;
-    z-index: 0;
-    pointer-events: none;
-    transform: rotate(18deg) translateX(0);
-    background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(178, 197, 222, 0.10) 26%,
-        rgba(255, 255, 255, 0.7) 44%,
-        rgba(255, 255, 255, 1) 50%,
-        rgba(255, 255, 255, 0.7) 56%,
-        rgba(178, 197, 222, 0.10) 74%,
-        rgba(255, 255, 255, 0) 100%);
-    filter: blur(0.5px);
-    /* linear لا ease: الضوء ينساب بسرعة ثابتة ثم يستريح قبل الدورة التالية */
-    animation: ai-pill-sheen 8s linear infinite;
-}
-
-@keyframes ai-pill-sheen {
-    0% { transform: rotate(18deg) translateX(0); }
-    52% { transform: rotate(18deg) translateX(320%); }
-    100% { transform: rotate(18deg) translateX(320%); }
-}
+/* لا طبقة انعكاس متحركة: قياس سطح الزر الأبيض عبر إطارات الفيديو أعطى
+   متوسطاً ثابتاً 229.0 وانحرافاً معيارياً ثابتاً 56.5، أي أن السطح ساكن تماماً. */
 
 /* المحتوى فوق طبقات الانعكاس فيبقى واضحاً غير مغسول */
 .ai-orb-wrap,
@@ -704,17 +676,19 @@ nav {
     z-index: 1;
 }
 
-/* الكرة: 95.5px فعلي = 36.4px CSS في المرجع */
+/* الكرة: 95.5px فعلي = 36.4px CSS في المرجع.
+   قياس الفيديو: لا دوران (إزاحة الارتباط الزاوي 0 درجة على مدى 12 ثانية)،
+   ولا نبض (قطر الكرة يتغير 0.7% وبلا دورية)، ولا تموّج (المقطع الشعاعي
+   مسطّح وثابت ولا حزمة ضوء تسير للخارج). فالكرة ساكنة حتى يصل المرجع. */
 .ai-orb-wrap {
     width: 36.4px;
     height: 36.4px;
     border-radius: 50%;
     display: block;
+    position: relative;
     padding: 0;
     background: none;
     cursor: pointer;
-    /* التموّج يخرج من داخل الدائرة فلا يُقص عند حوافها */
-    overflow: visible;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -723,8 +697,6 @@ nav {
     inset: 0;
     border-radius: 50%;
     overflow: hidden;
-    /* النبض: تنفّس بطيء جداً في الحجم والسطوع معاً، لا تكبير مجرّد */
-    animation: ai-orb-pulse 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 /* بتلات الكرة: القيم مأخوذة بأخذ عيّنة من الصورة المرجعية كل 12 درجة */
@@ -766,29 +738,6 @@ nav {
         #356da8 336deg,
         #5ea1cb 348deg,
         #91c0df 360deg);
-    animation: ai-orb-spin 9s linear infinite;
-}
-
-/* التموّج (Ripple): حلقتان تنطلقان من مركز الكرة إلى حافتها وتتلاشى شفافيتهما
-   تدريجياً. مقصوصتان داخل الكرة فلا تظهران فوق السطح الأبيض للزر. */
-.ai-orb .ai-ripple,
-.ai-orb .ai-ripple-2 {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 100%;
-    height: 100%;
-    margin: -50% 0 0 -50%;
-    border-radius: 50%;
-    border: 1.2px solid rgba(255, 255, 255, 0.8);
-    pointer-events: none;
-    opacity: 0;
-    transform: scale(0.08);
-    animation: ai-orb-ripple 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
-}
-
-.ai-orb .ai-ripple-2 {
-    animation-delay: 1.6s;
 }
 
 /* عمق كروي: تعتيم لطيف عند المركز وتفتيح عند الحافة العليا اليسرى */
@@ -801,23 +750,6 @@ nav {
     background:
         radial-gradient(closest-side at 50% 50%, rgba(6, 30, 62, 0.55) 0%, rgba(6, 30, 62, 0.16) 22%, rgba(6, 30, 62, 0) 52%),
         radial-gradient(closest-side at 30% 22%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 62%);
-}
-
-@keyframes ai-orb-spin {
-    to { transform: rotate(360deg); }
-}
-
-@keyframes ai-orb-pulse {
-    0%   { transform: scale(1);     filter: brightness(1); }
-    50%  { transform: scale(1.045); filter: brightness(1.09); }
-    100% { transform: scale(1);     filter: brightness(1); }
-}
-
-@keyframes ai-orb-ripple {
-    0%   { transform: scale(0.08); opacity: 0; }
-    12%  { opacity: 0.32; }
-    70%  { opacity: 0.10; }
-    100% { transform: scale(1);    opacity: 0; }
 }
 
 /* دائرة المحادثة: 95.5px فعلي = 36.4px CSS، بنفس أزرق المرجع */
@@ -866,17 +798,14 @@ nav {
     cursor: pointer;
     z-index: 43;
     box-shadow: 0 2px 8px rgba(13, 34, 63, 0.10);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(8px);
-    transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s ease, background-color 0.25s ease;
+    /* الفيديو: الزر يكتمل ويختفي في إطار واحد في كل مرة (21.818→21.834ث،
+       22.218→22.235ث، 30.808→30.825ث، 33.411→33.427ث) فلا تلاشٍ ولا إزاحة. */
+    display: none;
 }
 
 /* لا يظهر إلا بعد بدء التمرير، تماماً كالمرجع الذي يخلو منه في أعلى الصفحة */
 .scroll-top-btn.is-visible {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
+    display: flex;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -935,7 +864,11 @@ nav {
     background: #fff;
     border-radius: 24.6px;
     padding: 20px 11px 11px;
-    box-shadow: 0 6px 28px rgba(13, 34, 63, 0.16);
+    /* قياس المرجع حول البطاقة: تعتيم ~10% عند الحافة يتلاشى خلال ~35px فعلي
+       وبلا إزاحة رأسية تُذكر (التعتيم أعلى البطاقة وأسفلها متقارب). */
+    box-shadow:
+        0 2px 18px rgba(13, 34, 63, 0.15),
+        0 8px 46px rgba(13, 34, 63, 0.12);
     /* الفيديو عند 60 إطاراً/ثانية: البطاقة تكتمل في إطار واحد عند 13.417ث
        وتختفي في إطار واحد عند 15.233ث، فلا حركة دخول ولا خروج. */
 }
@@ -1017,15 +950,7 @@ nav {
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .ai-orb,
-    .ai-orb::before,
-    .ai-orb .ai-ripple,
-    .ai-orb .ai-ripple-2,
-    .ai-widget-pill::after {
-        animation: none;
-    }
-}
+
 
 .footer-copyright {
     font-size: 0.8rem;
@@ -1163,15 +1088,13 @@ nav {
         z-index: 99;
         background-color: #fff;
         box-shadow: none;
-        transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
+        /* الفيديو: القائمة تفتح في إطار واحد بين 0.750ث و0.800ث بلا تلاشٍ */
         visibility: hidden;
-        opacity: 0;
         overflow: hidden;
     }
     .nav-wrapper.active {
         height: auto;
         padding: 44px 32px 33px !important;
-        opacity: 1;
         visibility: visible;
     }
     .nav-wrapper nav {
