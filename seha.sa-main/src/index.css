@@ -408,8 +408,12 @@ nav {
     padding: 0;
 }
 
+/* الهامش الجانبي وحده هو ما يقصّر الخط الفاصل: النص يبقى متوسطاً بلا حركة،
+   والسماكة واللون والشفافية والمسافة الرأسية كما هي.
+   المرجع: الخط الفاصل = ضعف عرض شريط العنوان (140px) بالضبط ≈ 280px. */
 .footer-menu-list li {
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    margin-inline: 9.6%;
 }
 
 .footer-menu-list li:last-child {
@@ -564,7 +568,7 @@ nav {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    border: 3px solid #fff; /* حد أعرض وأوضح للدائرة الخارجية */
+    border: none;
     background: #306db5;
     color: #fff;
     display: flex;
@@ -575,8 +579,18 @@ nav {
     z-index: 40;
 }
 
+/* المرجع: الحلقة البيضاء مزاحة للداخل ويبقى إطار أزرق حولها،
+   لا حداً ملتصقاً بحافة الدائرة. الإزاحة ≈7.2% من القطر والسماكة ≈4.5%. */
+.accessibility-btn-fixed::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    pointer-events: none;
+}
+
 .accessibility-btn-fixed:hover {
-    border-color: #fff;
     color: #7eb7db;
 }
 
@@ -596,15 +610,80 @@ nav {
     pointer-events: auto;
 }
 
+/* سطح زجاجي لامع: تدرج قاعدي أبيض دافئ (لا #fff خالص) + طبقات إضاءة متعددة
+   + انعكاس Specular ينساب فوق السطح + ظل خارجي ناعم مع Bloom خفيف */
 .ai-widget-pill {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: 6px;
-    background: #fff;
     border-radius: 999px;
     padding: 6px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
     direction: ltr;
+    background:
+        radial-gradient(120% 150% at 50% 125%, rgba(190, 203, 222, 0.6) 0%, rgba(190, 203, 222, 0) 62%),
+        linear-gradient(158deg, #fbf9f5 0%, #f6f5f1 32%, #ebeff5 68%, #dde4ee 100%);
+    box-shadow:
+        0 18px 38px rgba(14, 38, 71, 0.22),
+        0 5px 12px rgba(14, 38, 71, 0.12),
+        0 0 26px rgba(255, 255, 255, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -1px 2px rgba(116, 137, 165, 0.20);
+}
+
+/* الطبقة الأولى: إضاءة محيطية واسعة وناعمة من أعلى اليسار */
+.ai-widget-pill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        radial-gradient(78% 130% at 16% -12%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.26) 42%, rgba(255, 255, 255, 0) 72%),
+        radial-gradient(40% 70% at 88% 108%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+/* الطبقة الثانية: انعكاس Specular قطري ينزلق فوق السطح كأن الضوء ينساب */
+.ai-widget-pill::after {
+    content: '';
+    position: absolute;
+    top: -60%;
+    bottom: -60%;
+    left: -80%;
+    width: 70%;
+    z-index: 0;
+    pointer-events: none;
+    transform: rotate(18deg) translateX(0);
+    /* الجناحان الداكنان الخفيفان هما ما يجعل الانعكاس مرئياً فوق سطح فاتح،
+       تماماً كما ينزلق الضوء على الزجاج: عتمة ثم ذروة لامعة ثم عتمة */
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(146, 166, 193, 0.13) 24%,
+        rgba(255, 255, 255, 0.55) 42%,
+        rgba(255, 255, 255, 0.97) 50%,
+        rgba(255, 255, 255, 0.55) 58%,
+        rgba(146, 166, 193, 0.13) 76%,
+        rgba(255, 255, 255, 0) 100%);
+    filter: blur(0.5px);
+    /* linear لا ease: الضوء ينساب بسرعة ثابتة فوق السطح ثم يستريح قبل الدورة التالية */
+    animation: ai-pill-sheen 8s linear infinite;
+}
+
+@keyframes ai-pill-sheen {
+    0% { transform: rotate(18deg) translateX(0); }
+    52% { transform: rotate(18deg) translateX(300%); }
+    100% { transform: rotate(18deg) translateX(300%); }
+}
+
+/* المحتوى فوق طبقات الانعكاس فيبقى واضحاً غير مغسول */
+.ai-orb,
+.ai-chat-icon {
+    position: relative;
+    z-index: 1;
 }
 
 .ai-orb {
@@ -620,7 +699,8 @@ nav {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ai-orb {
+    .ai-orb,
+    .ai-widget-pill::after {
         animation: none;
     }
 }
