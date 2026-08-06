@@ -174,14 +174,16 @@ nav {
     color: #3b71b9;
     font-weight: 600;
     font-size: 1rem;
-    transition: all 0.2s;
+    transition: color 0.2s;
     position: relative;
     padding: 0.5rem 0;
     white-space: nowrap;
 }
 
-.nav-links a:hover {
-    color: #2c5282;
+@media (hover: hover) and (pointer: fine) {
+    .nav-links a:hover {
+        color: #2c5282;
+    }
 }
 
 .nav-links a.active {
@@ -230,7 +232,7 @@ nav {
     white-space: nowrap;
     text-decoration: none;
     align-items: center;
-    transition: all 0.2s;
+    transition: background-color 0.2s;
     gap: 8px;
 }
 
@@ -249,8 +251,10 @@ nav {
     }
 }
 
-.login.nav-link:hover {
-    background-color: #2c5282;
+@media (hover: hover) and (pointer: fine) {
+    .login.nav-link:hover {
+        background-color: #2c5282;
+    }
 }
 
 .login.nav-link p {
@@ -435,8 +439,13 @@ nav {
     transition: color 0.3s;
 }
 
-.footer-menu-list a:hover {
-    color: #7eb7db;
+/* المرجع لا يترك أي أثر على الرابط بعد اللمس: التمييز الوحيد هو دائرة اللمس
+   التي يرسمها المتصفح. تُقصر تأثيرات :hover على أجهزة المؤشر حتى لا تعلق
+   بعد الضغط على الجوال. */
+@media (hover: hover) and (pointer: fine) {
+    .footer-menu-list a:hover {
+        color: #7eb7db;
+    }
 }
 
 /* عنوان "تواصل معنا" في المنتصف مع الخط الفاصل السفلي */
@@ -545,10 +554,12 @@ nav {
     height: 20px;
 }
 
-.social-btn:hover {
-    color: #7eb7db;
-    transform: translateY(-3px);
-    opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+    .social-btn:hover {
+        color: #7eb7db;
+        transform: translateY(-3px);
+        opacity: 1;
+    }
 }
 
 /* الشريط السفلي: الحقوق وروابط الأسفل */
@@ -569,33 +580,43 @@ nav {
    مقاسة على عرض 1080px فعلي / 412px CSS بكثافة 2.625)
    =========================================================================== */
 
-/* أيقونة إمكانية الوصول: القطر 98px فعلي، الحلقة البيضاء 4px، وتبعد 43px
-   عن الحافة اليسرى و43px عن أسفل النافذة في المرجع. */
+/* الفيديو يُظهر الزر فوق خلفية بيضاء فيبين أن القرص الأزرق أكبر من الحلقة:
+   القرص 114px فعلي والحلقة البيضاء بقطر خارجي 98px مزاحة 8px للداخل بسماكة 4px،
+   ويبعد القرص 35px عن الحافة اليسرى و36px عن أسفل النافذة. */
 .accessibility-btn-fixed {
     position: fixed;
-    left: 16.4px;
-    bottom: 16.4px;
-    width: 37.4px;
-    height: 37.4px;
+    left: 13.4px;
+    bottom: 13.8px;
+    width: 43.3px;
+    height: 43.3px;
     border-radius: 50%;
-    border: 1.6px solid #fff;
-    background: #306db5;
+    border: none;
+    /* الحلقة مرسومة بتدرّج قطري لا بـ border: عرض الإطار يُقرَّب إلى بكسل CSS
+       صحيح فيخرج 2.6px فعلي بدل 4px، أما محطات التدرّج فتقبل الكسور. */
+    background:
+        radial-gradient(circle at 50% 50%,
+            #306db5 0 17.12px,
+            #fff 17.12px 18.65px,
+            #306db5 18.65px);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     cursor: pointer;
-    transition: background-color 0.25s ease, box-shadow 0.25s ease;
-    z-index: 42;
+    transition: filter 0.25s ease;
+    z-index: 44;
 }
 
 .accessibility-btn-fixed svg {
     display: block;
+    position: relative;
 }
 
-.accessibility-btn-fixed:hover {
-    background: #2c5f9e;
+@media (hover: hover) and (pointer: fine) {
+    .accessibility-btn-fixed:hover {
+        filter: brightness(0.92);
+    }
 }
 
 /* ------------------------------ زر المساعد ------------------------------ */
@@ -815,8 +836,10 @@ nav {
     transition: background-color 0.25s ease;
 }
 
-.ai-chat-icon:hover {
-    background: #2c5f9e;
+@media (hover: hover) and (pointer: fine) {
+    .ai-chat-icon:hover {
+        background: #2c5f9e;
+    }
 }
 
 .ai-chat-icon svg {
@@ -841,7 +864,7 @@ nav {
     justify-content: center;
     padding: 0;
     cursor: pointer;
-    z-index: 44;
+    z-index: 43;
     box-shadow: 0 2px 8px rgba(13, 34, 63, 0.10);
     opacity: 0;
     visibility: hidden;
@@ -856,8 +879,10 @@ nav {
     transform: translateY(0);
 }
 
-.scroll-top-btn:hover {
-    background: #e6ebf3;
+@media (hover: hover) and (pointer: fine) {
+    .scroll-top-btn:hover {
+        background: #e6ebf3;
+    }
 }
 
 .scroll-top-btn svg {
@@ -891,15 +916,12 @@ nav {
     position: fixed;
     inset: 0;
     z-index: 60;
+    /* قياس إطارَي الفيديو قبل الفتح وبعده أعطى القيم نفسها بكل قناة،
+       فلا يوجد أي تعتيم أو ضبابية خلف البطاقة. */
     background: transparent;
     border: none;
     padding: 0;
     cursor: default;
-    animation: tc-backdrop-in 0.2s ease-out both;
-}
-
-.tc-backdrop.is-closing {
-    animation: tc-backdrop-in 0.18s ease-in both reverse;
 }
 
 .tc-card {
@@ -914,22 +936,8 @@ nav {
     border-radius: 24.6px;
     padding: 20px 11px 11px;
     box-shadow: 0 6px 28px rgba(13, 34, 63, 0.16);
-    transform-origin: 100% 100%;
-    animation: tc-card-in 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-
-.tc-card.is-closing {
-    animation: tc-card-in 0.18s cubic-bezier(0.55, 0.06, 0.68, 0.19) both reverse;
-}
-
-@keyframes tc-backdrop-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-@keyframes tc-card-in {
-    from { opacity: 0; transform: scale(0.94); }
-    to   { opacity: 1; transform: scale(1); }
+    /* الفيديو عند 60 إطاراً/ثانية: البطاقة تكتمل في إطار واحد عند 13.417ث
+       وتختفي في إطار واحد عند 15.233ث، فلا حركة دخول ولا خروج. */
 }
 
 .tc-title {
@@ -989,8 +997,10 @@ nav {
     color: #111;
 }
 
-.tc-btn-cancel:hover {
-    background: #f6f7f9;
+@media (hover: hover) and (pointer: fine) {
+    .tc-btn-cancel:hover {
+        background: #f6f7f9;
+    }
 }
 
 .tc-btn-start {
@@ -1000,9 +1010,11 @@ nav {
     color: #fff;
 }
 
-.tc-btn-start:hover {
-    background: #2c5f9e;
-    border-color: #2c5f9e;
+@media (hover: hover) and (pointer: fine) {
+    .tc-btn-start:hover {
+        background: #2c5f9e;
+        border-color: #2c5f9e;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1012,10 +1024,6 @@ nav {
     .ai-orb .ai-ripple-2,
     .ai-widget-pill::after {
         animation: none;
-    }
-    .tc-card,
-    .tc-backdrop {
-        animation-duration: 0.01ms;
     }
 }
 
