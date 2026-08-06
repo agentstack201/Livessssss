@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 
 const TERMS_STORAGE_KEY = "seha-assistant-terms-accepted";
 
@@ -41,9 +40,9 @@ const AccessibilityIcon = () => (
   <svg width="19.45" height="21.74" viewBox="0 0 51 57" fill="none" stroke="currentColor">
     <circle cx="26" cy="7.2" r="7.3" fill="currentColor" stroke="none" />
     <path d="M6 20.6Q26 24.8 45 20.6" strokeWidth="5.2" strokeLinecap="round" />
-    <path d="M26 27v14.5" strokeWidth="10.5" />
-    <path d="M26 41 17.6 53.4" strokeWidth="6" strokeLinecap="round" />
-    <path d="M26 41 34.6 53.4" strokeWidth="6" strokeLinecap="round" />
+    <path d="M26 27v8.5" strokeWidth="10.5" />
+    <path d="M26 34 17.6 53.4" strokeWidth="6" strokeLinecap="round" />
+    <path d="M26 34 34.6 53.4" strokeWidth="6" strokeLinecap="round" />
   </svg>
 );
 
@@ -74,7 +73,6 @@ const ChatDotsIcon = () => (
 
 export default function Footer() {
   const [showTerms, setShowTerms] = useState(false);
-  const [closingTerms, setClosingTerms] = useState(false);
   const [assistantReady, setAssistantReady] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -94,30 +92,17 @@ export default function Footer() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const closeTerms = useCallback(() => {
-    setClosingTerms(true);
-    window.setTimeout(() => {
-      setShowTerms(false);
-      setClosingTerms(false);
-    }, 180);
-  }, []);
+  // الفيديو يُظهر البطاقة تكتمل وتختفي في إطار واحد عند 60 إطاراً/ثانية،
+  // فلا مؤقّت خروج ولا حالة إغلاق وسيطة.
+  const closeTerms = useCallback(() => setShowTerms(false), []);
 
-  // بعد قبول الشروط تُفتح المحادثة مباشرة. لا توجد خدمة محادثة في هذا المستودع،
-  // فيُطلق الحدث ليلتقطه أي تكامل لاحق دون تغيير هذه البوابة.
-  const openAssistant = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("seha:assistant-open"));
-  }, []);
-
-  // الضغط على زر المحادثة لا يفتحها مباشرة: تُعرض الشروط أولاً ما لم تُقبل سابقاً
+  // الضغط على زر المحادثة يعرض الشروط فقط، ولا يفتح أي واجهة محادثة
   const requestAssistant = useCallback(() => {
-    if (assistantReady) {
-      openAssistant();
-      return;
-    }
-    setClosingTerms(false);
+    if (assistantReady) return;
     setShowTerms(true);
-  }, [assistantReady, openAssistant]);
+  }, [assistantReady]);
 
+  // «ابدأ المحادثة» يحفظ الموافقة ويغلق النافذة، ولا شيء غير ذلك
   const acceptTerms = useCallback(() => {
     try {
       localStorage.setItem(TERMS_STORAGE_KEY, "1");
@@ -125,9 +110,8 @@ export default function Footer() {
       /* تعذّر الحفظ: تُعرض الشروط مجدداً في الزيارة القادمة */
     }
     setAssistantReady(true);
-    closeTerms();
-    openAssistant();
-  }, [closeTerms, openAssistant]);
+    setShowTerms(false);
+  }, []);
 
   useEffect(() => {
     if (!showTerms) return undefined;
@@ -172,32 +156,29 @@ export default function Footer() {
 
         <div className="footer-top-row">
           <div className="contact-items">
-            <motion.a
+            <a
               href="tel:920002005"
               className="footer-contact-item"
-              whileHover={{ scale: 1.02, x: -5 }}
             >
               <div className="contact-icon-wrapper"><PhoneIcon /></div>
               <span>920002005</span>
-            </motion.a>
-            <motion.a
+            </a>
+            <a
               href="mailto:support@seha.sa"
               className="footer-contact-item"
-              whileHover={{ scale: 1.02, x: -5 }}
             >
               <div className="contact-icon-wrapper"><MailIcon /></div>
               <span>support@seha.sa</span>
-            </motion.a>
-            <motion.a
+            </a>
+            <a
               href="https://wa.me/920002005"
               className="footer-contact-item"
               target="_blank"
               rel="noreferrer"
-              whileHover={{ scale: 1.02, x: -5 }}
             >
               <div className="contact-icon-wrapper"><WhatsAppIcon /></div>
               <span>920002005</span>
-            </motion.a>
+            </a>
           </div>
 
           <div className="footer-logos">
@@ -212,24 +193,22 @@ export default function Footer() {
         </p>
 
         <div className="footer-social-links">
-          <motion.a
+          <a
             href="https://www.youtube.com/channel/UCb9ZrS2YcriYqIPIHNp9wcQ"
             className="social-btn"
             target="_blank"
             rel="noreferrer"
-            whileHover={{ y: -5, scale: 1.2 }}
           >
             <YouTubeIcon />
-          </motion.a>
-          <motion.a
+          </a>
+          <a
             href="https://twitter.com/seha_services"
             className="social-btn"
             target="_blank"
             rel="noreferrer"
-            whileHover={{ y: -5, scale: 1.2 }}
           >
             <XIcon />
-          </motion.a>
+          </a>
         </div>
       </div>
 
@@ -254,7 +233,9 @@ export default function Footer() {
         <AccessibilityIcon />
       </button>
 
-      {/* زر المساعد: الكرة يمينها زر المحادثة، وكلاهما يمرّ عبر بوابة الشروط والأحكام */}
+      {/* زر المساعد: الكرة يمينها زر المحادثة، وكلاهما يمرّ عبر بوابة الشروط
+          والأحكام. يختفي الزر تماماً ما دامت النافذة مفتوحة كما في الفيديو. */}
+      {!showTerms && (
       <div className={`ai-widget-pill${assistantReady ? " is-active" : ""}`}>
         <button
           type="button"
@@ -277,6 +258,7 @@ export default function Footer() {
           <ChatDotsIcon />
         </button>
       </div>
+      )}
 
       <button
         type="button"
@@ -297,12 +279,12 @@ export default function Footer() {
         <>
           <button
             type="button"
-            className={`tc-backdrop${closingTerms ? " is-closing" : ""}`}
+            className="tc-backdrop"
             aria-label="إغلاق نافذة الشروط والأحكام"
             onClick={closeTerms}
           />
           <div
-            className={`tc-card${closingTerms ? " is-closing" : ""}`}
+            className="tc-card"
             role="dialog"
             aria-modal="true"
             aria-labelledby="tc-title"
