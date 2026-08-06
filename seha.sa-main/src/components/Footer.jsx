@@ -42,35 +42,11 @@ const AccessibilityIcon = () => (
   </svg>
 );
 
-const containerVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.6,
-      staggerChildren: 0.15,
-      ease: "easeOut"
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
-};
-
 export default function Footer() {
   return (
     <footer className="footer">
-      <motion.div
-        className="footer-container"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={containerVariants}
-      >
-        <motion.div className="footer-about" variants={itemVariants}>
+      <div className="footer-container">
+        <div className="footer-about">
           <img
             className="footer-logo"
             alt="Seha"
@@ -81,9 +57,9 @@ export default function Footer() {
             إلكترونياً لجميع المنشآت الطبية وتسعى إلى توحيد وأتمتة الاجراءات
             والخدمات بما في دوره رفع جودة الاداء وخفض التكاليف.
           </p>
-        </motion.div>
+        </div>
 
-        <motion.div className="footer-menu" variants={itemVariants}>
+        <div className="footer-menu">
           <h3 className="footer-heading">القائمة الرئيسية</h3>
           <ul className="footer-menu-list">
             <li><a href="https://seha.sa/#/services">الخدمات</a></li>
@@ -93,13 +69,13 @@ export default function Footer() {
             <li><a href="#">الأثر البيئي</a></li>
             <li><a href="https://seha.sa/#/ContactUs">تواصل معنا</a></li>
           </ul>
-        </motion.div>
+        </div>
 
-        <motion.h3 className="footer-heading" variants={itemVariants}>
+        <h3 className="footer-heading">
           تواصل معنا
-        </motion.h3>
+        </h3>
 
-        <motion.div className="footer-top-row" variants={itemVariants}>
+        <div className="footer-top-row">
           <div className="contact-items">
             <motion.a
               href="tel:920002005"
@@ -134,13 +110,13 @@ export default function Footer() {
             <div className="logo-sep" />
             <img alt="وزارة الصحة" src="https://seha.sa/assets/MOH-logo-DYiHZCSg.svg" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.p className="work-hours" variants={itemVariants}>
+        <p className="work-hours">
           أوقات العمل: الأحد حتى الخميس 8 ص - 11م
-        </motion.p>
+        </p>
 
-        <motion.div className="footer-social-links" variants={itemVariants}>
+        <div className="footer-social-links">
           <motion.a
             href="https://www.youtube.com/channel/UCb9ZrS2YcriYqIPIHNp9wcQ"
             className="social-btn"
@@ -159,8 +135,8 @@ export default function Footer() {
           >
             <XIcon />
           </motion.a>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div className="footer-bottom-bar">
         <div className="footer-bottom-text">
