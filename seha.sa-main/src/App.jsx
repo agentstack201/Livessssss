@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import SickLeaveInquiry from './pages/SickLeaveInquiry'
 import SickLeaveForm from './pages/SickLeaveForm'
 import PdfGenerator from './pages/PdfGenerator'
+import Templates from './pages/Templates'
 import PdfPreview from './pages/PdfPreview'
 import UserManagement from './pages/UserManagement'
 import MediaManager from './pages/MediaManager'
@@ -57,6 +58,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <BatchSickLeave />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <ProtectedRoute>
+                <Templates />
               </ProtectedRoute>
             }
           />

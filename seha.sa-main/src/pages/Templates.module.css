@@ -1,0 +1,166 @@
+/* صفحة القوالب — تخطيط متجاوب يعمل من شاشة الجوال حتى سطح المكتب. */
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+  font-family: 'Cairo', sans-serif;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.5rem;
+}
+
+.subtitle {
+  font-size: clamp(0.9rem, 2.5vw, 1rem);
+  color: #64748b;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.grid {
+  display: grid;
+  /* بطاقة واحدة على الجوال، وتتعدد تلقائياً كلما اتسعت الشاشة. */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.4rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-top: 4px solid var(--accent, #2f6db4);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.icon {
+  font-size: 1.9rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent, #2f6db4);
+  margin: 0;
+  /* عنوان طويل يلتفّ بدل أن يوسّع البطاقة. */
+  overflow-wrap: anywhere;
+}
+
+.cardTitleEn {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.75;
+  margin: 0;
+  /* تدفع الأزرار لأسفل البطاقة فتتحاذى كل البطاقات مهما اختلف طول الوصف. */
+  flex: 1;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.useBtn,
+.previewBtn {
+  flex: 1 1 120px;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.useBtn {
+  border: none;
+  background: var(--accent, #2f6db4);
+  color: #fff;
+}
+
+.previewBtn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.useBtn:hover,
+.previewBtn:hover {
+  filter: brightness(0.95);
+}
+
+.useBtn:focus-visible,
+.previewBtn:focus-visible {
+  outline: 3px solid rgba(47, 109, 180, 0.4);
+  outline-offset: 2px;
+}
+
+.footer {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.backLink {
+  color: #2f6db4;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}

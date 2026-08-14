@@ -3,6 +3,7 @@ const mwError = require("../middlewares/validationMW");
 const auth = require("../middlewares/authMW");
 const createPDF = require("../middlewares/generatePdf"); // استخدام النسخة المحدثة مع dynamic imports
 const createCompanionPDF = require("../middlewares/generateCompanionPdf"); // قالب «مشهد مراجعة لمرافق»
+const createVisitStatementPDF = require("../middlewares/generateVisitStatementPdf"); // قالب «مشهد مراجعة»
 const calcDays = require("../middlewares/calcDays");
 const convertDates = require("../middlewares/convertDates");
 const permission = require("../middlewares/permissionMW");
@@ -12,6 +13,7 @@ module.exports = {
   auth,
   createPDF,
   createCompanionPDF,
+  createVisitStatementPDF,
   calcDays,
   convertDates,
   permission

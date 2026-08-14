@@ -104,7 +104,7 @@ export default function Footer() {
           <img
             className="footer-logo"
             alt="Seha"
-            src="https://seha.sa/assets/logo-white-CKxLEirV.svg"
+            src="/seha-logo-white.svg"
           />
           <p className="footer-about-text">
             منصة صحة تخدم جميع المنشأت الطبية من خلال تقديم الخدمات الصحية
@@ -157,9 +157,9 @@ export default function Footer() {
           </div>
 
           <div className="footer-logos">
-            <img alt="لين" src="https://seha.sa/assets/lean-logo-De0NEeoI.svg" />
+            <img alt="لين" src="/lean-logo.svg" />
             <div className="logo-sep" />
-            <img alt="وزارة الصحة" src="https://seha.sa/assets/MOH-logo-DYiHZCSg.svg" />
+            <img alt="وزارة الصحة" src="/moh-logo.svg" />
           </div>
         </div>
 
