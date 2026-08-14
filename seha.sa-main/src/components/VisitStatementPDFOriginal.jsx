@@ -139,7 +139,9 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   // القالب الأصلي ولا أي موقع خارجي. نفس الرابط يُستخدم للـ QR وللنص أسفله.
   const frontendUrl = window.location.origin;
   const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
-  const verificationLabel = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
+  // نصٌّ بصري ثابت مطابق للمستند الأصلي — الوجهة الحقيقية (href والـ QR) هي
+  // verificationUrl على نطاق موقعنا. مقصود ألا يتطابق الظاهر مع الوجهة.
+  const verificationLabel = 'www.seha.sa/#/inquiries/slenquiry';
 
   const admissionTimeEn = formatTime12(data.admission_time);
   const dischargeTimeEn = formatTime12(data.discharge_time);
@@ -629,7 +631,7 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
         </div>
       </div>
       <div>
-        <img style="width: 140px; height: 90px ;margin-left: 147px !important; margin-top:30px !important;" src='/images/national-center.jpg' alt="National Health Logo">
+        <img style="width: 140px; height: 90px ;object-fit: contain;object-position: center;margin-left: 147px !important; margin-top:30px !important;" src='/images/national-center.jpg' alt="National Health Logo">
       </div>
     </div>
   </div>

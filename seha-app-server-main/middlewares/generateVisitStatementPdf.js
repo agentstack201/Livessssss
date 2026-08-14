@@ -45,8 +45,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
     // الخدمة ورقم الهوية فتُملأ حقول الاستعلام تلقائياً عند المسح.
     const frontendUrl = (process.env.FRONTEND_URL || 'https://livessssss.vercel.app').replace(/\/+$/, '');
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
-    // النص الظاهر أسفل الـ QR يعكس نطاقنا الفعلي بدل نطاق القالب الأصلي.
-    const verificationLabel = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
+    // النص الظاهر أسفل الـ QR نصٌّ بصري ثابت مطابق للمستند الأصلي حرفاً بحرف
+    // (شكلاً وطولاً وخطاً وموضعاً). أما الوجهة الحقيقية — href الرابط وبيانات
+    // الـ QR أعلاه — فهي verificationUrl على نطاق موقعنا. مقصود ألا يتطابقا.
+    const verificationLabel = 'www.seha.sa/#/inquiries/slenquiry';
 
     let qrDataUri = '';
     try {
@@ -516,7 +518,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
         </div>
       </div>
       <div>
-        <img style="width: 140px; height: 90px ;margin-left: 147px !important; margin-top:30px !important;" src='${nationalCenterLogo}' alt="National Health Logo">
+        <img style="width: 140px; height: 90px ;object-fit: contain;object-position: center;margin-left: 147px !important; margin-top:30px !important;" src='${nationalCenterLogo}' alt="National Health Logo">
       </div>
     </div>
   </div>
