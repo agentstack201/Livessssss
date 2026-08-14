@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import styles from './Dashboard.module.css'
-import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
-import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
+import { getDocumentType } from '../config/documentTypes'
 import WelcomePopup from '../components/WelcomePopup'
 import { shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare'
 
@@ -424,6 +423,16 @@ function Dashboard() {
             <span>إجازات متعددة (دفعة)</span>
           </Link>
         )}
+        {(userPermissions?.can_create_leaves || user?.role === 'admin') && (
+          <Link to="/templates" className={styles.actionBtn} style={{ border: '2px solid #0f766e', background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', color: '#0f766e' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+            <span>قوالب المستندات</span>
+          </Link>
+        )}
         <Link to="/pdf-generator" className={styles.actionBtn}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -753,20 +762,11 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* PDF Modal — القالب يُختار حسب نوع المستند المحفوظ */}
-      {showPdfModal && selectedLeave && (
-        selectedLeave.document_type === 'companion_visit' ? (
-          <CompanionVisitPDFOriginal
-            data={selectedLeave}
-            onClose={() => setShowPdfModal(false)}
-          />
-        ) : (
-          <SickLeavePDFOriginal
-            data={selectedLeave}
-            onClose={() => setShowPdfModal(false)}
-          />
-        )
-      )}
+      {/* PDF Modal — مكوّن المعاينة يُحدَّد من سجلّ القوالب حسب نوع المستند */}
+      {showPdfModal && selectedLeave && (() => {
+        const PreviewComponent = getDocumentType(selectedLeave.document_type).previewComponent
+        return <PreviewComponent data={selectedLeave} onClose={() => setShowPdfModal(false)} />
+      })()}
 
       {/* Welcome Popup - يظهر كل 5 دقائق للمستخدمين غير simo */}
       <WelcomePopup />

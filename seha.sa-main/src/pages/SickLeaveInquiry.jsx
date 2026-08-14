@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ClipLoader } from 'react-spinners'
-import { calcWaitingPeriod } from '../components/CompanionVisitPDFOriginal'
+import { calcWaitingPeriod } from '../utils/documentFormat'
+import { DOC_COMPANION, DOC_VISIT_STATEMENT, normalizeDocumentType } from '../config/documentTypes'
 
 // API Configuration from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -154,7 +155,9 @@ function SickLeaveInquiry() {
 
           {error && <div className="error">{error}</div>}
 
-          {result && result.document_type === 'companion_visit' && (
+          {/* نتيجة الاستعلام تُعرض بحقول القالب الذي أُصدر به المستند.
+              هذا هو «المشهد» الذي يفتحه رمز الـ QR المطبوع على كل مستند. */}
+          {result && normalizeDocumentType(result.document_type) === DOC_COMPANION && (
             <div className="row">
               <div className="item">
                 <span>اسم المرافق: </span>{result.name_ar}
@@ -190,7 +193,44 @@ function SickLeaveInquiry() {
             </div>
           )}
 
-          {result && result.document_type !== 'companion_visit' && (
+          {result && normalizeDocumentType(result.document_type) === DOC_VISIT_STATEMENT && (
+            <div className="row">
+              <div className="item">
+                <span>الاسم: </span>{result.name_ar}
+              </div>
+              <div className="item">
+                <span>تاريخ اصدار التقرير: </span>
+                {result.issue_date}
+              </div>
+              <div className="item">
+                <span>تاريخ الدخول: </span>
+                {[result.admission_date_en, result.admission_time].filter(Boolean).join(' - ')}
+              </div>
+              <div className="item">
+                <span>تاريخ الخروج: </span>
+                {[result.discharge_date_en, result.discharge_time].filter(Boolean).join(' - ')}
+              </div>
+              <div className="item">
+                <span>فترة الانتظار: </span>
+                {calcWaitingPeriod(
+                  result.admission_date_en, result.admission_time,
+                  result.discharge_date_en, result.discharge_time
+                ).ar}
+              </div>
+              <div className="item">
+                <span>اسم الممارس: </span>{result.physician_name_ar}
+              </div>
+              <div className="item">
+                <span>المسمى الوظيفي: </span>{result.position_ar}
+              </div>
+              <div className="item">
+                <span>نوع الزيارة: </span>{result.visit_type_ar}
+              </div>
+            </div>
+          )}
+
+          {result && normalizeDocumentType(result.document_type) !== DOC_COMPANION
+            && normalizeDocumentType(result.document_type) !== DOC_VISIT_STATEMENT && (
             <div className="row">
               <div className="item">
                 <span>الاسم: </span>{result.name_ar}

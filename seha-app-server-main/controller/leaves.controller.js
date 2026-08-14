@@ -1,5 +1,6 @@
 const leaves = require("../models/leaves.model");
 const config = require("../config/middlewares");
+const { normalizeDocumentType, rendererNameFor } = require("../config/documentTypes");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
 const { Sequelize, Op } = require("sequelize");
@@ -98,8 +99,9 @@ module.exports.addNewLeaves = async (req, res, next) => {
       report_time: report_time || DateObj.currentTime,
       report_date: report_date || DateObj.currentDate,
       footer_logo,
-      // نوع المستند: الافتراضي إجازة مرضية حتى لا يتغيّر أي سلوك قائم.
-      document_type: document_type === 'companion_visit' ? 'companion_visit' : 'sick_leave',
+      // نوع المستند يمرّ عبر القائمة البيضاء في config/documentTypes.js:
+      // أي نوع مدعوم يُحفظ كما هو، وأي قيمة مجهولة تعود للافتراضي (إجازة مرضية).
+      document_type: normalizeDocumentType(document_type),
       admission_time: admission_time || '',
       discharge_time: discharge_time || '',
       relation_en: relation_en || '',
@@ -320,8 +322,8 @@ module.exports.updateLeave = async (req, res, next) => {
       // حقول قالب «مشهد مراجعة لمرافق»: تُحدَّث فقط إذا أُرسلت، وإلا تبقى كما هي
       // (فالطلبات القديمة التي لا ترسلها لا تفقد بياناتها).
       document_type: document_type !== undefined
-        ? (document_type === 'companion_visit' ? 'companion_visit' : 'sick_leave')
-        : (existingLeave.document_type || 'sick_leave'),
+        ? normalizeDocumentType(document_type)
+        : normalizeDocumentType(existingLeave.document_type),
       admission_time: admission_time !== undefined ? admission_time : existingLeave.admission_time,
       discharge_time: discharge_time !== undefined ? discharge_time : existingLeave.discharge_time,
       relation_en: relation_en !== undefined ? relation_en : existingLeave.relation_en,
@@ -944,10 +946,11 @@ module.exports.downloadPDF = async (req, res, next) => {
     const DateObj = getFormattedDateTime();
     console.log('📅 Date Object:', DateObj);
 
-    // اختيار القالب حسب نوع المستند — الافتراضي (وكل السجلات القديمة) إجازة مرضية.
-    const isCompanionVisit = leave.document_type === 'companion_visit';
-    const renderPdf = isCompanionVisit ? config.createCompanionPDF : config.createPDF;
-    console.log('🔄 Generating PDF...', isCompanionVisit ? '(companion visit)' : '(sick leave)');
+    // اختيار القالب حسب نوع المستند من السجلّ الموحّد — الافتراضي (وكل السجلات
+    // القديمة بلا قيمة) إجازة مرضية. إضافة قالب جديد لا تتطلّب أي تعديل هنا.
+    const documentType = normalizeDocumentType(leave.document_type);
+    const renderPdf = config[rendererNameFor(documentType)];
+    console.log('🔄 Generating PDF...', `(${documentType})`);
     const pdfBuffer = await renderPdf(
       leave.dataValues,
       leave_days,
