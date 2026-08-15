@@ -48,17 +48,23 @@ const isEnabled = () =>
   String(process.env.WHATSAPP_SENDER_ENABLED || '').trim().toLowerCase() === 'true';
 
 /**
- * تحويل رقم جوال إلى JID واتساب. يقبل الصيغ الشائعة محلياً:
- * 05xxxxxxxx / 5xxxxxxxx / 9665xxxxxxxx / +966 5x xxx xxxx
+ * توحيد رقم الجوال إلى صيغة دولية بالأرقام فقط (بلا + ولا أصفار بادئة).
+ * يقبل الصيغ الشائعة محلياً: 05xxxxxxxx / 5xxxxxxxx / 9665xxxxxxxx / +966 5x xxx xxxx
+ * والأرقام الدولية تُترك كما هي (مثال: 967xxxxxxxxx يبقى كذلك ولا يُحوَّل للسعودية).
  */
-function toJid(number) {
+function normalizeMsisdn(number) {
   let digits = String(number || '').replace(/\D+/g, '');
   if (!digits) throw new Error('رقم الجوال غير صالح');
   if (digits.startsWith('00')) digits = digits.slice(2);
   if (digits.startsWith('0')) digits = `966${digits.slice(1)}`;
   else if (digits.length === 9 && digits.startsWith('5')) digits = `966${digits}`;
   if (digits.length < 10) throw new Error('رقم الجوال غير مكتمل');
-  return `${digits}@s.whatsapp.net`;
+  return digits;
+}
+
+/** تحويل رقم جوال إلى JID واتساب. */
+function toJid(number) {
+  return `${normalizeMsisdn(number)}@s.whatsapp.net`;
 }
 
 // ── حالة الجلسة داخل جدول الإعدادات ────────────────────────────────────────
@@ -114,11 +120,22 @@ async function useSettingsAuthState() {
 
 // ── الاتصال ────────────────────────────────────────────────────────────────
 let _sock = null;
+let _sockState = null;      // حالة المصادقة المرافقة للمقبس الحالي (creds/keys)
 let _connecting = null;
 let _qrDataUrl = null;      // آخر رمز QR للإقران (يُمسح فور نجاح الاتصال)
 let _connected = false;
 let _lastError = null;
 let _needsPairing = false;  // ظهر رمز QR ⇒ الرقم غير مقترن بعد
+
+// ── الإقران برقم الهاتف (بديل مسح QR) ──────────────────────────────────────
+// واتساب يتيح طريقتين لربط جهاز: مسح رمز QR، أو إدخال رقم الحساب على الخادم ثم
+// كتابة رمز من ٨ خانات في الهاتف. الثانية أنسب هنا لأن المستخدم يفتح الإعدادات
+// على الهاتف نفسه فلا توجد شاشة ثانية يمسح منها. وهي إقران حقيقي: الرمز يصدره
+// خادم واتساب مرتبطاً بهذا الرقم تحديداً، ولا تُفتح الجلسة إلا بعد إدخاله في
+// التطبيق — أي أن إدخال الرقم ليس شكلياً، وحالة «متصل» تأتي من الخادم وحده.
+let _pairingNumber = null;   // الرقم المطلوب إقرانه (صيغة دولية، أرقام فقط)
+let _pairingCode = null;     // آخر رمز إقران صادر من واتساب
+let _pairingRequested = false;
 
 // مهلة انتظار اكتمال الاتصال قبل الإرسال. فتح الجلسة بعد إقلاع الخادم يستغرق
 // عادةً ثانيتين إلى خمس.
@@ -144,12 +161,54 @@ async function waitForOpen(timeoutMs = CONNECT_TIMEOUT_MS) {
   }
 }
 
-async function connect() {
+/**
+ * يطلب رمز إقران من واتساب للرقم المُدخل — يُستدعى فقط عند وصول حدث QR (أي أن
+ * الخادم جاهز للإقران) وقبل أن يُسجَّل الجهاز. هذا هو التسلسل الذي يوثّقه
+ * Baileys؛ الطلب قبل ذلك يفشل.
+ */
+async function maybeRequestPairingCode(sock, state) {
+  if (!_pairingNumber || _pairingRequested || _connected) return;
+  if (state?.creds?.registered) return;
+  _pairingRequested = true;
+  try {
+    _pairingCode = await sock.requestPairingCode(_pairingNumber);
+    console.log(`📱 WhatsApp: رمز إقران الرقم ${_pairingNumber} → ${_pairingCode}`);
+  } catch (err) {
+    // نسمح بإعادة المحاولة عند حدث QR التالي بدل تعطيل الإقران نهائياً.
+    _pairingRequested = false;
+    _lastError = `تعذّر طلب رمز الإقران: ${err.message}`;
+    console.warn('⚠️ WhatsApp:', _lastError);
+  }
+}
+
+/**
+ * فتح الجلسة. عند تمرير pairingNumber يُطلب رمز إقران لذلك الرقم بدل الاكتفاء
+ * برمز QR (كلاهما يظلّ متاحاً في الحالة).
+ */
+async function connect({ pairingNumber } = {}) {
   if (!isEnabled()) throw new Error('خدمة إرسال واتساب معطّلة (WHATSAPP_SENDER_ENABLED)');
+
+  if (pairingNumber) {
+    const digits = normalizeMsisdn(pairingNumber);
+    // رقم جديد ⇒ رمز جديد. الرمز مرتبط برقم بعينه ولا يصلح لغيره.
+    if (digits !== _pairingNumber) {
+      _pairingNumber = digits;
+      _pairingCode = null;
+      _pairingRequested = false;
+    }
+  }
+
   // مهم: نعيد المقبس الموجود حتى لو لم يكتمل اتصاله بعد. الشرط السابق كان
   // (_sock && _connected) فيمرّ إلى إنشاء مقبس ثانٍ بينما الأول ما زال يتصل —
   // أي جلستان متوازيتان على نفس الرقم، وهو سبب معروف لفصل واتساب للجلسات.
-  if (_sock) return _sock;
+  if (_sock) {
+    // وصل رقم بعد أن فُتح المقبس (المستخدم ضغط «بدء الربط» ومقبس الإقلاع قائم):
+    // نطلب الرمز على المقبس نفسه بدل إنشاء جلسة ثانية.
+    if (_pairingNumber && !_pairingCode && !_connected) {
+      maybeRequestPairingCode(_sock, _sockState).catch(() => {});
+    }
+    return _sock;
+  }
   if (_connecting) return _connecting;
 
   _connecting = (async () => {
@@ -178,17 +237,22 @@ async function connect() {
         _needsPairing = true;
         try { _qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 }); }
         catch { _qrDataUrl = null; }
-        console.log('📱 WhatsApp: امسح رمز QR من صفحة الإعدادات لإتمام الإقران');
+        // إن كان المستخدم أدخل رقماً فالإقران بالرمز أولى؛ وإلا يبقى QR.
+        await maybeRequestPairingCode(sock, state);
+        console.log('📱 WhatsApp: أكمل الإقران من صفحة الإعدادات (رمز الرقم أو مسح QR)');
       }
       if (connection === 'open') {
         _connected = true; _qrDataUrl = null; _lastError = null; _needsPairing = false;
+        _pairingCode = null; _pairingRequested = false;
         console.log('✅ WhatsApp connected as', sock.user?.id);
       }
       if (connection === 'close') {
         _connected = false;
         const status = lastDisconnect?.error?.output?.statusCode;
         _lastError = lastDisconnect?.error?.message || null;
-        _sock = null; _connecting = null;
+        _sock = null; _sockState = null; _connecting = null;
+        // رمز الإقران يصلح لجلسة واحدة فقط — يُطلب رمز جديد بعد أي انقطاع.
+        _pairingCode = null; _pairingRequested = false;
         if (status === DisconnectReason.loggedOut) {
           console.warn('⚠️ WhatsApp: تم تسجيل الخروج — يلزم إقران جديد');
           _qrDataUrl = null;
@@ -200,6 +264,7 @@ async function connect() {
     });
 
     _sock = sock;
+    _sockState = state;
     return sock;
   })();
 
@@ -215,6 +280,9 @@ function status() {
     user: _sock?.user?.id || null,
     qr: _qrDataUrl,
     needsPairing: _needsPairing,
+    // رمز الإقران المرتبط بالرقم المُدخل — تعرضه الواجهة ليُكتب في الهاتف.
+    pairingCode: _connected ? null : _pairingCode,
+    pairingNumber: _pairingNumber,
     lastError: _lastError,
     defaultTarget: process.env.WHATSAPP_SELF_NUMBER || null,
   };
@@ -223,7 +291,8 @@ function status() {
 /** فصل الجلسة ومسح حالتها من قاعدة البيانات (يلزم بعدها إقران جديد). */
 async function logout() {
   try { await _sock?.logout(); } catch { /* تجاهل */ }
-  _sock = null; _connected = false; _qrDataUrl = null; _needsPairing = false;
+  _sock = null; _sockState = null; _connected = false; _qrDataUrl = null; _needsPairing = false;
+  _pairingNumber = null; _pairingCode = null; _pairingRequested = false;
   const { clearAll } = await useSettingsAuthState();
   await clearAll();
 }
@@ -267,4 +336,4 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
   return { id: sent?.key?.id || null, to: jid };
 }
 
-module.exports = { isEnabled, connect, status, logout, sendDocument, toJid };
+module.exports = { isEnabled, connect, status, logout, sendDocument, toJid, normalizeMsisdn };

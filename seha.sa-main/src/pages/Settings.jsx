@@ -22,6 +22,10 @@ function Settings() {
     // «مشاركة» في لوحة التحكم الذي يفتح قائمة مشاركة أندرويد كما هو.
     const [waStatus, setWaStatus] = useState(null)
     const [waBusy, setWaBusy] = useState(false)
+    // رقم حساب واتساب المراد ربطه. ليس حقلاً شكلياً: يُرسَل للخادم فيطلب به رمز
+    // إقران من واتساب مرتبطاً بهذا الرقم تحديداً، ولا تُفتح الجلسة إلا بعد كتابة
+    // الرمز في الهاتف. حالة «متصل» تأتي من الخادم وحده.
+    const [waNumber, setWaNumber] = useState('')
 
     // Fetch initial settings
     useEffect(() => {
@@ -50,13 +54,17 @@ function Settings() {
         return () => { alive = false; clearInterval(id) }
     }, [activeTab])
 
-    const callWhatsapp = async (path, successMsg) => {
+    const callWhatsapp = async (path, successMsg, body) => {
         setWaBusy(true)
         try {
             const token = localStorage.getItem('token')
             const res = await fetch(`${API_BASE_URL}${path}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    ...(body ? { 'Content-Type': 'application/json' } : {}),
+                },
+                ...(body ? { body: JSON.stringify(body) } : {}),
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok || data?.success === false) throw new Error(data?.message || 'فشل الطلب')
@@ -382,7 +390,7 @@ function Settings() {
                                     <p style={{ margin: 0, fontWeight: 600, color: waStatus.connected ? '#15803d' : '#b45309' }}>
                                         {waStatus.connected
                                             ? `متصل ✓ ${waStatus.user ? `(${waStatus.user.split(':')[0]})` : ''}`
-                                            : 'غير متصل — ابدأ الإقران ثم امسح الرمز'}
+                                            : 'غير متصل — أدخل الرقم وابدأ الربط، ثم أكمل الإقران من الهاتف'}
                                     </p>
                                     {waStatus.lastError && !waStatus.connected && (
                                         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#b91c1c' }}>{waStatus.lastError}</p>
@@ -395,7 +403,48 @@ function Settings() {
                                     )}
                                 </div>
 
-                                {waStatus.qr && !waStatus.connected && (
+                                {!waStatus.connected && (
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="wa-number">رقم واتساب المراد ربطه</label>
+                                        <input
+                                            id="wa-number"
+                                            type="tel"
+                                            inputMode="tel"
+                                            dir="ltr"
+                                            placeholder="بصيغة دولية بلا +، مثال: 967738056534"
+                                            value={waNumber}
+                                            onChange={(e) => setWaNumber(e.target.value)}
+                                            disabled={waBusy}
+                                        />
+                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                                            أدخل الرقم ثم اضغط «بدء الربط» ليصدر واتساب رمزاً من ٨ خانات تكتبه في
+                                            الهاتف. اتركه فارغاً إن كنت تفضّل مسح رمز QR بدلاً من ذلك.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {waStatus.pairingCode && !waStatus.connected && (
+                                    <div className={styles.formGroup}>
+                                        <label>اكتب هذا الرمز في الهاتف</label>
+                                        <p
+                                            dir="ltr"
+                                            style={{
+                                                margin: 0, fontSize: '2rem', fontWeight: 700, letterSpacing: '0.35em',
+                                                fontFamily: 'monospace', color: '#0f172a', background: '#f1f5f9',
+                                                padding: '12px 16px', borderRadius: 8, textAlign: 'center',
+                                            }}
+                                        >
+                                            {waStatus.pairingCode}
+                                        </p>
+                                        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
+                                            على الهاتف الذي يحمل الرقم {waStatus.pairingNumber}: واتساب ← الأجهزة
+                                            المرتبطة ← ربط جهاز ← «ربط برقم الهاتف بدلاً من ذلك». الرمز صالح لدقائق
+                                            قليلة — إن انتهى اضغط «بدء الربط» مرة أخرى.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {waStatus.qr && !waStatus.connected && !waStatus.pairingCode && (
                                     <div className={styles.formGroup}>
                                         <label>امسح الرمز من واتساب ← الأجهزة المرتبطة</label>
                                         <img
@@ -411,9 +460,15 @@ function Settings() {
                                         type="button"
                                         className={styles.saveBtn}
                                         disabled={waBusy || waStatus.connected}
-                                        onClick={() => callWhatsapp('/whatsapp/connect', 'جارٍ الاتصال — سيظهر رمز QR خلال ثوانٍ')}
+                                        onClick={() => callWhatsapp(
+                                            '/whatsapp/connect',
+                                            waNumber.trim()
+                                                ? 'جارٍ الربط — سيظهر رمز الإقران خلال ثوانٍ'
+                                                : 'جارٍ الربط — سيظهر رمز QR خلال ثوانٍ',
+                                            waNumber.trim() ? { number: waNumber.trim() } : undefined,
+                                        )}
                                     >
-                                        {waStatus.connected ? 'متصل' : 'بدء الإقران'}
+                                        {waStatus.connected ? 'متصل' : 'بدء الربط'}
                                     </button>
                                     <button
                                         type="button"
