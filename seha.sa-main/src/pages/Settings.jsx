@@ -26,6 +26,8 @@ function Settings() {
     // إقران من واتساب مرتبطاً بهذا الرقم تحديداً، ولا تُفتح الجلسة إلا بعد كتابة
     // الرمز في الهاتف. حالة «متصل» تأتي من الخادم وحده.
     const [waNumber, setWaNumber] = useState('')
+    // سبب فشل قراءة الحالة، نصّاً — بدونه تتشابه كل الأعطال في رسالة واحدة.
+    const [waError, setWaError] = useState(null)
 
     // Fetch initial settings
     useEffect(() => {
@@ -44,9 +46,23 @@ function Settings() {
                     headers: { Authorization: `Bearer ${token}` },
                 })
                 const data = await res.json().catch(() => null)
-                if (alive) setWaStatus(data?.data || null)
-            } catch {
-                if (alive) setWaStatus(null)
+                if (!alive) return
+                if (res.ok && data?.data) {
+                    setWaStatus(data.data)
+                    setWaError(null)
+                } else {
+                    // بلغنا الخادمَ لكنه لم يُعِد حالة صالحة. رمز الحالة هو ما
+                    // يميّز الأسباب: 404 مسار غير منشور، 401 جلسة منتهية،
+                    // 503 المسار فشل تحميله على الخادم.
+                    setWaStatus(null)
+                    setWaError(`HTTP ${res.status} — ${data?.message || 'استجابة غير متوقّعة من الخادم'}`)
+                }
+            } catch (err) {
+                // لم نبلغ الخادم إطلاقاً: عنوان خاطئ، أو الخادم متوقّف/نائم، أو CORS.
+                if (alive) {
+                    setWaStatus(null)
+                    setWaError(`تعذّر الوصول للخادم — ${err.message}`)
+                }
             }
         }
         poll()
@@ -378,10 +394,25 @@ function Settings() {
                             // تمييز «تعذّر بلوغ الخادم» عن «الخدمة مغلقة» — كانا يظهران برسالة
                             // واحدة فيُشخَّص العطل خطأً.
                             <div className={styles.emptyState}>
-                                <p>
-                                    تعذّر قراءة حالة واتساب من الخادم. تأكّد أن الخادم يعمل وأن
-                                    <code style={{ margin: '0 6px' }}>VITE_API_BASE_URL</code>
-                                    يشير إليه، ثم أعِد فتح هذا التبويب.
+                                <p>تعذّر قراءة حالة واتساب من الخادم.</p>
+                                {waError && (
+                                    <p dir="ltr" style={{
+                                        margin: '8px 0', fontFamily: 'monospace', fontSize: 13,
+                                        color: '#b91c1c', background: '#fef2f2',
+                                        padding: '8px 12px', borderRadius: 6, wordBreak: 'break-word',
+                                    }}>
+                                        {waError}
+                                    </p>
+                                )}
+                                <p style={{ fontSize: 13, color: '#64748b' }}>
+                                    الخادم المستهدف:
+                                    <code dir="ltr" style={{ margin: '0 6px' }}>{API_BASE_URL}/whatsapp/status</code>
+                                </p>
+                                <p style={{ fontSize: 13, color: '#64748b' }}>
+                                    <b>404</b> يعني أن نسخة الخادم المنشورة لا تحوي مسار واتساب (أعِد نشر الخادم).
+                                    <b> 401</b> يعني انتهاء الجلسة (سجّل الخروج ثم الدخول).
+                                    <b> تعذّر الوصول</b> يعني أن العنوان خاطئ أو الخادم متوقّف —
+                                    وإن كان على استضافة مجانية فقد يحتاج دقيقة لينهض من السكون.
                                 </p>
                             </div>
                         ) : !waStatus.enabled ? (
