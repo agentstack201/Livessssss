@@ -15,18 +15,24 @@ router.get("/whatsapp/status", config.auth, (req, res) => {
   }
 });
 
-// بدء الاتصال. أول مرة يُرجع رمز QR يُمسح من تطبيق واتساب على الهاتف
-// (الأجهزة المرتبطة). بعد الإقران تُحفظ الجلسة في قاعدة البيانات فلا يتكرّر.
+// بدء الإقران. مع تمرير `number` (رقم الحساب بصيغة دولية) يصدر واتساب رمزاً من
+// ٨ خانات يُكتب في الهاتف: واتساب ← الأجهزة المرتبطة ← ربط برقم الهاتف. وبدونه
+// يُكتفى برمز QR. الطريقتان إقران حقيقي من خادم واتساب — لا يُعلن الاتصال إلا
+// بعد إتمامه فعلياً على الهاتف. بعدها تُحفظ الجلسة في قاعدة البيانات فلا يتكرّر.
 router.post("/whatsapp/connect", config.auth, async (req, res) => {
   const whatsapp = load();
   try {
-    // لا ننتظر اكتمال الاتصال: رمز QR يصل عبر حدث لاحق، والواجهة تستعلم
+    const { number } = req.body || {};
+    // الرقم يُتحقّق منه هنا كي يصل الخطأ للمستخدم فوراً بدل أن يُبتلع في الخلفية.
+    if (number) whatsapp.normalizeMsisdn(number);
+    // لا ننتظر اكتمال الاتصال: رمز QR/الإقران يصل عبر حدث لاحق، والواجهة تستعلم
     // عن الحالة دورياً حتى يظهر.
-    whatsapp.connect().catch((err) => console.warn('WhatsApp connect:', err.message));
-    await new Promise((r) => setTimeout(r, 1500));
+    whatsapp.connect({ pairingNumber: number })
+      .catch((err) => console.warn('WhatsApp connect:', err.message));
+    await new Promise((r) => setTimeout(r, 2500));
     return res.status(200).json({ success: true, data: whatsapp.status() });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(400).json({ success: false, message: error.message });
   }
 });
 
