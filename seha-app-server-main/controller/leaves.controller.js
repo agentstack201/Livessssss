@@ -1,9 +1,6 @@
 const leaves = require("../models/leaves.model");
 const config = require("../config/middlewares");
 const { normalizeDocumentType, rendererNameFor } = require("../config/documentTypes");
-// يضبط دقّة صورة المعاينة التي يولّدها واتساب من الصفحة الأولى — بلا أي مساس
-// بمحتوى المستند أو جودته عند الفتح. التفاصيل في الملف نفسه.
-const applyWhatsappPreviewScale = require("../middlewares/whatsappPreviewScale");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
 const { Sequelize, Op } = require("sequelize");
@@ -962,20 +959,13 @@ module.exports.downloadPDF = async (req, res, next) => {
     );
     console.log('✅ PDF generated, size:', pdfBuffer.length, 'bytes');
 
-    // نقطة التحكّم الوحيدة في معاينة واتساب: تقليص هندسة الصفحة (المحتوى
-    // والصندوق والـ Annotations معاً) فتنخفض دقّة الـ thumbnail الذي يرسمه
-    // PDFium من الصفحة الأولى. المستند نفسه يبقى vector بجودته الكاملة عند
-    // الفتح والتكبير والطباعة. تُعطَّل بـ WHATSAPP_PREVIEW_SCALE=off وتفشل
-    // «مفتوحة» فتُعيد الملف الأصلي كما هو عند أي خطأ.
-    const outputBuffer = await applyWhatsappPreviewScale(pdfBuffer);
-
     // Send PDF buffer directly to user
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="sickLeaves.pdf"');
-    res.setHeader('Content-Length', outputBuffer.length);
+    res.setHeader('Content-Length', pdfBuffer.length);
 
     console.log('📤 Sending PDF to client');
-    return res.send(outputBuffer);
+    return res.send(pdfBuffer);
   } catch (error) {
     console.error('❌ PDF Generation Error:', error);
     console.error('Stack:', error.stack);
