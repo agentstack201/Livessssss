@@ -131,6 +131,20 @@ try {
   setupRoute.all("*", (req, res) => res.status(503).send("Setup service unavailable"));
 }
 
+let whatsappRoute;
+try {
+  whatsappRoute = require("../routes/whatsapp.route");
+  console.log("✅ WhatsApp route loaded");
+} catch (error) {
+  console.error("❌ WhatsApp route failed:", error.message);
+  const express = require("express");
+  whatsappRoute = express.Router();
+  whatsappRoute.all("*", (req, res) => res.status(503).json({
+    success: false,
+    message: "خدمة واتساب غير متاحة حالياً",
+  }));
+}
+
 module.exports = {
   loginRoute,
   countryRoute,
@@ -142,4 +156,5 @@ module.exports = {
   hospitalRoute,
   keysRoute,
   setupRoute,
+  whatsappRoute,
 };

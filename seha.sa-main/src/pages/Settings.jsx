@@ -17,10 +17,57 @@ function Settings() {
     const [diagnosis, setDiagnosis] = useState(null)
     const [loadFailed, setLoadFailed] = useState(false)
 
+    // ── حالة ربط واتساب (الإرسال الآلي من الخادم) ───────────────────────────
+    // هذا القسم يخصّ «إرسال عبر واتساب» فقط — وهو مسار مستقل تماماً عن زر
+    // «مشاركة» في لوحة التحكم الذي يفتح قائمة مشاركة أندرويد كما هو.
+    const [waStatus, setWaStatus] = useState(null)
+    const [waBusy, setWaBusy] = useState(false)
+
     // Fetch initial settings
     useEffect(() => {
         fetchSettings()
     }, [])
+
+    // استعلام دوري عن حالة واتساب أثناء فتح تبويبه — رمز QR يصل من الخادم
+    // بعد لحظات من بدء الاتصال، ويختفي فور نجاح الإقران.
+    useEffect(() => {
+        if (activeTab !== 'whatsapp') return
+        let alive = true
+        const poll = async () => {
+            try {
+                const token = localStorage.getItem('token')
+                const res = await fetch(`${API_BASE_URL}/whatsapp/status`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                const data = await res.json().catch(() => null)
+                if (alive) setWaStatus(data?.data || null)
+            } catch {
+                if (alive) setWaStatus(null)
+            }
+        }
+        poll()
+        const id = setInterval(poll, 3000)
+        return () => { alive = false; clearInterval(id) }
+    }, [activeTab])
+
+    const callWhatsapp = async (path, successMsg) => {
+        setWaBusy(true)
+        try {
+            const token = localStorage.getItem('token')
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || data?.success === false) throw new Error(data?.message || 'فشل الطلب')
+            if (data?.data) setWaStatus(data.data)
+            showMessage('success', successMsg)
+        } catch (err) {
+            showMessage('error', err.message || 'تعذّر الاتصال بالخادم')
+        } finally {
+            setWaBusy(false)
+        }
+    }
 
     const fetchSettings = async () => {
         setLoading(true)
@@ -303,6 +350,84 @@ function Settings() {
                         </form>
                     </div>
                 )
+            case 'whatsapp':
+                return (
+                    <div className={styles.card}>
+                        <div className={styles.cardHeader}>
+                            <h2>
+                                <span style={{ fontSize: '1.5rem' }}>💬</span>
+                                ربط واتساب (الإرسال الآلي)
+                            </h2>
+                            <p>
+                                هذا القسم يخصّ زر «إرسال عبر واتساب» فقط: يرسل الخادم التقرير ومعه صورة
+                                معاينة مموّهة من صنعنا، بينما يبقى ملف الـ PDF كما هو تماماً ويُفتح بجودته
+                                الأصلية. زر «مشاركة» في لوحة التحكم لا علاقة له بهذا القسم ويستمر بفتح
+                                قائمة مشاركة أندرويد بكل التطبيقات كالمعتاد.
+                            </p>
+                        </div>
+
+                        {!waStatus?.enabled ? (
+                            <div className={styles.emptyState}>
+                                <p>
+                                    الخدمة غير مفعّلة على الخادم. فعّلها بضبط
+                                    <code style={{ margin: '0 6px' }}>WHATSAPP_SENDER_ENABLED=true</code>
+                                    و<code style={{ margin: '0 6px' }}>WHATSAPP_SELF_NUMBER</code>
+                                    ثم أعِد تشغيل الخادم.
+                                </p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                <div className={styles.formGroup}>
+                                    <label>الحالة</label>
+                                    <p style={{ margin: 0, fontWeight: 600, color: waStatus.connected ? '#15803d' : '#b45309' }}>
+                                        {waStatus.connected
+                                            ? `متصل ✓ ${waStatus.user ? `(${waStatus.user.split(':')[0]})` : ''}`
+                                            : 'غير متصل — ابدأ الإقران ثم امسح الرمز'}
+                                    </p>
+                                    {waStatus.lastError && !waStatus.connected && (
+                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#b91c1c' }}>{waStatus.lastError}</p>
+                                    )}
+                                    {waStatus.defaultTarget && (
+                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                                            رقم الاستقبال الافتراضي: {waStatus.defaultTarget} — تُرسَل التقارير إليه ثم تُعاد
+                                            توجيهها للزبون (إعادة التوجيه تنقل المعاينة كما هي).
+                                        </p>
+                                    )}
+                                </div>
+
+                                {waStatus.qr && !waStatus.connected && (
+                                    <div className={styles.formGroup}>
+                                        <label>امسح الرمز من واتساب ← الأجهزة المرتبطة</label>
+                                        <img
+                                            src={waStatus.qr}
+                                            alt="رمز إقران واتساب"
+                                            style={{ width: 260, height: 260, background: '#fff', padding: 8, borderRadius: 8 }}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className={styles.actions}>
+                                    <button
+                                        type="button"
+                                        className={styles.saveBtn}
+                                        disabled={waBusy || waStatus.connected}
+                                        onClick={() => callWhatsapp('/whatsapp/connect', 'جارٍ الاتصال — سيظهر رمز QR خلال ثوانٍ')}
+                                    >
+                                        {waStatus.connected ? 'متصل' : 'بدء الإقران'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.testBtn || styles.saveBtn}
+                                        disabled={waBusy}
+                                        onClick={() => callWhatsapp('/whatsapp/logout', 'تم فصل جلسة واتساب')}
+                                    >
+                                        فصل الجلسة
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )
             default:
                 return (
                     <div className={styles.card}>
@@ -361,6 +486,15 @@ function Settings() {
                                 <line x1="9" y1="21" x2="9" y2="9" />
                             </svg>
                             إعدادات عامة
+                        </button>
+                        <button
+                            className={`${styles.navItem} ${activeTab === 'whatsapp' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('whatsapp')}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                            </svg>
+                            ربط واتساب
                         </button>
                         <button
                             className={`${styles.navItem} ${activeTab === 'notifications' ? styles.active : ''}`}
