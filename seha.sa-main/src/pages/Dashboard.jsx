@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import styles from './Dashboard.module.css'
 import { getDocumentType } from '../config/documentTypes'
 import WelcomePopup from '../components/WelcomePopup'
-import { shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare'
+import { shareLeavePdf, prefetchLeavePdf, sendLeavePdfViaWhatsapp } from '../utils/pdfShare'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
@@ -18,6 +18,8 @@ function Dashboard() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [selectedLeave, setSelectedLeave] = useState(null)
   const [sharingId, setSharingId] = useState(null) // id السجل الجاري مشاركة ملفه
+  const [whatsappSendingId, setWhatsappSendingId] = useState(null) // id السجل الجاري إرساله عبر واتساب
+  const [whatsappReady, setWhatsappReady] = useState(false) // خدمة الإرسال مفعّلة ومتصلة على الخادم؟
   const [stats, setStats] = useState({
     total: 0,
     thisMonth: 0,
@@ -65,6 +67,13 @@ function Dashboard() {
     // Fetch stats once (total leaves + users)
     fetchLeavesCount(token)
     fetchUsersCount(token)
+
+    // هل خدمة الإرسال عبر واتساب مفعّلة ومقترنة على الخادم؟ إن لم تكن، لا
+    // يظهر زرّها أصلاً ويبقى سلوك اللوحة كما هو تماماً.
+    fetch(`${API_BASE_URL}/whatsapp/status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWhatsappReady(Boolean(d?.data?.enabled && d?.data?.connected)))
+      .catch(() => setWhatsappReady(false))
   }, [navigate])
 
   // Fetch leaves when search or page changes
@@ -261,6 +270,23 @@ function Dashboard() {
       window.showToast?.('تعذّرت المشاركة، الملف جاهز — اضغط «مشاركة» مرة أخرى', 'error')
     } finally {
       setSharingId(null)
+    }
+  }
+
+  // إرسال التقرير عبر واتساب من الخادم (بمعاينة مموّهة مخصّصة). الافتراضي هو
+  // الإرسال إلى رقم المنشأة ثم إعادة توجيه الرسالة للزبون — إعادة التوجيه تنقل
+  // المعاينة كما هي. الزر يظهر فقط عندما تكون الخدمة مفعّلة على الخادم.
+  const handleWhatsappSend = async (leave) => {
+    if (whatsappSendingId) return
+    setWhatsappSendingId(leave.id)
+    try {
+      await sendLeavePdfViaWhatsapp(leave)
+      window.showToast?.('تم الإرسال إلى واتساب — أعِد توجيه الرسالة للزبون', 'success')
+    } catch (error) {
+      console.error('❌ WhatsApp send error:', error)
+      window.showToast?.(error.message || 'تعذّر الإرسال عبر واتساب', 'error')
+    } finally {
+      setWhatsappSendingId(null)
     }
   }
 
@@ -651,6 +677,19 @@ function Dashboard() {
                                   </svg>
                                   <span>{sharingId === leave.id ? '...' : 'مشاركة'}</span>
                                 </button>
+                                {whatsappReady && (
+                                  <button
+                                    onClick={() => handleWhatsappSend(leave)}
+                                    className={styles.shareBtn}
+                                    disabled={whatsappSendingId === leave.id}
+                                    title="إرسال عبر واتساب بمعاينة مموّهة (ثم أعِد توجيه الرسالة للزبون)"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                                    </svg>
+                                    <span>{whatsappSendingId === leave.id ? '...' : 'واتساب'}</span>
+                                  </button>
+                                )}
                                 {(userPermissions?.can_edit_leaves || user?.name === 'simo') && (
                                   <button
                                     onClick={() => handleEdit(leave)}

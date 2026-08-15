@@ -201,6 +201,7 @@ if (routes) {
   app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
   if (routes.keysRoute) app.use(routes.keysRoute);
   if (routes.setupRoute) app.use(routes.setupRoute);
+  if (routes.whatsappRoute) app.use(routes.whatsappRoute);
   app.use('/users', routes.usersRoute);
   app.use('/media', routes.mediaRoute);
   app.use('/settings', routes.settingsRoute);

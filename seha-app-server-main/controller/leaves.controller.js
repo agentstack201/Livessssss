@@ -977,6 +977,93 @@ module.exports.downloadPDF = async (req, res, next) => {
   }
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// إرسال التقرير عبر واتساب من الخادم.
+//
+// هذه هي نقطة التحكّم الوحيدة في صورة معاينة المستند داخل المحادثة: عندما يبني
+// الخادم الرسالة بنفسه يستطيع تمرير jpegThumbnail خاصة به (مموّهة)، بينما تبقى
+// بايتات الـ PDF كما هي حرفياً — فيُفتح الملف لدى المستلم بجودته الأصلية كاملة.
+// عبر navigator.share في المتصفح هذا مستحيل: واتساب هو من يبني الرسالة ويولّد
+// المعاينة بنفسه.
+//
+// الوجهة الافتراضية هي رقمنا نحن (WHATSAPP_SELF_NUMBER) ليقوم الموظف بإعادة
+// توجيه الرسالة للزبون — وإعادة التوجيه تنقل المصغّرة كما هي ولا تعيد توليدها.
+// ويمكن الإرسال مباشرة لرقم الزبون المحفوظ في السجل بـ target=customer.
+// ───────────────────────────────────────────────────────────────────────────
+module.exports.sendPdfToWhatsapp = async (req, res) => {
+  try {
+    const whatsapp = require('../utils/whatsappSender');
+    if (!whatsapp.isEnabled()) {
+      return res.status(503).json({
+        status_code: 503,
+        success: false,
+        message: 'خدمة الإرسال عبر واتساب غير مفعّلة على الخادم',
+      });
+    }
+
+    const { service_num, national_id } = req.params;
+    const { target = 'self', to } = req.body || {};
+
+    const leave = await leaves.findOne({
+      where: { service_num, national_id },
+      include: [{ model: Country, as: 'country' }],
+    });
+    if (!leave) {
+      return res.status(404).json({
+        status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية',
+      });
+    }
+
+    // اختيار المستلم: رقم صريح، أو رقم الزبون المحفوظ، أو رقمنا (الافتراضي).
+    const destination = to
+      || (target === 'customer' ? leave.phone : process.env.WHATSAPP_SELF_NUMBER);
+    if (!destination) {
+      return res.status(400).json({
+        status_code: 400, success: false,
+        message: target === 'customer'
+          ? 'لا يوجد رقم جوال محفوظ لهذا الزبون'
+          : 'لم يُضبط رقم الاستقبال WHATSAPP_SELF_NUMBER على الخادم',
+      });
+    }
+
+    // نفس مسار توليد الـ PDF المستخدم في التنزيل — بلا أي اختلاف.
+    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const country = await Country.findOne({ where: { id: leave.countryId } });
+    const DateObj = getFormattedDateTime();
+    const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
+    const pdfBuffer = await renderPdf(leave.dataValues, leave_days, DateObj, country);
+
+    // المصغّرة تُبنى بقراءة الصفحة الأولى فقط — الملف لا يُعدَّل إطلاقاً.
+    let thumbnail = null;
+    try {
+      const buildThumbnail = require('../middlewares/whatsappThumbnail');
+      thumbnail = (await buildThumbnail(pdfBuffer)).buffer;
+    } catch (thumbErr) {
+      // فشل «مفتوح»: نرسل الملف بلا مصغّرة مخصّصة بدل ألا نرسل شيئاً.
+      console.warn('⚠️ WhatsApp thumbnail generation failed:', thumbErr.message);
+    }
+
+    const sent = await whatsapp.sendDocument({
+      to: destination,
+      pdfBuffer,                 // كما خرج من المولّد، بايت ببايت
+      fileName: 'sickLeaves.pdf',
+      thumbnail,
+    });
+
+    return res.status(200).json({
+      status_code: 200,
+      success: true,
+      data: { messageId: sent.id, to: sent.to, thumbnailBytes: thumbnail ? thumbnail.length : 0 },
+      message: 'تم إرسال التقرير عبر واتساب',
+    });
+  } catch (error) {
+    console.error('❌ WhatsApp send error:', error);
+    return res.status(500).json({
+      status_code: 500, success: false, message: error.message,
+    });
+  }
+};
+
 // Get leaves count for dashboard stats
 module.exports.getLeavesCount = async (req, res) => {
   try {
