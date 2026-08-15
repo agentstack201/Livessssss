@@ -417,7 +417,8 @@ function Settings() {
                                     </button>
                                     <button
                                         type="button"
-                                        className={styles.testBtn || styles.saveBtn}
+                                        className={styles.saveBtn}
+                                        style={{ background: '#fff', color: '#b91c1c', border: '1px solid #fecaca' }}
                                         disabled={waBusy}
                                         onClick={() => callWhatsapp('/whatsapp/logout', 'تم فصل جلسة واتساب')}
                                     >

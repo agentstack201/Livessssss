@@ -23,12 +23,18 @@
 
 const jpeg = require('jpeg-js');
 
+// القيم الافتراضية هي التوليفة «الثقيلة» — الأقرب لشكل الملف المرجعي: بقع
+// وشريط كحلي فقط بلا أي نص مقروء.
 // مقاس المصغّرة. واتساب يعرضها مكبّرة داخل الفقاعة، فكلما صغُرت زاد الغيام.
-const DEFAULT_WIDTH = Number(process.env.WHATSAPP_THUMB_WIDTH || 160);
+const DEFAULT_WIDTH = Number(process.env.WHATSAPP_THUMB_WIDTH || 120);
 // نصف قطر التمويه بالبكسل (على المصغّرة الصغيرة، لا على المستند).
-const DEFAULT_BLUR = Number(process.env.WHATSAPP_THUMB_BLUR || 3);
+const DEFAULT_BLUR = Number(process.env.WHATSAPP_THUMB_BLUR || 4);
 // جودة ضغط JPEG (1–100).
-const DEFAULT_QUALITY = Number(process.env.WHATSAPP_THUMB_QUALITY || 45);
+const DEFAULT_QUALITY = Number(process.env.WHATSAPP_THUMB_QUALITY || 40);
+// سقف حجم المصغّرة. هي تُنقل داخل الرسالة نفسها لا كملف منفصل، والرسائل
+// الضخمة قد يرفضها الخادم أو يبطئ إرسالها. المقاسات الافتراضية تُنتج ~٢ ك.ب،
+// وهذا السقف مجرّد شبكة أمان إن رفع أحدهم العرض أو الجودة كثيراً.
+const MAX_BYTES = Number(process.env.WHATSAPP_THUMB_MAX_BYTES || 24 * 1024);
 
 let _pdfiumPromise = null;
 function getPdfium() {
@@ -127,8 +133,16 @@ module.exports = async function buildWhatsappThumbnail(pdfBuffer, opts = {}) {
     const small = downscale(res.data, res.width, res.height, width, height);
     const blurred = blur(small, width, height, blurRadius);
 
-    const encoded = jpeg.encode({ data: Buffer.from(blurred.buffer), width, height }, quality);
-    return { buffer: encoded.data, width, height };
+    const raw = { data: Buffer.from(blurred.buffer), width, height };
+    let q = quality;
+    let encoded = jpeg.encode(raw, q);
+    // شبكة أمان: إن تجاوزت المصغّرة السقف نخفّض الجودة تدريجياً بدل أن نرسل
+    // رسالة ثقيلة. التمويه يجعل الصورة قابلة للضغط جداً، فنادراً ما تُستخدم.
+    while (encoded.data.length > MAX_BYTES && q > 10) {
+      q = Math.max(10, q - 10);
+      encoded = jpeg.encode(raw, q);
+    }
+    return { buffer: encoded.data, width, height, quality: q };
   } finally {
     doc.destroy();
   }
