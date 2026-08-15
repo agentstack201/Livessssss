@@ -292,6 +292,10 @@ async function connect({ pairingNumber } = {}) {
         if (status === DisconnectReason.loggedOut) {
           console.warn('⚠️ WhatsApp: تم تسجيل الخروج — يلزم إقران جديد');
           _qrDataUrl = null;
+          // تسجيل الخروج حالة متوقّعة لا عطل. إبقاء «Intentional Logout» في
+          // lastError كان يعرضه في الواجهة بالأحمر وكأنه فشل، فيشوّش على الحكم
+          // الذي صار معلّقاً على حالة «متصل» وحدها.
+          _lastError = null;
         } else {
           console.warn('⚠️ WhatsApp: انقطع الاتصال، إعادة المحاولة بعد 5 ثوانٍ:', _lastError);
           setTimeout(() => { connect().catch(() => {}); }, 5000);
@@ -334,6 +338,7 @@ async function logout() {
   try { await _sock?.logout(); } catch { /* تجاهل */ }
   _sock = null; _sockState = null; _connected = false; _qrDataUrl = null; _needsPairing = false;
   _pairingNumber = null; _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
+  _lastError = null;
   const { clearAll } = await useSettingsAuthState();
   await clearAll();
 }
