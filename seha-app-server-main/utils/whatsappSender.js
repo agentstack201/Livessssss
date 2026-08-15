@@ -70,6 +70,30 @@ function toJid(number) {
   return `${normalizeMsisdn(number)}@s.whatsapp.net`;
 }
 
+/**
+ * توحيد رقم **الإقران** — أرقام فقط، بلا أي إضافة لمفتاح دولة.
+ *
+ * منفصلة عن normalizeMsisdn عمداً: تلك تخدم أرقام المستلمين حيث يكتب الموظف
+ * 05xxxxxxxx فيلزم إكمالها بمفتاح السعودية. أما رقم الإقران فهو رقم الحساب
+ * الذي سيُربط، وقد يكون من أي دولة (رقم الاختبار يمني)، ولا يجوز أن يُحوَّل
+ * تلقائياً إلى أي دولة — يصل Baileys حرفياً كما أدخله المستخدم بعد إزالة
+ * العلامة + والمسافات فقط.
+ */
+function normalizePairingMsisdn(number) {
+  const raw = String(number || '');
+  let digits = raw.replace(/\D+/g, '');
+  if (!digits) throw new Error('رقم الجوال غير صالح');
+  if (digits.startsWith('00')) digits = digits.slice(2);   // بادئة اتصال دولي
+  if (digits.startsWith('0')) {
+    // صفر بادئ = صيغة محلية بلا مفتاح دولة. لا نخمّن الدولة ولا نضيف مفتاحاً.
+    throw new Error('أدخل الرقم بصيغة دولية تبدأ بمفتاح الدولة بلا صفر (مثال: 967738056534)');
+  }
+  if (digits.length < 10 || digits.length > 15) {
+    throw new Error(`الرقم بعد التنقية ${digits.length} خانة — المتوقّع بين ١٠ و١٥ بصيغة دولية`);
+  }
+  return digits;
+}
+
 // ── حالة الجلسة داخل جدول الإعدادات ────────────────────────────────────────
 async function useSettingsAuthState() {
   const { initAuthCreds, BufferJSON, proto } = await import('@whiskeysockets/baileys');
@@ -204,6 +228,7 @@ async function maybeRequestPairingCode(sock, state) {
     // لماذا؟ لأن كل تسجيل جديد يُبطل ما قبله لدى واتساب، فإن دار المقبس دورة
     // بينما المستخدم يتنقّل في هاتفه صار الرمز المعروض ميّتاً قبل أن يكتبه.
     const reuse = fresh ? _pairingCode : undefined;
+    console.log(`[WA] FINAL_PAIRING_NUMBER number=${_pairingNumber} len=${_pairingNumber.length}`);
     console.log(`[WA] PAIRING_REQUEST_SENT number=${_pairingNumber} reuse=${reuse ? 'yes' : 'no'}`);
     const code = await sock.requestPairingCode(_pairingNumber, reuse);
     if (!code) throw new Error('لم تُعِد المكتبة أي رمز');
@@ -230,9 +255,9 @@ async function connect({ pairingNumber } = {}) {
   if (!isEnabled()) throw new Error('خدمة إرسال واتساب معطّلة (WHATSAPP_SENDER_ENABLED)');
 
   if (pairingNumber) {
-    console.log('[WA] PAIRING_START');
-    const digits = normalizeMsisdn(pairingNumber);
-    console.log(`[WA] PHONE_NORMALIZED digits=${digits} len=${digits.length}`);
+    console.log(`[WA] PAIRING_START raw=${JSON.stringify(String(pairingNumber))}`);
+    const digits = normalizePairingMsisdn(pairingNumber);
+    console.log(`[WA] NORMALIZED_NUMBER digits=${digits} len=${digits.length}`);
     // رقم جديد ⇒ رمز جديد. الرمز مرتبط برقم بعينه ولا يصلح لغيره.
     if (digits !== _pairingNumber) {
       _pairingNumber = digits;
@@ -405,4 +430,7 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
   return { id: sent?.key?.id || null, to: jid };
 }
 
-module.exports = { isEnabled, connect, status, logout, sendDocument, toJid, normalizeMsisdn };
+module.exports = {
+  isEnabled, connect, status, logout, sendDocument, toJid,
+  normalizeMsisdn, normalizePairingMsisdn,
+};

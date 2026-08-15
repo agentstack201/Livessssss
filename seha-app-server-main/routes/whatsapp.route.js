@@ -24,7 +24,10 @@ router.post("/whatsapp/connect", config.auth, async (req, res) => {
   try {
     const { number } = req.body || {};
     // الرقم يُتحقّق منه هنا كي يصل الخطأ للمستخدم فوراً بدل أن يُبتلع في الخلفية.
-    if (number) whatsapp.normalizeMsisdn(number);
+    if (number) {
+      console.log(`[WA] REQUEST_NUMBER raw=${JSON.stringify(String(number))}`);
+      whatsapp.normalizePairingMsisdn(number);
+    }
     // لا ننتظر اكتمال الاتصال: رمز QR/الإقران يصل عبر حدث لاحق، والواجهة تستعلم
     // عن الحالة دورياً حتى يظهر.
     whatsapp.connect({ pairingNumber: number })

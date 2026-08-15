@@ -451,17 +451,31 @@ function Settings() {
                                         <label htmlFor="wa-number">رقم واتساب المراد ربطه</label>
                                         <input
                                             id="wa-number"
-                                            type="tel"
-                                            inputMode="tel"
+                                            name="wa-pairing-number"
+                                            type="text"
+                                            inputMode="numeric"
                                             dir="ltr"
+                                            // إيقاف الإكمال التلقائي: المتصفح كان يملأ الحقل برقم محفوظ
+                                            // من جهات الاتصال بصيغة «+967 735 272 36680» فيُرسَل رقم
+                                            // غير الذي كُتب. type="tel" تحديداً يُغري المتصفح بذلك.
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck={false}
                                             placeholder="بصيغة دولية بلا +، مثال: 967738056534"
                                             value={waNumber}
-                                            onChange={(e) => setWaNumber(e.target.value)}
+                                            // أرقام فقط: أي + أو مسافة أو شرطة تُزال فور الكتابة، فما
+                                            // يُعرَض هو بالضبط ما سيصل Baileys.
+                                            onChange={(e) => setWaNumber(e.target.value.replace(/\D+/g, ''))}
                                             disabled={waBusy}
                                         />
                                         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
                                             أدخل الرقم ثم اضغط «بدء الربط» ليظهر رمز من ٨ خانات تكتبه في الهاتف.
                                             اتركه فارغاً إن كنت تفضّل مسح رمز QR بدلاً من ذلك.
+                                            {waNumber && (
+                                                <> — الطول الآن <b>{waNumber.length}</b> خانة
+                                                    {waNumber.length !== 12 && ' (رقم اليمن ١٢ خانة: 967 + ٩)'}
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                 )}
