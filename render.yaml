@@ -44,3 +44,14 @@ services:
       #   postgresql://user:pass@ep-xxx-pooler.<region>.aws.neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
         sync: false
+      # ── إرسال التقارير عبر واتساب (اختياري، مغلق افتراضياً) ──────────────
+      # بدون ضبط WHATSAPP_SENDER_ENABLED=true في لوحة Render، يبلّغ الخادم
+      # الواجهةَ بأن الخدمة مغلقة فيختفي تبويب الربط بكامله — بما فيه حقل
+      # إدخال الرقم وزر «بدء الربط».
+      # كلاهما `sync: false` عمداً: تُضبط من اللوحة ولا يفرض هذا الملف قيمة
+      # عليها، وإلا أعاد كل نشر ضبطها ومنع تفعيلها.
+      # ⚠️ Baileys بروتوكول غير رسمي ومخالف لشروط واتساب — استخدم رقماً مخصّصاً.
+      - key: WHATSAPP_SENDER_ENABLED
+        sync: false
+      - key: WHATSAPP_SELF_NUMBER
+        sync: false

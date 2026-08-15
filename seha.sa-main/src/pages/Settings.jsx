@@ -374,13 +374,25 @@ function Settings() {
                             </p>
                         </div>
 
-                        {!waStatus?.enabled ? (
+                        {!waStatus ? (
+                            // تمييز «تعذّر بلوغ الخادم» عن «الخدمة مغلقة» — كانا يظهران برسالة
+                            // واحدة فيُشخَّص العطل خطأً.
                             <div className={styles.emptyState}>
                                 <p>
-                                    الخدمة غير مفعّلة على الخادم. فعّلها بضبط
+                                    تعذّر قراءة حالة واتساب من الخادم. تأكّد أن الخادم يعمل وأن
+                                    <code style={{ margin: '0 6px' }}>VITE_API_BASE_URL</code>
+                                    يشير إليه، ثم أعِد فتح هذا التبويب.
+                                </p>
+                            </div>
+                        ) : !waStatus.enabled ? (
+                            <div className={styles.emptyState}>
+                                <p>
+                                    الخدمة مغلقة على الخادم، ولهذا لا يظهر حقل إدخال الرقم. فعّلها بضبط
                                     <code style={{ margin: '0 6px' }}>WHATSAPP_SENDER_ENABLED=true</code>
-                                    و<code style={{ margin: '0 6px' }}>WHATSAPP_SELF_NUMBER</code>
-                                    ثم أعِد تشغيل الخادم.
+                                    (واختيارياً
+                                    <code style={{ margin: '0 6px' }}>WHATSAPP_SELF_NUMBER</code>)
+                                    ثم أعِد تشغيل الخادم — وبعدها يظهر حقل «رقم واتساب المراد ربطه»
+                                    وزر «بدء الربط».
                                 </p>
                             </div>
                         ) : (
