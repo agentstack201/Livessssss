@@ -200,13 +200,19 @@ async function maybeRequestPairingCode(sock, state) {
   if (_pairingRequested && fresh) return;
   _pairingRequested = true;
   try {
-    const code = await sock.requestPairingCode(_pairingNumber);
+    // إعادة تسجيل الرمز نفسه على المقبس الجديد بدل سكّ رمز مختلف.
+    // لماذا؟ لأن كل تسجيل جديد يُبطل ما قبله لدى واتساب، فإن دار المقبس دورة
+    // بينما المستخدم يتنقّل في هاتفه صار الرمز المعروض ميّتاً قبل أن يكتبه.
+    const reuse = fresh ? _pairingCode : undefined;
+    console.log(`[WA] PAIRING_REQUEST_SENT number=${_pairingNumber} reuse=${reuse ? 'yes' : 'no'}`);
+    const code = await sock.requestPairingCode(_pairingNumber, reuse);
     if (!code) throw new Error('لم تُعِد المكتبة أي رمز');
     _pairingCode = code;
-    _pairingCodeAt = Date.now();
+    if (!reuse) _pairingCodeAt = Date.now();
     _lastError = null;
-    console.log(`📱 WhatsApp: رمز إقران الرقم ${_pairingNumber} → ${_pairingCode}`);
+    console.log(`[WA] PAIRING_CODE_RECEIVED number=${_pairingNumber} code=${_pairingCode}`);
   } catch (err) {
+    console.error(`[WA] CONNECTION_ERROR stage=pairing_request msg=${err.message}`);
     // لا رمز بديل ولا قيمة محليّة: عند الفشل لا يُعرض شيء إطلاقاً.
     _pairingRequested = false;
     _pairingCode = null;
@@ -224,7 +230,9 @@ async function connect({ pairingNumber } = {}) {
   if (!isEnabled()) throw new Error('خدمة إرسال واتساب معطّلة (WHATSAPP_SENDER_ENABLED)');
 
   if (pairingNumber) {
+    console.log('[WA] PAIRING_START');
     const digits = normalizeMsisdn(pairingNumber);
+    console.log(`[WA] PHONE_NORMALIZED digits=${digits} len=${digits.length}`);
     // رقم جديد ⇒ رمز جديد. الرمز مرتبط برقم بعينه ولا يصلح لغيره.
     if (digits !== _pairingNumber) {
       _pairingNumber = digits;
@@ -262,10 +270,14 @@ async function connect({ pairingNumber } = {}) {
       logger: silentLogger,
       printQRInTerminal: false,
       browser: ['Seha Reports', 'Chrome', '1.0.0'],
+      // مهلة رمز QR. الافتراضي ٦٠ ثانية للأول ثم ٢٠ لكل تالٍ، وعند نفاد
+      // المراجع يُغلق المقبس — وهي نافذة أقصر من وقت المستخدم في هاتفه.
+      qrTimeout: Number(process.env.WHATSAPP_QR_TIMEOUT_MS || 120000),
       markOnlineOnConnect: false,     // لا نسرق الإشعارات من الهاتف المقترن
       syncFullHistory: false,
     });
 
+    console.log(`[WA] SOCKET_STATE created registered=${Boolean(state.creds?.registered)} waVersion=${version.join('.')}`);
     sock.ev.on('creds.update', saveCreds);
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -280,6 +292,7 @@ async function connect({ pairingNumber } = {}) {
       if (connection === 'open') {
         _connected = true; _qrDataUrl = null; _lastError = null; _needsPairing = false;
         _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
+        console.log(`[WA] CONNECTION_UPDATE state=open user=${sock.user?.id || 'unknown'}`);
         console.log('✅ WhatsApp connected as', sock.user?.id);
       }
       if (connection === 'close') {
@@ -287,11 +300,21 @@ async function connect({ pairingNumber } = {}) {
         const status = lastDisconnect?.error?.output?.statusCode;
         _lastError = lastDisconnect?.error?.message || null;
         _sock = null; _sockState = null; _connecting = null;
-        // رمز الإقران يصلح لجلسة واحدة فقط — يُطلب رمز جديد بعد أي انقطاع.
-        _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
+        console.log(`[WA] CONNECTION_UPDATE state=close code=${status ?? 'none'}`);
+        if (_lastError) console.error(`[WA] CONNECTION_ERROR stage=close msg=${_lastError}`);
+        // الرمز يُحتفظ به ما دام في مهلته وما دام إقران جارياً، ليُعاد تسجيله
+        // كما هو على المقبس التالي. تصفيره هنا كان يعني سكّ رمز مختلف بعد كل
+        // دورة مقبس — والمقبس يدور كل ٢٠ ثانية عند نفاد مراجع QR
+        // (socket.js: 'QR refs attempts ended') — فيموت الرمز المعروض بينما
+        // المستخدم ما يزال يتنقّل في هاتفه ليكتبه.
+        _pairingRequested = false;
+        if (!_pairingNumber || Date.now() - _pairingCodeAt >= PAIRING_CODE_TTL_MS) {
+          _pairingCode = null; _pairingCodeAt = 0;
+        }
         if (status === DisconnectReason.loggedOut) {
           console.warn('⚠️ WhatsApp: تم تسجيل الخروج — يلزم إقران جديد');
           _qrDataUrl = null;
+          _pairingCode = null; _pairingCodeAt = 0;
           // تسجيل الخروج حالة متوقّعة لا عطل. إبقاء «Intentional Logout» في
           // lastError كان يعرضه في الواجهة بالأحمر وكأنه فشل، فيشوّش على الحكم
           // الذي صار معلّقاً على حالة «متصل» وحدها.
