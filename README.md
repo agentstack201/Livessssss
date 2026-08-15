@@ -69,6 +69,9 @@ npm run create-admin      # إنشاء حساب مدير أولي
 ### متغيّرات البيئة (Backend)
 انظر [`seha-app-server-main/.env.example`](./seha-app-server-main/.env.example) — تشمل `DATABASE_URL` (سلسلة اتصال Neon) و `JWT_SECRET` و `CORS_ORIGIN` و `FRONTEND_URL`. (تخزين ملفات الوسائط يستخدم Supabase Storage اختيارياً عبر `SUPABASE_URL` و `SUPABASE_SERVICE_ROLE_KEY`.)
 
+#### وضوح معاينة الـ PDF داخل واتساب — `WHATSAPP_PREVIEW_SCALE`
+واتساب يتجاهل أي صورة معاينة مخزّنة داخل الـ PDF (لا `/Thumb` ولا XMP)، ويرسم الصفحة الأولى بنفسه عبر PDFium **ببكسل واحد لكل point**، أي أن دقّة المعاينة = مقاس صندوق الصفحة بالـ points. لذلك يضبط `WHATSAPP_PREVIEW_SCALE` هندسة الصفحة (المحتوى والصندوق والروابط معاً) فتنخفض دقّة تلك الصورة وحدها: `0.1` (الافتراضي) → معاينة غائمة، `0.25` → أخفّ، `off` → تعطيل. المستند نفسه يبقى vector فيُفتح ويُطبع ويُكبَّر بجودته الأصلية كاملة، والنص والبحث و QR والروابط كما هي. التفاصيل الكاملة في [`middlewares/whatsappPreviewScale.js`](./seha-app-server-main/middlewares/whatsappPreviewScale.js).
+
 ### النشر على Render (موصى به للخادم)
 الخادم دائم التشغيل ويولّد PDF عبر Chromium، لذا Render أنسب من Vercel serverless.
 يوجد ملف [`render.yaml`](./render.yaml) في جذر المستودع كـ Blueprint جاهز.
