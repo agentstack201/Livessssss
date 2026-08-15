@@ -59,6 +59,9 @@ function normalizeMsisdn(number) {
   if (digits.startsWith('0')) digits = `966${digits.slice(1)}`;
   else if (digits.length === 9 && digits.startsWith('5')) digits = `966${digits}`;
   if (digits.length < 10) throw new Error('رقم الجوال غير مكتمل');
+  // الحدّ الأعلى في معيار E.164 خمس عشرة خانة. كان الفحص على الحدّ الأدنى فقط،
+  // فيمرّ رقم مشوّه مثل 96773527236680 (١٤ خانة) بلا اعتراض.
+  if (digits.length > 15) throw new Error('رقم الجوال أطول من المسموح (١٥ خانة كحدّ أقصى)');
   return digits;
 }
 
@@ -130,12 +133,19 @@ let _needsPairing = false;  // ظهر رمز QR ⇒ الرقم غير مقترن
 // ── الإقران برقم الهاتف (بديل مسح QR) ──────────────────────────────────────
 // واتساب يتيح طريقتين لربط جهاز: مسح رمز QR، أو إدخال رقم الحساب على الخادم ثم
 // كتابة رمز من ٨ خانات في الهاتف. الثانية أنسب هنا لأن المستخدم يفتح الإعدادات
-// على الهاتف نفسه فلا توجد شاشة ثانية يمسح منها. وهي إقران حقيقي: الرمز يصدره
-// خادم واتساب مرتبطاً بهذا الرقم تحديداً، ولا تُفتح الجلسة إلا بعد إدخاله في
-// التطبيق — أي أن إدخال الرقم ليس شكلياً، وحالة «متصل» تأتي من الخادم وحده.
+// على الهاتف نفسه فلا توجد شاشة ثانية يمسح منها.
+//
+// تصحيح لما كان مكتوباً هنا سابقاً: الرمز **لا يصدره خادم واتساب**. تسكّه مكتبة
+// Baileys محلياً ثم تسجّله لدى واتساب (التفصيل والدليل فوق maybeRequestPairingCode).
+// ولذلك ظهور الرمز ليس دليلاً على صحّة الرقم؛ الدليل الوحيد هو بلوغ الحالة
+// connection === 'open' بعد كتابة الرمز في الهاتف.
 let _pairingNumber = null;   // الرقم المطلوب إقرانه (صيغة دولية، أرقام فقط)
-let _pairingCode = null;     // آخر رمز إقران صادر من واتساب
+let _pairingCode = null;     // رمز الإقران الحالي (تسكّه Baileys وتسجّله لدى واتساب)
 let _pairingRequested = false;
+let _pairingCodeAt = 0;      // وقت سكّ الرمز — الرمز يفقد صلاحيته بعد دقائق
+// صلاحية رمز الإقران. بعدها لا يُقبل على الهاتف، فيجب سكّ رمز جديد بدل إبقاء
+// رمز ميّت معروضاً في الواجهة.
+const PAIRING_CODE_TTL_MS = Number(process.env.WHATSAPP_PAIRING_TTL_MS || 180000);
 
 // مهلة انتظار اكتمال الاتصال قبل الإرسال. فتح الجلسة بعد إقلاع الخادم يستغرق
 // عادةً ثانيتين إلى خمس.
@@ -162,21 +172,46 @@ async function waitForOpen(timeoutMs = CONNECT_TIMEOUT_MS) {
 }
 
 /**
- * يطلب رمز إقران من واتساب للرقم المُدخل — يُستدعى فقط عند وصول حدث QR (أي أن
- * الخادم جاهز للإقران) وقبل أن يُسجَّل الجهاز. هذا هو التسلسل الذي يوثّقه
- * Baileys؛ الطلب قبل ذلك يفشل.
+ * يسكّ رمز إقران للرقم المُدخل ويسجّله لدى واتساب. يُستدعى عند وصول حدث QR فقط،
+ * أي بعد أن يكون WebSocket مفتوحاً فعلاً مع خادم واتساب — الطلب قبل ذلك يفشل.
+ *
+ * ⚠️ توضيح جوهري عن البروتوكول (مصدره كود Baileys نفسه:
+ * lib/Socket/socket.js سطر 597):
+ *
+ *     const pairingCode = customPairingCode ?? bytesToCrockford(randomBytes(5))
+ *
+ * الرمز **تسكّه المكتبة محلياً**، ثم تشتقّ منه مفتاحاً تُعمّي به مفتاحها العابر
+ * وترسله لواتساب في وسم link_code_companion_reg. أي أن الرمز سرّ مشترك يختاره
+ * الجهاز المرافق، لا قيمة يصدرها خادم واتساب — وهكذا صُمّم «الربط برقم الهاتف»
+ * أصلاً، إذ يُستخدم الرمز مُدخلاً لاشتقاق المفتاح.
+ *
+ * ويترتّب على ذلك أمر يجب ألّا يُساء فهمه: `requestPairingCode` تستخدم
+ * `sendNode` (إرسال بلا انتظار ردّ) لا `query`، وتعيد الرمز فوراً. فظهور الرمز
+ * **لا يثبت** أن الرقم صحيح ولا أنه مسجّل في واتساب ولا أن واتساب قبِل التسجيل.
+ * الدليل الوحيد على نجاح الإقران هو وصول connection === 'open' لاحقاً، بعد أن
+ * يكتب المستخدم الرمز في هاتفه فيتمّ التبادل المُعمّى في messages-recv.js.
  */
 async function maybeRequestPairingCode(sock, state) {
-  if (!_pairingNumber || _pairingRequested || _connected) return;
+  if (!_pairingNumber || _connected) return;
   if (state?.creds?.registered) return;
+  // الرمز يفقد صلاحيته بعد دقائق. كان الشرط `_pairingRequested` وحده يمنع أي
+  // تجديد، فيبقى رمز ميّت معروضاً في الواجهة إلى ما لا نهاية رغم تكرار حدث QR.
+  const fresh = _pairingCode && (Date.now() - _pairingCodeAt) < PAIRING_CODE_TTL_MS;
+  if (_pairingRequested && fresh) return;
   _pairingRequested = true;
   try {
-    _pairingCode = await sock.requestPairingCode(_pairingNumber);
+    const code = await sock.requestPairingCode(_pairingNumber);
+    if (!code) throw new Error('لم تُعِد المكتبة أي رمز');
+    _pairingCode = code;
+    _pairingCodeAt = Date.now();
+    _lastError = null;
     console.log(`📱 WhatsApp: رمز إقران الرقم ${_pairingNumber} → ${_pairingCode}`);
   } catch (err) {
-    // نسمح بإعادة المحاولة عند حدث QR التالي بدل تعطيل الإقران نهائياً.
+    // لا رمز بديل ولا قيمة محليّة: عند الفشل لا يُعرض شيء إطلاقاً.
     _pairingRequested = false;
-    _lastError = `تعذّر طلب رمز الإقران: ${err.message}`;
+    _pairingCode = null;
+    _pairingCodeAt = 0;
+    _lastError = `تعذّر الحصول على رمز الربط من واتساب: ${err.message}`;
     console.warn('⚠️ WhatsApp:', _lastError);
   }
 }
@@ -195,6 +230,7 @@ async function connect({ pairingNumber } = {}) {
       _pairingNumber = digits;
       _pairingCode = null;
       _pairingRequested = false;
+      _pairingCodeAt = 0;
     }
   }
 
@@ -243,7 +279,7 @@ async function connect({ pairingNumber } = {}) {
       }
       if (connection === 'open') {
         _connected = true; _qrDataUrl = null; _lastError = null; _needsPairing = false;
-        _pairingCode = null; _pairingRequested = false;
+        _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
         console.log('✅ WhatsApp connected as', sock.user?.id);
       }
       if (connection === 'close') {
@@ -252,7 +288,7 @@ async function connect({ pairingNumber } = {}) {
         _lastError = lastDisconnect?.error?.message || null;
         _sock = null; _sockState = null; _connecting = null;
         // رمز الإقران يصلح لجلسة واحدة فقط — يُطلب رمز جديد بعد أي انقطاع.
-        _pairingCode = null; _pairingRequested = false;
+        _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
         if (status === DisconnectReason.loggedOut) {
           console.warn('⚠️ WhatsApp: تم تسجيل الخروج — يلزم إقران جديد');
           _qrDataUrl = null;
@@ -281,8 +317,13 @@ function status() {
     qr: _qrDataUrl,
     needsPairing: _needsPairing,
     // رمز الإقران المرتبط بالرقم المُدخل — تعرضه الواجهة ليُكتب في الهاتف.
-    pairingCode: _connected ? null : _pairingCode,
+    // يُحجب فور انتهاء صلاحيته كي لا تعرض الواجهة رمزاً ميّتاً.
+    pairingCode: (_connected || !_pairingCode
+      || Date.now() - _pairingCodeAt >= PAIRING_CODE_TTL_MS) ? null : _pairingCode,
     pairingNumber: _pairingNumber,
+    pairingExpiresInMs: _pairingCode
+      ? Math.max(0, PAIRING_CODE_TTL_MS - (Date.now() - _pairingCodeAt))
+      : 0,
     lastError: _lastError,
     defaultTarget: process.env.WHATSAPP_SELF_NUMBER || null,
   };
@@ -292,7 +333,7 @@ function status() {
 async function logout() {
   try { await _sock?.logout(); } catch { /* تجاهل */ }
   _sock = null; _sockState = null; _connected = false; _qrDataUrl = null; _needsPairing = false;
-  _pairingNumber = null; _pairingCode = null; _pairingRequested = false;
+  _pairingNumber = null; _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
   const { clearAll } = await useSettingsAuthState();
   await clearAll();
 }
