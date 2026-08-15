@@ -118,10 +118,38 @@ let _connecting = null;
 let _qrDataUrl = null;      // آخر رمز QR للإقران (يُمسح فور نجاح الاتصال)
 let _connected = false;
 let _lastError = null;
+let _needsPairing = false;  // ظهر رمز QR ⇒ الرقم غير مقترن بعد
+
+// مهلة انتظار اكتمال الاتصال قبل الإرسال. فتح الجلسة بعد إقلاع الخادم يستغرق
+// عادةً ثانيتين إلى خمس.
+const CONNECT_TIMEOUT_MS = Number(process.env.WHATSAPP_CONNECT_TIMEOUT_MS || 25000);
+
+/**
+ * ينتظر حتى تُفتح الجلسة فعلياً.
+ *
+ * لماذا؟ makeWASocket يعود فوراً، وحالة connection === 'open' تصل لاحقاً عبر
+ * حدث. بدون هذا الانتظار كان أول إرسال بعد إقلاع الخادم يفشل برسالة «غير
+ * متصل» رغم أن الجلسة سليمة وتُفتح بعد لحظة.
+ */
+async function waitForOpen(timeoutMs = CONNECT_TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
+  while (!_connected) {
+    if (_needsPairing) {
+      throw new Error('الرقم غير مقترن — افتح الإعدادات ← ربط واتساب وأكمل الإقران');
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`تعذّر الاتصال بواتساب خلال ${Math.round(timeoutMs / 1000)} ثانية${_lastError ? ` (${_lastError})` : ''}`);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
 
 async function connect() {
   if (!isEnabled()) throw new Error('خدمة إرسال واتساب معطّلة (WHATSAPP_SENDER_ENABLED)');
-  if (_sock && _connected) return _sock;
+  // مهم: نعيد المقبس الموجود حتى لو لم يكتمل اتصاله بعد. الشرط السابق كان
+  // (_sock && _connected) فيمرّ إلى إنشاء مقبس ثانٍ بينما الأول ما زال يتصل —
+  // أي جلستان متوازيتان على نفس الرقم، وهو سبب معروف لفصل واتساب للجلسات.
+  if (_sock) return _sock;
   if (_connecting) return _connecting;
 
   _connecting = (async () => {
@@ -147,12 +175,13 @@ async function connect() {
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
       if (qr) {
+        _needsPairing = true;
         try { _qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 }); }
         catch { _qrDataUrl = null; }
         console.log('📱 WhatsApp: امسح رمز QR من صفحة الإعدادات لإتمام الإقران');
       }
       if (connection === 'open') {
-        _connected = true; _qrDataUrl = null; _lastError = null;
+        _connected = true; _qrDataUrl = null; _lastError = null; _needsPairing = false;
         console.log('✅ WhatsApp connected as', sock.user?.id);
       }
       if (connection === 'close') {
@@ -185,6 +214,7 @@ function status() {
     connected: _connected,
     user: _sock?.user?.id || null,
     qr: _qrDataUrl,
+    needsPairing: _needsPairing,
     lastError: _lastError,
     defaultTarget: process.env.WHATSAPP_SELF_NUMBER || null,
   };
@@ -193,7 +223,7 @@ function status() {
 /** فصل الجلسة ومسح حالتها من قاعدة البيانات (يلزم بعدها إقران جديد). */
 async function logout() {
   try { await _sock?.logout(); } catch { /* تجاهل */ }
-  _sock = null; _connected = false; _qrDataUrl = null;
+  _sock = null; _connected = false; _qrDataUrl = null; _needsPairing = false;
   const { clearAll } = await useSettingsAuthState();
   await clearAll();
 }
@@ -206,8 +236,22 @@ async function logout() {
  */
 async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
   const sock = await connect();
-  if (!_connected) throw new Error('واتساب غير متصل — أكمل الإقران أولاً');
+  // الجلسة قد تكون في طور الفتح (خصوصاً أول إرسال بعد إقلاع الخادم) — ننتظرها
+  // بدل رفض الطلب فوراً.
+  if (!_connected) await waitForOpen();
   const jid = toJid(to);
+
+  // تأكيد أن الرقم مسجّل في واتساب. بدونه يبتلع البروتوكول الرسالة بصمت عند
+  // رقم خاطئ ويظن المستخدم أنها وصلت. فحص فاشل لا يمنع الإرسال (fail-open).
+  try {
+    const [info] = await sock.onWhatsApp(jid);
+    if (info && info.exists === false) {
+      throw new Error(`الرقم ${to} غير مسجّل في واتساب`);
+    }
+  } catch (err) {
+    if (err.message.includes('غير مسجّل')) throw err;
+    console.warn('⚠️ تعذّر التحقق من الرقم (سنتابع الإرسال):', err.message);
+  }
 
   const content = {
     document: pdfBuffer,
