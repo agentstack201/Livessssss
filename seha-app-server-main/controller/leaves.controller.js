@@ -977,6 +977,38 @@ module.exports.downloadPDF = async (req, res, next) => {
   }
 };
 
+// معاينة صورة المصغّرة قبل الإرسال — تُعيد الـ JPEG نفسها التي سترافق الرسالة،
+// فيمكن ضبط WHATSAPP_THUMB_WIDTH / _BLUR / _QUALITY ورؤية الأثر فوراً بلا
+// إرسال أي رسالة. لا علاقة لها بالملف: الـ PDF يُقرأ فقط ولا يُعدَّل.
+module.exports.previewWhatsappThumbnail = async (req, res) => {
+  try {
+    const { service_num, national_id } = req.params;
+    const leave = await leaves.findOne({
+      where: { service_num, national_id },
+      include: [{ model: Country, as: 'country' }],
+    });
+    if (!leave) {
+      return res.status(404).json({ status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية' });
+    }
+
+    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const country = await Country.findOne({ where: { id: leave.countryId } });
+    const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
+    const pdfBuffer = await renderPdf(leave.dataValues, leave_days, getFormattedDateTime(), country);
+
+    const buildThumbnail = require('../middlewares/whatsappThumbnail');
+    const thumb = await buildThumbnail(pdfBuffer);
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', thumb.buffer.length);
+    res.setHeader('X-Thumbnail-Size', `${thumb.width}x${thumb.height}`);
+    return res.send(thumb.buffer);
+  } catch (error) {
+    console.error('❌ WhatsApp thumbnail preview error:', error);
+    return res.status(500).json({ status_code: 500, success: false, message: error.message });
+  }
+};
+
 // ───────────────────────────────────────────────────────────────────────────
 // إرسال التقرير عبر واتساب من الخادم.
 //

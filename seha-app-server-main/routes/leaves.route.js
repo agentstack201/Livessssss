@@ -40,6 +40,15 @@ router
     (req, res, next) => leaveController.sendPdfToWhatsapp(req, res, next)
   );
 
+// معاينة المصغّرة التي سترافق رسالة واتساب (لضبط شكلها قبل أي إرسال).
+router
+  .route("/sick-leaves/:service_num/:national_id/whatsapp-thumbnail")
+  .get(
+    config.auth,
+    checkController,
+    (req, res, next) => leaveController.previewWhatsappThumbnail(req, res, next)
+  );
+
 // AI Extract - specific route before general routes
 router
   .route("/sick-leaves/ai-extract")
