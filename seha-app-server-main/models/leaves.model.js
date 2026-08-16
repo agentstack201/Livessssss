@@ -178,6 +178,27 @@ const leaves = sequelize.define(
       allowNull: true,
       comment: 'رقم المستخدم المرتبط من جدول المستخدمين',
     },
+    // ── QR اختياري وطريقة التاريخ (اختيارية) ─────────────────────────────────
+    // كلا الحقلين اختياريان بقيم افتراضية تحافظ على السلوك الحالي: كل سجل
+    // قديم بلا قيمة يستمر بإظهار الـ QR (add_qr) ويحسب مدة الإجازة من
+    // الفرق بين تاريخي الدخول والخروج كما كان دائماً (date_mode = 'actual').
+    add_qr: {
+      type: Sequelize.BOOLEAN,
+      allowNull: true,
+      defaultValue: true,
+      comment: 'إظهار أو إخفاء رمز الـ QR في PDF',
+    },
+    date_mode: {
+      type: Sequelize.STRING(20),
+      allowNull: true,
+      defaultValue: 'actual',
+      comment: "طريقة التاريخ: actual (الفعلي) أو issue_date (يبدأ من تاريخ الإصدار)",
+    },
+    leave_days: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      comment: 'مدة الإجازة كقيمة مستقلة — تُستخدم فقط عندما date_mode = issue_date',
+    },
   },
 
   {

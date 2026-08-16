@@ -174,14 +174,20 @@ module.exports = async (data, leave_days, DateObj, country) => {
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
     const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
+    // QR اختياري: أي سجل قديم بلا قيمة add_qr يستمر بإظهار الـ QR كما كان
+    // دائماً (السلوك الأصلي). لا يُعطَّل إلا إذا كانت القيمة false صراحةً.
+    const includeQr = data.add_qr !== false;
+
     // Generate the QR locally (data URI) instead of calling the external
     // api.qrserver.com service on every render. الحجم كما هو (150px توليداً،
     // 90px عرضاً) فلا يتغيّر شكل التقرير.
     let qrDataUri = '';
-    try {
-      qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
-    } catch (qrErr) {
-      console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
+    if (includeQr) {
+      try {
+        qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+      } catch (qrErr) {
+        console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
+      }
     }
 
     // ------------------------------------------------------------------
@@ -376,6 +382,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
         line-height: 1.1;
         padding-top: 4px;
         padding-bottom: 4px;
+        /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+           دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+        overflow-wrap: break-word;
+        word-break: normal;
       }
       .darkBg {
         background-color: #f7f7f7 !important;
@@ -632,7 +642,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 <div class="pdf-footer-section" >
     <!-- QR Code Section -->
     <div class="qr-section">
-    <div style="margin-left: 45px !important;">
+    ${includeQr ? `<div style="margin-left: 45px !important;">
              <img style="height: 90px;margin:0px " src="${qrDataUri}" alt="QR Code">
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
@@ -643,7 +653,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
            style="margin: 0px; margin-top : 7px !important ; font-size: 10px; font-weight: 900 !important; color:blue; text-decoration: underline;"
           href='${verificationUrl}'
           target="_blank">www.seha.sa/#/inquiries/skenquiry</a>
-    </div>
+    </div>` : ''}
       <!-- Timestamp -->
   <div class="timestamp">
   <div style="margin-top: 46px !important; text-align:left !important ;  margin-left: 26px !important;">

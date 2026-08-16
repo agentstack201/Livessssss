@@ -103,6 +103,8 @@ function SickLeaveForm() {
     hospitalNameEnglish: '',
     licenseNumber: '1410845906',
     showLicenseNumber: true,
+    addQr: true, // إظهار QR في PDF — القيمة الافتراضية تطابق السلوك الحالي (كان دائماً ظاهراً)
+    dateMode: 'actual', // طريقة التاريخ: actual (الفعلي) أو issue_date (يبدأ من تاريخ الإصدار)
     reportTime: '',
     reportDate: '',
     footerLogo: '',
@@ -528,6 +530,8 @@ function SickLeaveForm() {
         hospitalNameEnglish: leaveData.hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL',
         licenseNumber: leaveData.license_number || '1410845906',
         showLicenseNumber: leaveData.show_license_number !== false,
+        addQr: leaveData.add_qr !== false,
+        dateMode: leaveData.date_mode === 'issue_date' ? 'issue_date' : 'actual',
         reportTime: parsePdfReportTime(leaveData.report_time),
         reportDate: parsePdfReportDate(leaveData.report_date),
         footerLogo: leaveData.footer_logo
@@ -550,7 +554,10 @@ function SickLeaveForm() {
   }, [editMode, leaveData])
 
   // حساب المدة تلقائياً عند تحميل المكون أو تغيير التواريخ
+  // (السلوك الحالي — لا يعمل في وضع "يبدأ من تاريخ الإصدار" حيث المدة قيمة
+  // مستقلة يدخلها المستخدم ولا تُحسب من الفرق بين التاريخين)
   useEffect(() => {
+    if (formData.dateMode === 'issue_date') return
     if (formData.admissionDate) {
       const start = new Date(formData.admissionDate)
 
@@ -572,7 +579,25 @@ function SickLeaveForm() {
         }
       }
     }
-  }, [formData.admissionDate, formData.dischargeDate])
+  }, [formData.admissionDate, formData.dischargeDate, formData.dateMode])
+
+  // في وضع "يبدأ من تاريخ الإصدار": تاريخا الدخول والخروج = تاريخ الإصدار
+  // دائماً، ومدة الإجازة تبقى القيمة المستقلة التي أدخلها المستخدم (لا تُمس هنا).
+  useEffect(() => {
+    if (formData.dateMode !== 'issue_date') return
+    if (!formData.issueDate) return
+    setFormData(prev => (
+      prev.admissionDate === prev.issueDate && prev.dischargeDate === prev.issueDate
+        ? prev
+        : {
+            ...prev,
+            admissionDate: prev.issueDate,
+            dischargeDate: prev.issueDate,
+            startDate: prev.issueDate,
+            endDate: prev.issueDate
+          }
+    ))
+  }, [formData.dateMode, formData.issueDate])
 
   // Handle form field changes
   const handleChange = (e) => {
@@ -837,6 +862,8 @@ function SickLeaveForm() {
           hospitalNameEnglish: record.hospital_name_en || '',
           licenseNumber: record.license_number || '1410845906',
           showLicenseNumber: record.show_license_number !== false,
+          addQr: record.add_qr !== false,
+          dateMode: record.date_mode === 'issue_date' ? 'issue_date' : 'actual',
           footerLogo: record.footer_logo
             ? (record.footer_logo.startsWith('http') || record.footer_logo.startsWith('data:') ? record.footer_logo : `${API_BASE_URL}${record.footer_logo}`)
             : '',
@@ -1055,6 +1082,13 @@ function SickLeaveForm() {
         hospital_name_ar: formData.hospitalNameArabic,
         license_number: formData.licenseNumber || '1410845906',
         show_license_number: formData.showLicenseNumber,
+        // QR وطريقة التاريخ — الإجازة المرضية فقط. غير مفعّلَين لبقية القوالب
+        // فتُرسَل قيمهما الافتراضية دون أي أثر (لا يقرأهما مولّد PDF الآخر).
+        add_qr: formData.addQr,
+        date_mode: documentType === DOC_SICK_LEAVE ? formData.dateMode : 'actual',
+        leave_days: (documentType === DOC_SICK_LEAVE && formData.dateMode === 'issue_date')
+          ? (parseInt(formData.duration, 10) || null)
+          : null,
         report_time: formatTimeForPDF(formData.reportTime),
         report_date: formatDateForPDF(formData.reportDate),
         footer_logo: formData.footerLogo || null,
@@ -1192,6 +1226,8 @@ function SickLeaveForm() {
           hospitalNameEnglish: '',
           licenseNumber: '1410845906',
           showLicenseNumber: true,
+          addQr: true,
+          dateMode: 'actual',
           admissionDateAr: '',
           dischargeDateAr: '',
           reportTime: '',
@@ -1242,6 +1278,8 @@ function SickLeaveForm() {
       hospitalNameEnglish: '',
       licenseNumber: '1410845906',
       showLicenseNumber: true,
+      addQr: true,
+      dateMode: 'actual',
       admissionDateAr: '',
       dischargeDateAr: '',
       reportTime: '',
@@ -1300,6 +1338,11 @@ function SickLeaveForm() {
           hospital_name_ar: formData.hospitalNameArabic,
           license_number: formData.licenseNumber,
           show_license_number: formData.showLicenseNumber,
+          add_qr: formData.addQr,
+          date_mode: documentType === DOC_SICK_LEAVE ? formData.dateMode : 'actual',
+          leave_days: (documentType === DOC_SICK_LEAVE && formData.dateMode === 'issue_date')
+            ? (parseInt(formData.duration, 10) || null)
+            : null,
 
           admission_date_en: formData.admissionDate,
           discharge_date_en: formData.dischargeDate,
@@ -1938,6 +1981,57 @@ function SickLeaveForm() {
             )}
           </div>
 
+          {/* طريقة التاريخ + إضافة QR — الإجازة المرضية فقط (القالب الوحيد الذي يدعمهما) */}
+          {documentType === DOC_SICK_LEAVE && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>طريقة التاريخ</label>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '4px' }}>
+                <label className={styles.checkboxLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="dateMode"
+                    value="actual"
+                    checked={formData.dateMode !== 'issue_date'}
+                    onChange={() => setFormData(prev => ({ ...prev, dateMode: 'actual' }))}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '0.95rem', color: '#374151' }}>التاريخ الفعلي</span>
+                </label>
+                <label className={styles.checkboxLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="dateMode"
+                    value="issue_date"
+                    checked={formData.dateMode === 'issue_date'}
+                    onChange={() => setFormData(prev => ({ ...prev, dateMode: 'issue_date' }))}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '0.95rem', color: '#374151' }}>يبدأ من تاريخ الإصدار</span>
+                </label>
+              </div>
+              {formData.dateMode === 'issue_date' && (
+                <small className={styles.helpText}>
+                  سيتم ضبط تاريخي الدخول والخروج تلقائياً على تاريخ الإصدار، وتبقى مدة الإجازة القيمة التي تُدخلها
+                </small>
+              )}
+            </div>
+          )}
+
+          {documentType === DOC_SICK_LEAVE && (
+            <div className={styles.fieldGroup}>
+              <label className={styles.checkboxLabel} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  name="addQr"
+                  checked={formData.addQr}
+                  onChange={(e) => setFormData(prev => ({ ...prev, addQr: e.target.checked }))}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.95rem', color: '#374151' }}>إضافة QR</span>
+              </label>
+            </div>
+          )}
+
           {/* Admission Date */}
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="admissionDate">
@@ -1950,13 +2044,17 @@ function SickLeaveForm() {
               name="admissionDate"
               value={formData.admissionDate}
               onChange={handleChange}
+              readOnly={formData.dateMode === 'issue_date'}
+              style={formData.dateMode === 'issue_date' ? { backgroundColor: '#f8fafc', cursor: 'not-allowed' } : undefined}
               required
             />
             {errors.admissionDate && (
               <span className={styles.errorMessage}>{errors.admissionDate}</span>
             )}
             <small className={styles.helpText}>
-              سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري
+              {formData.dateMode === 'issue_date'
+                ? 'يُضبط تلقائياً على تاريخ الإصدار'
+                : 'سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري'}
             </small>
           </div>
 
@@ -1993,13 +2091,17 @@ function SickLeaveForm() {
               name="dischargeDate"
               value={formData.dischargeDate}
               onChange={handleChange}
+              readOnly={formData.dateMode === 'issue_date'}
+              style={formData.dateMode === 'issue_date' ? { backgroundColor: '#f8fafc', cursor: 'not-allowed' } : undefined}
               required
             />
             {errors.dischargeDate && (
               <span className={styles.errorMessage}>{errors.dischargeDate}</span>
             )}
             <small className={styles.helpText}>
-              سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري
+              {formData.dateMode === 'issue_date'
+                ? 'يُضبط تلقائياً على تاريخ الإصدار'
+                : 'سيتم تحويل التاريخ تلقائياً إلى التقويم الهجري'}
             </small>
           </div>
 
@@ -2056,6 +2158,8 @@ function SickLeaveForm() {
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleChange}
+                readOnly={formData.dateMode === 'issue_date'}
+                style={formData.dateMode === 'issue_date' ? { backgroundColor: '#f8fafc', cursor: 'not-allowed' } : undefined}
                 required
               />
               {errors.startDate && (
@@ -2077,6 +2181,8 @@ function SickLeaveForm() {
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleChange}
+                readOnly={formData.dateMode === 'issue_date'}
+                style={formData.dateMode === 'issue_date' ? { backgroundColor: '#f8fafc', cursor: 'not-allowed' } : undefined}
                 required
               />
               {errors.endDate && (
@@ -2089,21 +2195,24 @@ function SickLeaveForm() {
           {feat.leaveDuration && (
             <div className={styles.fieldGroup}>
               <label className={styles.label} htmlFor="duration">
-                المدة بالأيام * (تحسب تلقائياً)
+                {formData.dateMode === 'issue_date' ? 'المدة بالأيام *' : 'المدة بالأيام * (تحسب تلقائياً)'}
               </label>
               <input
-                className={`${styles.inputField} ${styles.readOnlyInput}`}
+                className={formData.dateMode === 'issue_date' ? styles.inputField : `${styles.inputField} ${styles.readOnlyInput}`}
                 type="number"
                 id="duration"
                 name="duration"
                 value={formData.duration}
                 onChange={handleChange}
                 placeholder="سيتم حسابها تلقائياً"
-                readOnly
-                style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
+                readOnly={formData.dateMode !== 'issue_date'}
+                min={formData.dateMode === 'issue_date' ? 1 : undefined}
+                style={formData.dateMode === 'issue_date' ? undefined : { backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
               />
               <small className={styles.helperText}>
-                ⚡ يتم حساب المدة تلقائياً من تاريخ الدخول والخروج
+                {formData.dateMode === 'issue_date'
+                  ? '✏️ أدخل مدة الإجازة يدوياً — مستقلة عن تاريخي الدخول والخروج'
+                  : '⚡ يتم حساب المدة تلقائياً من تاريخ الدخول والخروج'}
               </small>
               {errors.duration && (
                 <span className={styles.errorMessage}>{errors.duration}</span>

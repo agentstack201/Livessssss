@@ -65,6 +65,12 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
 
   // حساب مدة الإجازة - محسّن وفوري
   const calculateDuration = () => {
+    // وضع "يبدأ من تاريخ الإصدار": المدة قيمة مستقلة محفوظة، لا تُحسب من
+    // الفرق بين التاريخين (كلاهما يساوي تاريخ الإصدار في هذا الوضع).
+    if (data.date_mode === 'issue_date' && data.leave_days) {
+      return parseInt(data.leave_days, 10) || 0;
+    }
+
     // التحقق من وجود تاريخ الدخول على الأقل
     if (!data.admission_date_en) return 0;
 
@@ -377,6 +383,10 @@ font-family: "NotoSansArabic", sans-serif;
         line-height: 1.1;
         padding-top: 4px;
         padding-bottom: 4px;
+        /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+           دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+        overflow-wrap: break-word;
+        word-break: normal;
       }
       .darkBg {
         background-color: #f7f7f7 !important;
@@ -639,18 +649,18 @@ font-family: "NotoSansArabic", sans-serif;
 <div class="pdf-footer-section" >
     <!-- QR Code Section -->
     <div class="qr-section">
-    <div style="margin-left: 45px !important;">
+    ${data.add_qr !== false ? `<div style="margin-left: 45px !important;">
              <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
       <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>
- 
+
 
 <a class="en-text"
            style="margin: 0px; margin-top : 7px !important ; font-size: 10px; font-weight: 900 !important; color:blue; text-decoration: underline;"
           href='${verificationUrl}'
           target="_blank">www.seha.sa/#/inquiries/skenquiry</a>
-    </div>
+    </div>` : ''}
       <!-- Timestamp -->
   <div class="timestamp">
   <div style="margin-top: 46px !important; text-align:left !important ;  margin-left: 26px !important;">

@@ -16,6 +16,30 @@ const getFormattedDateTime = () => {
   return { currentTime, currentDate };
 };
 
+// طريقة التاريخ: أي قيمة غير 'issue_date' بالضبط تعود للسلوك الحالي
+// (actual) — فلا يمكن لقيمة غير متوقعة أن تغيّر طريقة حساب مدة الإجازة.
+const normalizeDateMode = (value) => (value === 'issue_date' ? 'issue_date' : 'actual');
+
+// مدة الإجازة كقيمة مستقلة تُحفظ فقط في وضع "يبدأ من تاريخ الإصدار"، وفقط
+// إذا كانت رقماً صحيحاً موجباً صالحاً. في أي حالة أخرى تبقى NULL ويستمر
+// حساب calcDays() من تاريخي الدخول والخروج كما كان دائماً.
+const normalizeLeaveDaysOverride = (dateMode, rawValue) => {
+  if (dateMode !== 'issue_date') return null;
+  const parsed = parseInt(rawValue, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+// مدة الإجازة الفعلية لسجل ما: في وضع "يبدأ من تاريخ الإصدار" مع قيمة
+// leave_days محفوظة تُستخدم هذه القيمة كما أُدخلت. في أي حالة أخرى (وكل
+// السجلات القديمة بلا date_mode) يبقى الحساب من الفرق بين تاريخي الدخول
+// والخروج تماماً كما كان قبل هذا التعديل — لا تغيير على السلوك الحالي.
+function resolveLeaveDays(leave) {
+  if (leave.date_mode === 'issue_date' && leave.leave_days) {
+    return leave.leave_days;
+  }
+  return config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+}
+
 module.exports.addNewLeaves = async (req, res, next) => {
   let {
     service_num,
@@ -43,6 +67,10 @@ module.exports.addNewLeaves = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // QR اختياري وطريقة التاريخ (اختياريان — انظر resolveLeaveDays أدناه)
+    add_qr,
+    date_mode,
+    leave_days,
     // حقول قالب «مشهد مراجعة لمرافق» (اختيارية — تُتجاهل مع الإجازة المرضية)
     document_type,
     admission_time,
@@ -96,6 +124,9 @@ module.exports.addNewLeaves = async (req, res, next) => {
       hospital_name_ar: hospital_name_ar || 'مستشفى النور التخصصي',
       license_number: license_number || '1410845906',
       show_license_number: show_license_number !== false && show_license_number !== 'false',
+      add_qr: add_qr !== false && add_qr !== 'false',
+      date_mode: normalizeDateMode(date_mode),
+      leave_days: normalizeLeaveDaysOverride(normalizeDateMode(date_mode), leave_days),
       report_time: report_time || DateObj.currentTime,
       report_date: report_date || DateObj.currentDate,
       footer_logo,
@@ -179,11 +210,7 @@ module.exports.getOneLeaveDetails = async (req, res, next) => {
     console.log('📋 Found leave:', leave ? 'Yes' : 'No');
 
     if (leave) {
-      let leave_days = config.calcDays(
-        leave.dataValues.admission_date_en,
-        leave.dataValues.discharge_date_en
-      );
-      leave.dataValues.leave_days = leave_days;
+      leave.dataValues.leave_days = resolveLeaveDays(leave.dataValues);
 
       // Return as array to match frontend expectation
       return res.status(200).json([leave]);
@@ -228,6 +255,10 @@ module.exports.updateLeave = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // QR اختياري وطريقة التاريخ (اختياريان)
+    add_qr,
+    date_mode,
+    leave_days,
     // حقول قالب «مشهد مراجعة لمرافق» (اختيارية)
     document_type,
     admission_time,
@@ -319,6 +350,20 @@ module.exports.updateLeave = async (req, res, next) => {
       license_number,
       show_license_number: show_license_number !== false && show_license_number !== 'false',
       footer_logo: footer_logo !== undefined ? footer_logo : existingLeave.footer_logo,
+      // QR وطريقة التاريخ: تُحدَّثان فقط إذا أُرسلتا، وإلا تبقيان كما كانتا —
+      // فطلب تعديل قديم لا يرسل هذين الحقلين لا يُسقط الـ QR ولا يغيّر الوضع.
+      add_qr: add_qr !== undefined
+        ? (add_qr !== false && add_qr !== 'false')
+        : existingLeave.add_qr,
+      date_mode: date_mode !== undefined
+        ? normalizeDateMode(date_mode)
+        : normalizeDateMode(existingLeave.date_mode),
+      leave_days: leave_days !== undefined
+        ? normalizeLeaveDaysOverride(
+            date_mode !== undefined ? normalizeDateMode(date_mode) : normalizeDateMode(existingLeave.date_mode),
+            leave_days
+          )
+        : existingLeave.leave_days,
       // حقول قالب «مشهد مراجعة لمرافق»: تُحدَّث فقط إذا أُرسلت، وإلا تبقى كما هي
       // (فالطلبات القديمة التي لا ترسلها لا تفقد بياناتها).
       document_type: document_type !== undefined
@@ -930,10 +975,7 @@ module.exports.downloadPDF = async (req, res, next) => {
     console.log('✅ Leave found:', leave.id);
 
     // Calculate leave days
-    const leave_days = config.calcDays(
-      leave.admission_date_en,
-      leave.discharge_date_en
-    );
+    const leave_days = resolveLeaveDays(leave);
     console.log('📊 Leave days:', leave_days);
 
     // Get country details
@@ -991,7 +1033,7 @@ module.exports.previewWhatsappThumbnail = async (req, res) => {
       return res.status(404).json({ status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية' });
     }
 
-    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const leave_days = resolveLeaveDays(leave);
     const country = await Country.findOne({ where: { id: leave.countryId } });
     const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
     const pdfBuffer = await renderPdf(leave.dataValues, leave_days, getFormattedDateTime(), country);
@@ -1059,7 +1101,7 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
     }
 
     // نفس مسار توليد الـ PDF المستخدم في التنزيل — بلا أي اختلاف.
-    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const leave_days = resolveLeaveDays(leave);
     const country = await Country.findOne({ where: { id: leave.countryId } });
     const DateObj = getFormattedDateTime();
     const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
