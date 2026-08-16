@@ -273,7 +273,10 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
         }
       body {
 font-family: "NotoSansArabic", sans-serif;
-        margin: 0px 0px 20px 20px;
+        /* الجسم بعرض الصفحة نفسه (210mm)، فأي هامش أفقي يزيحه عن مركزها
+           ويقصّ الطرف الآخر. الهامش الأيسر كان 20px والأيمن صفراً، فكان
+           المستند كله منزاحاً 20px إلى اليمين. صفر يعيده إلى المنتصف. */
+        margin: 0px 0px 20px 0px;
         max-height: 297mm;
         height: 297mm;
         overflow: hidden;
@@ -441,10 +444,14 @@ font-family: "NotoSansArabic", sans-serif;
       .leave-duration .two {
         color: #ffffff !important;
       }
+      /* خلية العنوان العربي (آخر عمود) هي التي تحدّد ارتفاع كل صف: سطر الخط
+         العربي وحده ٣٠px عند حجم ١٣px، فيصير الصف ٣٠+٦+٦ = ٤٢px. قياس المستند
+         المرجعي أظهر صفوفه أقصر من صفوفنا، فخُفّض الحشو الرأسي بكسلاً واحداً من
+         كل جهة (٤٠px) ليطابقه. لا يمسّ هذا حجم الخط ولا عرض الأعمدة ولا ترتيبها. */
       .custom-table tbody tr td:last-child {
         // width: 110px;
         // min-width: 110px;
-        padding: 6px 4px;
+        padding: 5px 4px;
       }
       
       .custom-table tbody tr td:last-child.ar-text {

@@ -107,7 +107,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
       }
       body {
         font-family: "NotoSansArabic", sans-serif;
-        margin: 0px 0px 20px 20px;
+        /* الجسم بعرض الصفحة نفسه (210mm)، فأي هامش أفقي يزيحه عن مركزها
+           ويقصّ الطرف الآخر. الهامش الأيسر كان 20px والأيمن صفراً، فكان
+           المستند كله منزاحاً 20px إلى اليمين. صفر يعيده إلى المنتصف. */
+        margin: 0px 0px 20px 0px;
         max-height: 297mm;
         height: 297mm;
         overflow: hidden;
