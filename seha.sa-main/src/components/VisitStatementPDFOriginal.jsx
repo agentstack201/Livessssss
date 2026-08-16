@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare';
 import {
   formatDate,
+  formatHijriDate,
   formatTime12,
   arabicMeridiem,
   calcWaitingPeriod,
@@ -150,10 +151,11 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
 
   const admissionEn = [formatDate(data.admission_date_en), admissionTimeEn].filter(Boolean).join(' - ');
   const dischargeEn = [formatDate(data.discharge_date_en), dischargeTimeEn].filter(Boolean).join(' - ');
-  // المستند الرسمي المرفق يعرض التاريخ الميلادي في العمود العربي أيضاً
-  // (لا الهجري) — مطابقةً للأصل، وبنفس منطق الخادم بالضبط.
-  const admissionAr = [formatDate(data.admission_date_en), admissionTimeAr].filter(Boolean).join(' - ');
-  const dischargeAr = [formatDate(data.discharge_date_en), dischargeTimeAr].filter(Boolean).join(' - ');
+  // العمود العربي يعرض التاريخ الهجري — كما في بقية القوالب، وبنفس منطق الخادم
+  // بالضبط. القيمة مأخوذة من admission_date_ar المحفوظ، وهو مشتقّ خوارزمياً من
+  // نفس التاريخ الميلادي عبر convertDates (hijri-converter) عند الحفظ والتعديل.
+  const admissionAr = [formatHijriDate(data.admission_date_ar), admissionTimeAr].filter(Boolean).join(' - ');
+  const dischargeAr = [formatHijriDate(data.discharge_date_ar), dischargeTimeAr].filter(Boolean).join(' - ');
 
   // نفس منطق الخادم: حقل «جهة العمل» واحد يملأ اللغتين، والمستند الأصلي يترك
   // الخانة الإنجليزية فارغة — فلا نعرضها إلا إن كانت مختلفة فعلاً عن العربية.
