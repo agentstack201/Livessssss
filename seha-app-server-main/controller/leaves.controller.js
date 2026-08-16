@@ -1094,6 +1094,7 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
     });
   } catch (error) {
     console.error(`[WA] SEND_ERROR msg=${error.message}`);
+    console.error(`[WA] SEND_ERROR_AT ${String(error.stack).split('\n')[1]?.trim() || 'n/a'}`);
     return res.status(500).json({
       status_code: 500, success: false, message: error.message,
     });

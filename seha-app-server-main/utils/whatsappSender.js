@@ -469,7 +469,8 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
   // تأكيد أن الرقم مسجّل في واتساب. بدونه يبتلع البروتوكول الرسالة بصمت عند
   // رقم خاطئ ويظن المستخدم أنها وصلت. فحص فاشل لا يمنع الإرسال (fail-open).
   try {
-    const [info] = await sock.onWhatsApp(jid);
+    // onWhatsApp قد تعيد undefined إن لم تُرجع الاستعلامة نتائج (socket.js:245)
+    const [info] = (await sock.onWhatsApp(jid)) || [];
     if (info && info.exists === false) {
       throw new Error(`الرقم ${to} غير مسجّل في واتساب`);
     }
@@ -478,14 +479,22 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
     console.warn('⚠️ تعذّر التحقق من الرقم (سنتابع الإرسال):', err.message);
   }
 
+  // Baileys تفحص Buffer.isBuffer(item) أولاً (Utils/messages-media.js: getStream)،
+  // فإن لم يكن Buffer ولم يحمل stream قرأت item.url.toString() ⇒
+  // "Cannot read properties of undefined (reading 'toString')".
+  // ومولّد الـ PDF يعيد Uint8Array (سلوك page.pdf في إصدارات Puppeteer الحديثة)
+  // لا Buffer. التحويل هنا تغليف للنوع فقط — البايتات نفسها حرفياً ولا يُمسّ
+  // المستند، وقد تحقّقنا أن Buffer.compare يساوي صفراً بعده.
+  const asBuffer = (b) => (Buffer.isBuffer(b) ? b : Buffer.from(b));
+
   const content = {
-    document: pdfBuffer,
+    document: asBuffer(pdfBuffer),
     mimetype: 'application/pdf',
     fileName: fileName || 'sickLeaves.pdf',
   };
   // الحقل الذي تدور حوله المهمة كلها. غيابه يعني أن واتساب سيعرض معاينة
   // مولّدة عنده (حادّة) أو أيقونة عامة.
-  if (thumbnail && thumbnail.length) content.jpegThumbnail = thumbnail;
+  if (thumbnail && thumbnail.length) content.jpegThumbnail = asBuffer(thumbnail);
   if (caption) content.caption = caption;
 
   const sent = await sock.sendMessage(jid, content);
