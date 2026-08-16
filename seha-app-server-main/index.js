@@ -250,6 +250,16 @@ if (sequelize) {
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_ar VARCHAR(191) DEFAULT '';`),
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_en VARCHAR(191) DEFAULT '';`),
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_ar VARCHAR(191) DEFAULT '';`),
+        // QR اختياري وطريقة التاريخ — أعمدة اختيارية أُضيفت مع هذه الميزة.
+        // نفس الـ DDL الموجود في migrations/add-qr-date-mode-fields.js حرفياً؛
+        // ذلك الملف سكربت يدوي لا يشغّله النشر (startCommand = npm start فقط)،
+        // فبدون هذه الأسطر يبقى العمود مفقوداً في قاعدة البيانات ويفشل إنشاء
+        // أي إجازة بـ «column "add_qr" of relation "leaves" does not exist».
+        // add_qr افتراضيّه TRUE عمداً: السجل الذي لا يحدّد قيمة يُظهر الـ QR
+        // كما كان دائماً قبل هذه الميزة (وهو ما يعتمد عليه data.add_qr !== false).
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS add_qr BOOLEAN DEFAULT TRUE;`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS date_mode VARCHAR(20) DEFAULT 'actual';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS leave_days INTEGER DEFAULT NULL;`),
         // توسيع عمود رابط الوسائط ليتّسع لروابط data:base64 عند الرفع المحلي
         sequelize.query(`ALTER TABLE media ALTER COLUMN url TYPE TEXT;`)
       ]).then(() => {
