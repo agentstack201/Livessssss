@@ -21,6 +21,7 @@ const { dataUriFromPublic, fontFaceCss, resolveFooterLogo, getBrowser } = _inter
 
 const {
   formatDate,
+  formatHijriDate,
   formatTime12,
   arabicMeridiem,
   waitingPeriod,
@@ -71,11 +72,12 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     const admissionEn = [formatDate(data.admission_date_en), admissionTimeEn].filter(Boolean).join(' - ');
     const dischargeEn = [formatDate(data.discharge_date_en), dischargeTimeEn].filter(Boolean).join(' - ');
-    // المستند الرسمي المرفق يعرض التاريخ الميلادي في العمود العربي أيضاً
-    // (لا الهجري) — بخلاف قالب المرافق. نلتزم بالأصل هنا حرفياً، ويبقى
-    // admission_date_ar الهجري محفوظاً في قاعدة البيانات كما هو لبقية القوالب.
-    const admissionAr = [formatDate(data.admission_date_en), admissionTimeAr].filter(Boolean).join(' - ');
-    const dischargeAr = [formatDate(data.discharge_date_en), dischargeTimeAr].filter(Boolean).join(' - ');
+    // العمود العربي يعرض التاريخ الهجري — كما في بقية القوالب. القيمة مأخوذة من
+    // admission_date_ar المحفوظ، وهو مشتقّ خوارزمياً من نفس التاريخ الميلادي عبر
+    // convertDates (hijri-converter) عند الحفظ والتعديل، فالعمودان يصفان اليوم
+    // نفسه بتقويمين. كان هذا السطر يمرّر التاريخ الميلادي فيتطابق العمودان.
+    const admissionAr = [formatHijriDate(data.admission_date_ar), admissionTimeAr].filter(Boolean).join(' - ');
+    const dischargeAr = [formatHijriDate(data.discharge_date_ar), dischargeTimeAr].filter(Boolean).join(' - ');
 
     // نموذج الإدخال يحوي حقل «جهة العمل» واحداً يملأ العربية والإنجليزية بنفس
     // النص، فعرضه في العمود الإنجليزي يُظهر نصاً عربياً في خانة إنجليزية —
