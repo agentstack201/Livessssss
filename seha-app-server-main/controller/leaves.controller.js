@@ -1033,7 +1033,7 @@ module.exports.previewWhatsappThumbnail = async (req, res) => {
       return res.status(404).json({ status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية' });
     }
 
-    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const leave_days = resolveLeaveDays(leave);
     const country = await Country.findOne({ where: { id: leave.countryId } });
     const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
     const pdfBuffer = await renderPdf(leave.dataValues, leave_days, getFormattedDateTime(), country);
@@ -1101,7 +1101,7 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
     }
 
     // نفس مسار توليد الـ PDF المستخدم في التنزيل — بلا أي اختلاف.
-    const leave_days = config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+    const leave_days = resolveLeaveDays(leave);
     const country = await Country.findOne({ where: { id: leave.countryId } });
     const DateObj = getFormattedDateTime();
     const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
