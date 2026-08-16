@@ -294,7 +294,9 @@ async function connect({ pairingNumber } = {}) {
       auth: state,
       logger: silentLogger,
       printQRInTerminal: false,
-      browser: ['Seha Reports', 'Chrome', '1.0.0'],
+      // قيم قياسية عمداً: 'Seha Reports' كانت تُمرَّر كاسم نظام التشغيل وهي
+      // ليست نظاماً معروفاً، وتصل واتساب في companion_platform_display.
+      browser: ['Ubuntu', 'Chrome', '120.0.0'],
       // مهلة رمز QR. الافتراضي ٦٠ ثانية للأول ثم ٢٠ لكل تالٍ، وعند نفاد
       // المراجع يُغلق المقبس — وهي نافذة أقصر من وقت المستخدم في هاتفه.
       qrTimeout: Number(process.env.WHATSAPP_QR_TIMEOUT_MS || 120000),
@@ -381,6 +383,34 @@ function status() {
   };
 }
 
+/**
+ * تصفير هوية الجهاز المرافق قبل بدء إقران جديد.
+ *
+ * لماذا؟ حالة المصادقة تُقرأ من قاعدة البيانات في كل اتصال:
+ *     const creds = (await read('creds')) || initAuthCreds();
+ * وهي تحمل هوية الجهاز الثابتة (advSecretKey و registrationId و noiseKey و
+ * signedIdentityKey). و requestPairingCode يكتب فيها أيضاً
+ *     creds.me = { id: jidEncode(phoneNumber, 's.whatsapp.net') }
+ * فتُحفظ في القاعدة. ولم يكن شيء يصفّرها إلا تسجيل الخروج.
+ *
+ * فبعد محاولات إقران فاشلة — بينها محاولات بالرقم الخطأ — تتراكم على الهوية
+ * نفسها تسجيلات متضاربة (me لرقم، والطلب الجديد لرقم آخر)، فيرفض واتساب الربط
+ * مهما صحّ الرمز المكتوب. تصفير الحالة يجعل كل محاولة تبدأ بهوية نظيفة.
+ *
+ * لا يُستدعى إن كانت الجلسة متصلة فعلاً — حتى لا تُهدم جلسة عاملة.
+ */
+async function resetForNewPairing() {
+  if (_connected) return false;
+  try { _sock?.end?.(undefined); } catch { /* تجاهل */ }
+  _sock = null; _sockState = null; _connecting = null;
+  _qrDataUrl = null; _needsPairing = false; _lastError = null;
+  _pairingCode = null; _pairingRequested = false; _pairingCodeAt = 0;
+  const { clearAll } = await useSettingsAuthState();
+  await clearAll();
+  console.log('[WA] AUTH_STATE_RESET cleared=wa_auth:*');
+  return true;
+}
+
 /** فصل الجلسة ومسح حالتها من قاعدة البيانات (يلزم بعدها إقران جديد). */
 async function logout() {
   try { await _sock?.logout(); } catch { /* تجاهل */ }
@@ -432,5 +462,5 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
 
 module.exports = {
   isEnabled, connect, status, logout, sendDocument, toJid,
-  normalizeMsisdn, normalizePairingMsisdn,
+  normalizeMsisdn, normalizePairingMsisdn, resetForNewPairing,
 };

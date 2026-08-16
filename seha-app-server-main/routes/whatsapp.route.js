@@ -30,6 +30,9 @@ router.post("/whatsapp/connect", config.auth, async (req, res) => {
     }
     // لا ننتظر اكتمال الاتصال: رمز QR/الإقران يصل عبر حدث لاحق، والواجهة تستعلم
     // عن الحالة دورياً حتى يظهر.
+    // «بدء الربط» يعني محاولة جديدة: نبدأ من هوية جهاز نظيفة حتى لا تتراكم
+    // تسجيلات المحاولات السابقة (وبعضها كان برقم خاطئ) فيرفضها واتساب.
+    if (number) await whatsapp.resetForNewPairing();
     whatsapp.connect({ pairingNumber: number })
       .catch((err) => console.warn('WhatsApp connect:', err.message));
     await new Promise((r) => setTimeout(r, 2500));
