@@ -1069,12 +1069,15 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
     let thumbnail = null;
     try {
       const buildThumbnail = require('../middlewares/whatsappThumbnail');
-      thumbnail = (await buildThumbnail(pdfBuffer)).buffer;
+      const t = await buildThumbnail(pdfBuffer);
+      thumbnail = t.buffer;
+      console.log(`[WA] THUMBNAIL_BUILT ${t.width}x${t.height} bytes=${t.buffer.length} q=${t.quality} pdfBytes=${pdfBuffer.length}`);
     } catch (thumbErr) {
       // فشل «مفتوح»: نرسل الملف بلا مصغّرة مخصّصة بدل ألا نرسل شيئاً.
-      console.warn('⚠️ WhatsApp thumbnail generation failed:', thumbErr.message);
+      console.error(`[WA] THUMBNAIL_ERROR msg=${thumbErr.message}`);
     }
 
+    console.log(`[WA] SEND_START to=${destination} pdfBytes=${pdfBuffer.length} thumb=${thumbnail ? thumbnail.length : 0}`);
     const sent = await whatsapp.sendDocument({
       to: destination,
       pdfBuffer,                 // كما خرج من المولّد، بايت ببايت
@@ -1082,6 +1085,7 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
       thumbnail,
     });
 
+    console.log(`[WA] SEND_OK messageId=${sent.id} to=${sent.to}`);
     return res.status(200).json({
       status_code: 200,
       success: true,
@@ -1089,7 +1093,7 @@ module.exports.sendPdfToWhatsapp = async (req, res) => {
       message: 'تم إرسال التقرير عبر واتساب',
     });
   } catch (error) {
-    console.error('❌ WhatsApp send error:', error);
+    console.error(`[WA] SEND_ERROR msg=${error.message}`);
     return res.status(500).json({
       status_code: 500, success: false, message: error.message,
     });
