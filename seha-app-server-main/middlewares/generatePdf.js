@@ -1,4 +1,5 @@
 const normalizeArabicToUnicode = require('./normalizeArabicToUnicode');
+const { wrapName, wrapText } = require('./nameWrap');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
@@ -387,6 +388,18 @@ module.exports = async (data, leave_days, DateObj, country) => {
         overflow-wrap: break-word;
         word-break: normal;
       }
+      /* وحدة لا تنكسر: أداة وصل مربوطة بالاسم الذي تخصّه (انظر nameWrap.js). */
+      .nb {
+        white-space: nowrap;
+      }
+      /* كلمة واحدة أطول من أي عمود. مع break-word وحدها يبقى «أقلّ عرض ممكن»
+         للعمود = طول الكلمة كاملة، فيتمدّد الجدول أعرض من الصفحة ويضغط
+         Chromium الصفحة كلها لتصغر (نص مجهري ونِسَب مشوّهة). قيمة anywhere
+         تجعل الكسر محسوباً ضمن أقلّ عرض للعمود فيبقى الجدول داخل A4 — ولا
+         تُوضع إلا على الكلمات الطويلة وحدها، فلا تتأثر أي بيانات عادية. */
+      .brk {
+        overflow-wrap: anywhere;
+      }
       .darkBg {
         background-color: #f7f7f7 !important;
       }
@@ -506,6 +519,15 @@ module.exports = async (data, leave_days, DateObj, country) => {
         bottom: 10;
         right:25% ;
     }
+    /* إخفاء الـ QR لا يعني تحريك ما تحته: هذا المُباعد يشغل نفس صندوق الصورة
+       (ارتفاع 90px، سطر داخلي محاذٍ لخط القاعدة) بعرض صفر، فيبقى نص التحقق
+       والرابط والطابع الزمني عند إحداثياتها نفسها بالضبط كما في المستند
+       المرجعي — يختفي الرمز وحده ولا يتغيّر أي شيء آخر في التذييل. */
+    .qr-placeholder {
+      display: inline-block;
+      height: 90px;
+      width: 0;
+    }
 
 
     .logo-section {
@@ -574,7 +596,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 <tbody>
   <tr class="transparnt-bg">
     <td class="one en-text" colspan="1">Leave ID</td>
-    <td class="two en-text" colspan="2">${data.leave_id || ''}</td>
+    <td class="two en-text" colspan="2">${wrapText(data.leave_id)}</td>
     <td class="one ar-text" colspan="1">رمز الإجازة</td>
   </tr>
   <tr class="leave-duration">
@@ -602,37 +624,37 @@ module.exports = async (data, leave_days, DateObj, country) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${(data.name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.name_ar || ''}</td>
+    <td class="two en-text">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
     <td class="one en-text" colspan="1">National ID / Iqama</td>
-    <td class="two en-text" colspan="2">${data.national_id || ''}</td>
+    <td class="two en-text" colspan="2">${wrapText(data.national_id)}</td>
     <td class="one ar-text" colspan="1">رقم الهوية / الإقامة</td>
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Nationality</td>
-    <td class="two en-text">${countryNameEn}</td>
-    <td class="two ar-text">${countryNameAr}</td>
+    <td class="two en-text">${wrapText(countryNameEn)}</td>
+    <td class="two ar-text">${wrapText(countryNameAr)}</td>
     <td class="one ar-text">الجنسية</td>
   </tr>
   <tr>
     <td class="one en-text">Employer</td>
     <td class="two en-text">${''}</td>
-    <td class="two ar-text">${data.employer_ar || ''}</td>
+    <td class="two ar-text">${wrapText(data.employer_ar)}</td>
     <td class="one ar-text">جهة العمل</td>
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Physician Name</td>
-    <td class="two en-text">${(data.physician_name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.physician_name_ar || ''}</td>
+    <td class="two en-text">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>
     <td class="one en-text">Position</td>
-    <td class="two en-text">${data.position_en || ''}</td>
-    <td class="two ar-text">${data.position_ar || ''}</td>
+    <td class="two en-text">${wrapText(data.position_en)}</td>
+    <td class="two ar-text">${wrapText(data.position_ar)}</td>
     <td class="one ar-text">المسمى الوظيفى</td>
   </tr>
 </tbody>
@@ -642,8 +664,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
 <div class="pdf-footer-section" >
     <!-- QR Code Section -->
     <div class="qr-section">
-    ${includeQr ? `<div style="margin-left: 45px !important;">
-             <img style="height: 90px;margin:0px " src="${qrDataUri}" alt="QR Code">
+    <div style="margin-left: 45px !important;">
+             ${includeQr
+               ? `<img style="height: 90px;margin:0px " src="${qrDataUri}" alt="QR Code">`
+               : `<span class="qr-placeholder"></span>`}
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
       <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>
@@ -652,8 +676,8 @@ module.exports = async (data, leave_days, DateObj, country) => {
 <a class="en-text"
            style="margin: 0px; margin-top : 7px !important ; font-size: 10px; font-weight: 900 !important; color:blue; text-decoration: underline;"
           href='${verificationUrl}'
-          target="_blank">www.seha.sa/#/inquiries/skenquiry</a>
-    </div>` : ''}
+          target="_blank">www.seha.sa/#/inquiries/slenquiry</a>
+    </div>
       <!-- Timestamp -->
   <div class="timestamp">
   <div style="margin-top: 46px !important; text-align:left !important ;  margin-left: 26px !important;">
@@ -673,9 +697,9 @@ module.exports = async (data, leave_days, DateObj, country) => {
       <div style="text-align: center; margin-right: 80px;">
         <img style="height: 100px ;" src='${footerLogoSrc}' alt="Ministry of Health Logo">
         <div style="line-height: 1.5; margin-top: 0px;">
-          <p class="ar-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${data.hospital_name_ar || 'مستشفى النور التخصصي'}</p>
-          <p class="en-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${data.hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL'}</p>
-          ${data.show_license_number !== false ? `<p class="ar-text" style="margin: 0px; font-size: 12px; font-weight: 900;color: #000;">رقم الترخيص: <span class="ar-date">${data.license_number || '1410845906'}</span></p>` : ''}
+          <p class="ar-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${wrapText(data.hospital_name_ar || 'مستشفى النور التخصصي')}</p>
+          <p class="en-text" style="margin: 0px; font-size: 12.8px; font-weight: 900;font-weight: bold !important;color: #000;">${wrapText(data.hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL')}</p>
+          ${data.show_license_number !== false ? `<p class="ar-text" style="margin: 0px; font-size: 12px; font-weight: 900;color: #000;">رقم الترخيص: <span class="ar-date">${wrapText(data.license_number || '1410845906')}</span></p>` : ''}
         </div>
       </div>
       <div>
