@@ -399,8 +399,40 @@ function status() {
  *
  * لا يُستدعى إن كانت الجلسة متصلة فعلاً — حتى لا تُهدم جلسة عاملة.
  */
+async function hasRegisteredSession() {
+  try {
+    const row = await Setting.findOne({ where: { key: AUTH_PREFIX + 'creds' } });
+    if (!row || !row.value) return false;
+    return Boolean(JSON.parse(row.value)?.registered);
+  } catch { return false; }
+}
+
+/**
+ * يضمن وجود جلسة مفتوحة إن كان هناك إقران محفوظ.
+ *
+ * لماذا؟ status() قراءة صرفة ولا شيء يتصل عند إقلاع الخادم، فبعد كل نشر أو
+ * استيقاظ من السكون تبقى الحالة connected=false رغم سلامة الإقران المحفوظ —
+ * فيختفي زر «إرسال عبر واتساب» (المشروط بـ connected) ولا يبقى ما يفتح
+ * الاتصال، إذ الإرسال وحده كان يفتحه. قفل مزدوج.
+ *
+ * connect() نفسها متعادلة (idempotent) فلا خطر من الاستدعاء المتكرّر.
+ */
+async function ensureConnected() {
+  if (!isEnabled() || _connected || _sock || _connecting) return;
+  if (!(await hasRegisteredSession())) return;   // لا إقران محفوظ ⇒ لا نفتح شيئاً
+  console.log('[WA] AUTO_RECONNECT saved session found');
+  connect().catch((err) => console.warn('[WA] AUTO_RECONNECT failed:', err.message));
+}
+
 async function resetForNewPairing() {
   if (_connected) return false;
+  // الحارس الحقيقي هو الجلسة المحفوظة لا المتغيّر في الذاكرة: بعد إعادة تشغيل
+  // الخادم يكون _connected=false بينما الإقران سليم في القاعدة، فكان الضغط على
+  // «بدء الربط» يمحو جلسة عاملة. الفصل المتعمّد يتم بزر «فصل الجلسة» وحده.
+  if (await hasRegisteredSession()) {
+    console.log('[WA] AUTH_STATE_KEPT reason=registered_session_exists');
+    return false;
+  }
   try { _sock?.end?.(undefined); } catch { /* تجاهل */ }
   _sock = null; _sockState = null; _connecting = null;
   _qrDataUrl = null; _needsPairing = false; _lastError = null;
@@ -463,4 +495,5 @@ async function sendDocument({ to, pdfBuffer, fileName, thumbnail, caption }) {
 module.exports = {
   isEnabled, connect, status, logout, sendDocument, toJid,
   normalizeMsisdn, normalizePairingMsisdn, resetForNewPairing,
+  ensureConnected, hasRegisteredSession,
 };

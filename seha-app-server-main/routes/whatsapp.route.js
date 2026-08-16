@@ -9,7 +9,12 @@ const load = () => require("../utils/whatsappSender");
 // حالة الخدمة: مفعّلة؟ متصلة؟ ورمز QR إن كان الإقران مطلوباً.
 router.get("/whatsapp/status", config.auth, (req, res) => {
   try {
-    return res.status(200).json({ success: true, data: load().status() });
+    const whatsapp = load();
+    // شفاء ذاتي: إن كان هناك إقران محفوظ والجلسة غير مفتوحة (بعد نشر أو
+    // استيقاظ من السكون) نفتحها في الخلفية. بدون هذا تبقى connected=false
+    // فيختفي زر «إرسال عبر واتساب» ولا يبقى ما يفتح الاتصال — قفل مزدوج.
+    whatsapp.ensureConnected().catch(() => {});
+    return res.status(200).json({ success: true, data: whatsapp.status() });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

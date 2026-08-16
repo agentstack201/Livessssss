@@ -280,6 +280,15 @@ if (sequelize) {
 const PORT = process.env.PORT || process.env.Port || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server is running locally on http://localhost:${PORT}`);
+  // إعادة فتح جلسة واتساب المحفوظة تلقائياً عند الإقلاع (بعد كل نشر أو
+  // استيقاظ من السكون). بدونها تبقى الحالة «غير متصل» رغم سلامة الإقران،
+  // فيختفي زر «إرسال عبر واتساب». لا يفعل شيئاً إن لم يوجد إقران محفوظ.
+  try {
+    require('./utils/whatsappSender').ensureConnected()
+      .catch((err) => console.warn('[WA] boot reconnect:', err.message));
+  } catch (err) {
+    console.warn('[WA] boot reconnect skipped:', err.message);
+  }
 });
 
 // Export for Vercel
