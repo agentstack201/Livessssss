@@ -492,6 +492,17 @@ module.exports.aiExtract = async (req, res, next) => {
       - hospitalNameEnglish
       - hospitalNameArabic
       
+      NAMES — copy only, never rewrite. Applies to name, nameArabic, doctorName
+      and doctorNameArabic:
+      - Copy the name EXACTLY as written in the text, keeping its word order.
+        The first word of the source name stays the first word of your output.
+      - NEVER move a family or tribal name to the front. For a source reading
+        "ABDULMAJEED ... SHAMMARI" you must NOT output "SHAMMARI ... ABDULMAJEED".
+      - NEVER transliterate an Arabic name into English, and never translate an
+        English name into Arabic. If the text contains no English name, return ""
+        for name; if it contains no Arabic name, return "" for nameArabic.
+      - Do not re-spell, correct or normalise a name that is already written.
+
       If any field is missing or ambiguous, leave it as an empty string "".
       Do NOT wrap the output in markdown or code blocks (like \`\`\`json). Just return the raw JSON string.
       
