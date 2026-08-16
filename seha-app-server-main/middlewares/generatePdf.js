@@ -400,6 +400,16 @@ module.exports = async (data, leave_days, DateObj, country) => {
       .brk {
         overflow-wrap: anywhere;
       }
+      /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+         ترك اللقب وحده في السطر التالي («... MOHAMMED / ALSHAHRANY»). المتصفّح
+         يوازن بين الأسطر مع احترام الوحدات التي لا تنكسر أعلاه، فلا يتغيّر حجم
+         الخط ولا عرض الخلية، وعدد الأسطر يبقى كما هو (الارتفاع يتكيّف طبيعياً
+         عند الحاجة). المحرّك الذي لا يعرف balance يقع على pretty ثم على
+         الالتفاف العادي — والوحدات تبقى محمية في الحالتين. */
+      .name-cell {
+        text-wrap: pretty;
+        text-wrap: balance;
+      }
       .darkBg {
         background-color: #f7f7f7 !important;
       }
@@ -624,8 +634,8 @@ module.exports = async (data, leave_days, DateObj, country) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${wrapName((data.name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${wrapName(data.name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
@@ -647,8 +657,8 @@ module.exports = async (data, leave_days, DateObj, country) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Physician Name</td>
-    <td class="two en-text">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${wrapName(data.physician_name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>

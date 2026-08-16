@@ -12,6 +12,7 @@ import {
   defaultReportDate,
   defaultReportTime,
 } from '../utils/documentFormat';
+import { wrapName } from '../utils/nameWrap';
 
 // ───────────────────────────────────────────────────────────────────────────
 // معاينة «مشهد مراجعة» — Statement of Visit
@@ -284,6 +285,25 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
           line-height: 1.1;
           padding-top: 4px;
           padding-bottom: 4px;
+          /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+             دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+          overflow-wrap: break-word;
+          word-break: normal;
+        }
+        /* وحدة لا تنكسر: كلمات الاسم المرتبطة منطقياً تنتقل معاً (انظر nameWrap.js). */
+        .vs-doc .nb {
+          white-space: nowrap;
+        }
+        /* كلمة واحدة أطول من أي عمود: يُسمح بالكسر داخلها وحدها حتى لا يتمدّد
+           الجدول أعرض من الصفحة. */
+        .vs-doc .brk {
+          overflow-wrap: anywhere;
+        }
+        /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+           ترك اللقب وحده في السطر التالي. حجم الخط وعرض الخلية وعدد الأسطر كما هي. */
+        .vs-doc .name-cell {
+          text-wrap: pretty;
+          text-wrap: balance;
         }
         .vs-doc .darkBg, .vs-doc .darkBg td { background-color: #f7f7f7 !important; }
         /* الصفوف الثلاثة الزرقاء الداكنة: الدخول، الخروج، فترة الانتظار */
@@ -549,8 +569,8 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${escapeHtml((data.name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
@@ -572,8 +592,8 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Practitioner Name</td>
-    <td class="two en-text">${escapeHtml((data.physician_name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.physician_name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>
