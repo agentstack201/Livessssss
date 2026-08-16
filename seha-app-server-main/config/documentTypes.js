@@ -33,6 +33,13 @@ const DOCUMENT_TYPES = {
     label_en: 'Companion Statement of Visit',
     renderer: 'createCompanionPDF',
   },
+  // تقرير مرافقة مريض — إجازة مرضية لمرافق المريض (مدة إجازة + صلة قرابة).
+  companion_sick_leave: {
+    key: 'companion_sick_leave',
+    label_ar: 'تقرير مرافقة مريض',
+    label_en: 'Companion Sick Leave Report',
+    renderer: 'createCompanionSickLeavePDF',
+  },
   // مشهد مراجعة (للمريض نفسه) — القالب المضاف حديثاً.
   visit_statement: {
     key: 'visit_statement',

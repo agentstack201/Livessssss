@@ -15,10 +15,13 @@
 import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 import VisitStatementPDFOriginal from '../components/VisitStatementPDFOriginal'
+import CompanionSickLeavePDFOriginal from '../components/CompanionSickLeavePDFOriginal'
+import { calcWaitingPeriod } from '../utils/documentFormat'
 
 export const DOC_SICK_LEAVE = 'sick_leave'
 export const DOC_COMPANION = 'companion_visit'
 export const DOC_VISIT_STATEMENT = 'visit_statement'
+export const DOC_COMPANION_SICK_LEAVE = 'companion_sick_leave'
 
 export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE
 
@@ -43,6 +46,14 @@ const VISIT_SHARED_REQUIRED = {
   hospitalNameArabic: 'اسم المنشأة الصحية بالعربية مطلوب',
   hospitalNameEnglish: 'اسم المنشأة الصحية بالإنجليزية مطلوب',
 }
+
+
+// حقول صفحة الاستعلام العامة (المشهد الذي يفتحه رمز الـ QR). يصفها كل قالب
+// بنفسه بدل سلسلة شروط في الصفحة — فأي قالب جديد يعرض حقوله الصحيحة تلقائياً.
+const dateTime = (date, time) => [date, time].filter(Boolean).join(' - ')
+const waitingAr = (r) => calcWaitingPeriod(
+  r.admission_date_en, r.admission_time, r.discharge_date_en, r.discharge_time
+).ar
 
 export const DOCUMENT_TYPES = {
   // ── تقرير الإجازة المرضية — السلوك الأصلي للنظام بحذافيره ─────────────────
@@ -79,6 +90,15 @@ export const DOCUMENT_TYPES = {
       positionEn: 'منصب/تخصص الطبيب (بالإنجليزية) *',
       positionAr: 'منصب/تخصص الطبيب (بالعربية) *',
     },
+    inquiryFields: (r) => [
+      { label: 'الاسم', value: r.name_ar },
+      { label: 'تاريخ اصدار تقرير الاجازة', value: r.issue_date },
+      { label: 'تبدأ من', value: r.admission_date_en },
+      { label: 'وحتى', value: r.discharge_date_en },
+      { label: 'المدة بالأيام', value: r.leave_days },
+      { label: 'اسم الطبيب', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+    ],
     requiredFields: {
       ...SHARED_REQUIRED,
       name: 'الاسم بالإنجليزية مطلوب',
@@ -126,6 +146,16 @@ export const DOCUMENT_TYPES = {
       positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
       positionAr: 'المسمى الوظيفي (بالعربية) *',
     },
+    inquiryFields: (r) => [
+      { label: 'اسم المرافق', value: r.name_ar },
+      { label: 'تاريخ اصدار التقرير', value: r.issue_date },
+      { label: 'تاريخ / وقت الدخول', value: dateTime(r.admission_date_en, r.admission_time) },
+      { label: 'تاريخ / وقت الخروج', value: dateTime(r.discharge_date_en, r.discharge_time) },
+      { label: 'فترة الانتظار', value: waitingAr(r) },
+      { label: 'اسم الممارس الصحي', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+      { label: 'نوع الزيارة', value: r.visit_type_ar },
+    ],
     requiredFields: {
       ...VISIT_SHARED_REQUIRED,
       name: 'اسم المرافق بالإنجليزية مطلوب',
@@ -136,6 +166,67 @@ export const DOCUMENT_TYPES = {
       doctorNameArabic: 'اسم الممارس الصحي بالعربية مطلوب',
       relationArabic: 'صلة القرابة بالعربية مطلوبة',
       relationEnglish: 'صلة القرابة بالإنجليزية مطلوبة',
+    },
+  },
+
+  // ── تقرير مرافقة مريض ─────────────────────────────────────────────────────
+  // إجازة مرضية لمرافق المريض: يجمع «مدة الإجازة» من الإجازة المرضية مع
+  // «صلة القرابة» من قالب المرافق — وهو ما تصفه القدرات أدناه بالضبط.
+  [DOC_COMPANION_SICK_LEAVE]: {
+    key: DOC_COMPANION_SICK_LEAVE,
+    optionLabel: 'تقرير مرافقة مريض',
+    titleAr: 'تقرير مرافقة مريض',
+    titleEn: 'Companion Sick Leave Report',
+    icon: '🤝',
+    description: 'إجازة مرضية لمرافق المريض، بمدة الإجازة وتاريخي الدخول والخروج وصلة القرابة.',
+    accent: '#b45309',
+    previewComponent: CompanionSickLeavePDFOriginal,
+    previewTitle: 'معاينة تقرير مرافقة مريض',
+    features: {
+      times: false,
+      relation: true,
+      visitType: false,
+      leaveDuration: true,
+    },
+    labels: {
+      pageTitle: 'تقرير مرافقة مريض',
+      docLabel: 'تقرير مرافقة مريض',
+      deleteLabel: 'حذف تقرير المرافقة',
+      nameEn: 'اسم المرافق (بالإنجليزية) *',
+      nameAr: 'اسم المرافق (بالعربية) *',
+      admissionDate: 'تاريخ الدخول *',
+      dischargeDate: 'تاريخ الخروج *',
+      practitionerEn: 'اسم الممارس (بالإنجليزية) *',
+      practitionerAr: 'اسم الممارس (بالعربية) *',
+      facilityAr: 'اسم المنشأة الصحية (بالعربية) *',
+      facilityEn: 'اسم المنشأة الصحية (بالإنجليزية) *',
+      positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
+      positionAr: 'المسمى الوظيفي (بالعربية) *',
+    },
+    inquiryFields: (r) => [
+      { label: 'اسم المرافق', value: r.name_ar },
+      { label: 'تاريخ اصدار التقرير', value: r.issue_date },
+      { label: 'تبدأ من', value: r.admission_date_en },
+      { label: 'وحتى', value: r.discharge_date_en },
+      { label: 'المدة بالأيام', value: r.leave_days },
+      { label: 'صلة القرابة', value: r.relation_ar },
+      { label: 'اسم الممارس', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+    ],
+    requiredFields: {
+      ...SHARED_REQUIRED,
+      name: 'اسم المرافق بالإنجليزية مطلوب',
+      nameArabic: 'اسم المرافق بالعربية مطلوب',
+      physicianPosition: 'المسمى الوظيفي بالإنجليزية مطلوب',
+      physicianPositionArabic: 'المسمى الوظيفي بالعربية مطلوب',
+      startDate: 'تاريخ بداية الإجازة مطلوب',
+      endDate: 'تاريخ نهاية الإجازة مطلوب',
+      doctorName: 'اسم الممارس بالإنجليزية مطلوب',
+      doctorNameArabic: 'اسم الممارس بالعربية مطلوب',
+      relationArabic: 'صلة القرابة بالعربية مطلوبة',
+      relationEnglish: 'صلة القرابة بالإنجليزية مطلوبة',
+      hospitalNameArabic: 'اسم المنشأة الصحية بالعربية مطلوب',
+      hospitalNameEnglish: 'اسم المنشأة الصحية بالإنجليزية مطلوب',
     },
   },
 
@@ -171,6 +262,16 @@ export const DOCUMENT_TYPES = {
       positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
       positionAr: 'المسمى الوظيفي (بالعربية) *',
     },
+    inquiryFields: (r) => [
+      { label: 'الاسم', value: r.name_ar },
+      { label: 'تاريخ اصدار التقرير', value: r.issue_date },
+      { label: 'تاريخ الدخول', value: dateTime(r.admission_date_en, r.admission_time) },
+      { label: 'تاريخ الخروج', value: dateTime(r.discharge_date_en, r.discharge_time) },
+      { label: 'فترة الانتظار', value: waitingAr(r) },
+      { label: 'اسم الممارس', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+      { label: 'نوع الزيارة', value: r.visit_type_ar },
+    ],
     requiredFields: {
       ...VISIT_SHARED_REQUIRED,
       name: 'الاسم بالإنجليزية مطلوب',
@@ -187,6 +288,7 @@ export const DOCUMENT_TYPES = {
 export const DOCUMENT_TYPE_LIST = [
   DOCUMENT_TYPES[DOC_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_COMPANION],
+  DOCUMENT_TYPES[DOC_COMPANION_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_VISIT_STATEMENT],
 ]
 
