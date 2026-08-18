@@ -472,45 +472,74 @@ module.exports.aiExtract = async (req, res, next) => {
     const { llmGenerate } = require("../utils/llm");
 
     const prompt = `
-      You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
-      
-      Extract these fields (use specific keys):
-      - serviceNum: (Format: GSL261... or PSL261...)
-      - nationalID: (10 digits)
-      - name: (Patient Name in English)
-      - nameArabic: (Patient Name in Arabic)
-      - leaveId: (Leave ID / CSL number)
-      - nationality: (Patient Nationality in ARABIC - e.g., 'سعودي', 'مصري')
-      - employer: (Employer Name - Favor Arabic if available)
-      - physicianPosition: (Doctor Position English)
-      - physicianPositionArabic: (Doctor Position Arabic)
-      - admissionDate: (YYYY-MM-DD)
-      - dischargeDate: (YYYY-MM-DD)
-      - issueDate: (YYYY-MM-DD)
-      - doctorName: (Physician Name English)
-      - doctorNameArabic: (Physician Name Arabic)
-      - hospitalNameEnglish
-      - hospitalNameArabic
-      
-      NAMES — copy only, never rewrite. Applies to name, nameArabic, doctorName
-      and doctorNameArabic:
-      - Copy the name EXACTLY as written in the text, keeping its word order.
-        The first word of the source name stays the first word of your output.
-      - NEVER move a family or tribal name to the front. For a source reading
-        "ABDULMAJEED ... SHAMMARI" you must NOT output "SHAMMARI ... ABDULMAJEED".
-      - NEVER transliterate an Arabic name into English, and never translate an
-        English name into Arabic. If the text contains no English name, return ""
-        for name; if it contains no Arabic name, return "" for nameArabic.
-      - Do not re-spell, correct or normalise a name that is already written.
+      You are an expert medical data extractor for Saudi sick-leave forms.
+      Extract data from the text below and return a single valid JSON object.
 
-      If any field is missing or ambiguous, leave it as an empty string "".
-      Do NOT wrap the output in markdown or code blocks (like \`\`\`json). Just return the raw JSON string.
-      
+      ── FIELDS TO EXTRACT ──
+      (use these exact keys)
+
+      Single-value fields (extract as-is, never translate):
+      - serviceNum: (Format: GSL261... or PSL261...) or ""
+      - nationalID: (10-digit Saudi ID/Iqama) or ""
+      - phone: (phone number) or ""
+      - leaveId: (Leave ID / CSL number) or ""
+      - admissionDate: (YYYY-MM-DD) or ""
+      - dischargeDate: (YYYY-MM-DD) or ""
+      - issueDate: (YYYY-MM-DD) or ""
+      - licenseNumber: (medical license number) or ""
+
+      Bilingual fields — ALWAYS provide BOTH Arabic AND English:
+      - name: (Patient name in ENGLISH)
+      - nameArabic: (Patient name in ARABIC)
+      - doctorName: (Doctor name in ENGLISH)
+      - doctorNameArabic: (Doctor name in ARABIC)
+      - hospitalNameEnglish: (Hospital name in ENGLISH)
+      - hospitalNameArabic: (Hospital name in ARABIC)
+      - physicianPosition: (Doctor specialty/position in ENGLISH)
+      - physicianPositionArabic: (Doctor specialty/position in ARABIC)
+      - employer: (Employer name — favor Arabic if available)
+      - nationality: (Patient nationality in ARABIC — e.g. 'سعودي', 'مصري')
+
+      ── BILINGUAL RULES ──
+      For every bilingual field pair (Arabic + English):
+
+      1. If ONLY Arabic is in the source text:
+         - Keep the Arabic value as-is
+         - Generate the English equivalent:
+           • Personal names → natural transliteration (محمد تركي البلوي → Mohammed Turki Al-Balawi)
+           • Titles/positions → standard English (طبيب عام → General Practitioner)
+           • Hospital names → formal translation (مستشفى الملك فهد → King Fahad Hospital)
+           • Nationality → keep Arabic for nationality field
+
+      2. If ONLY English is in the source text:
+         - Keep the English value as-is
+         - Generate the Arabic equivalent
+
+      3. If BOTH Arabic and English exist in the source:
+         - Preserve both exactly as written
+
+      4. If NEITHER exists → return "" for both
+
+      ── NAME RULES ──
+      - Preserve the original word order. NEVER rearrange family names.
+      - For "عبدالمجيد ... الشمري", output English as "Abdulmajeed ... Al-Shammari"
+        NOT "Al-Shammari ... Abdulmajeed"
+      - If the user already provides an English spelling, preserve it exactly.
+
+      ── DATA INTEGRITY ──
+      - NEVER invent missing information
+      - NEVER fabricate ID numbers, phone numbers, or dates
+      - If a field is missing from the text, return ""
+      - Do NOT complete partial dates (year-only stays year-only)
+
+      Return ONLY the raw JSON object. No markdown, no code blocks, no explanation.
+
       Text to process:
       """
       ${clientInfo}
       """
     `;
+
 
     let text;
     try {
@@ -544,6 +573,61 @@ module.exports.aiExtract = async (req, res, next) => {
         success: false,
         message: "تم الاتصال بالذكاء الاصطناعي لكن تعذّر تحليل الرد. حاول مرة أخرى.",
       });
+    }
+
+    // ── Bilingual validation ────────────────────────────────────────────────
+    // Safety net: if the AI returned Arabic but left English empty (or vice
+    // versa) for a bilingual field pair, generate the missing side. This keeps
+    // the extraction as ONE AI call in the happy path; only on failure does a
+    // small repair call fire.
+    const bilingualPairs = [
+      { ar: "nameArabic",            en: "name",                 type: "name" },
+      { ar: "doctorNameArabic",      en: "doctorName",           type: "name" },
+      { ar: "hospitalNameArabic",    en: "hospitalNameEnglish",  type: "translate" },
+      { ar: "physicianPositionArabic", en: "physicianPosition",  type: "translate" },
+    ];
+
+    const isArabic = (s) => /[\u0600-\u06FF]/.test(s);
+    const repairPrompts = [];
+
+    for (const pair of bilingualPairs) {
+      const arVal = (extractedData[pair.ar] || "").trim();
+      const enVal = (extractedData[pair.en] || "").trim();
+
+      if (arVal && !enVal) {
+        // Arabic exists, English missing — queue a repair
+        repairPrompts.push({ key: pair.en, text: arVal, type: pair.type });
+      } else if (enVal && !arVal && !isArabic(enVal)) {
+        // English exists, Arabic missing — queue a repair
+        repairPrompts.push({ key: pair.ar, text: enVal, type: pair.type === "name" ? "name_to_ar" : "translate_to_ar" });
+      }
+    }
+
+    if (repairPrompts.length > 0) {
+      try {
+        const repairPrompt =
+          `You are a bilingual Arabic-English assistant for Saudi medical forms.\n` +
+          `For each item below, provide the translation/transliteration.\n` +
+          `Return ONLY a JSON object with the numbered keys.\n\n` +
+          repairPrompts.map((r, i) => {
+            if (r.type === "name") return `${i}: Transliterate this Arabic name to English naturally (محمد → Mohammed): "${r.text}"`;
+            if (r.type === "name_to_ar") return `${i}: Transliterate this English name to Arabic naturally (Mohammed → محمد): "${r.text}"`;
+            if (r.type === "translate") return `${i}: Translate to standard English: "${r.text}"`;
+            return `${i}: Translate to Arabic: "${r.text}"`;
+          }).join("\n");
+
+        const repairOut = await llmGenerate(repairPrompt, { json: true });
+        const repairData = JSON.parse(repairOut.text.replace(/```json/g, "").replace(/```/g, "").trim());
+
+        repairPrompts.forEach((r, i) => {
+          const val = (repairData[String(i)] || "").trim();
+          if (val) extractedData[r.key] = val;
+        });
+        console.log(`🔧 Bilingual repair: filled ${repairPrompts.length} missing field(s)`);
+      } catch (repairErr) {
+        console.warn("⚠️ Bilingual repair failed (non-fatal):", repairErr.message);
+        // Non-fatal — the form will just have the Arabic side filled
+      }
     }
 
     // ── Paste-to-Fill enrichment ───────────────────────────────────────────
