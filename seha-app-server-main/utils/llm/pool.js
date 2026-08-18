@@ -210,8 +210,21 @@ async function recordFailure(keyId, provider, model, err, latencyMs, estTokens =
     k.last_error = (err.providerMessage || err.message || "").slice(0, 500);
     k.last_latency_ms = latencyMs;
 
-    if (err.code === "INVALID_KEY" || err.httpStatus === 401 || err.httpStatus === 403) {
+    if (err.code === "INVALID_KEY" || err.httpStatus === 401) {
       k.status = "invalid"; // needs human attention; do not auto-retry
+    } else if (err.code === "FREE_TIER_UNAVAILABLE") {
+      // The free variant of a model is temporarily down — not the key's fault.
+      // Brief cooldown then retry with other models/keys.
+      k.status = "cooldown";
+      k.cooldown_until = new Date(Date.now() + 5 * 60_000);
+    } else if (err.code === "INSUFFICIENT_CREDITS") {
+      // Account has no credits. Needs human action, but the key itself is valid.
+      k.status = "cooldown";
+      k.cooldown_until = new Date(Date.now() + 30 * 60_000);
+    } else if (err.code === "PERMISSION_DENIED" && err.httpStatus === 403) {
+      // 403 from provider — could be temporary model-level denial, not key auth.
+      k.status = "cooldown";
+      k.cooldown_until = new Date(Date.now() + 10 * 60_000);
     } else if (err.code === "SAFETY_BLOCKED") {
       // Content problem, not the key's fault — do not penalise it.
     } else if (ORIGIN_CODES.includes(err.code)) {

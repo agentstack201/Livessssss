@@ -276,8 +276,8 @@ if (sequelize) {
     })
     .then(() => {
       // Move any legacy single-setting Gemini key(s) into the rotation pool.
-      const { importLegacyGeminiKeys } = require("./utils/llm/bootstrap.js");
-      return importLegacyGeminiKeys();
+      const { importLegacyGeminiKeys, recoverInvalidatedKeys } = require("./utils/llm/bootstrap.js");
+      return importLegacyGeminiKeys().then(() => recoverInvalidatedKeys());
     })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
