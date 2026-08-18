@@ -333,9 +333,12 @@ async function chat(messages, opts = {}) {
   }
 
   const resetAt = await earliestReset();
+  // Surface the last provider error so admins/users can see the real cause,
+  // not just a generic "all keys failed" message.
+  const lastFailure = failures.length ? failures[failures.length - 1] : "";
   const e = new Error(
     failures.length
-      ? `تعذّر تنفيذ الطلب عبر جميع المفاتيح المتاحة.`
+      ? `تعذّر تنفيذ الطلب عبر جميع المفاتيح المتاحة.\n\nآخر خطأ: ${lastFailure}`
       : `لا يوجد أي مفتاح صالح متاح حالياً. أضِف مفتاحاً أو انتظر تصفير الحدود.`
   );
   e.code = "POOL_EXHAUSTED";
