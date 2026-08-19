@@ -110,6 +110,11 @@ function buildContext(tpl, data, leave_days, DateObj, country, extra) {
     ...extra,
     // قيمة حقل خاص بالقالب (مُهرَّبة). الفارغ يبقى فارغاً — لا نخترع بيانات.
     f: (key, fallback = '') => escapeHtml(td[key] != null && td[key] !== '' ? td[key] : fallback),
+    // حقل متعدّد الأسطر: يُهرَّب ثم تتحوّل أسطره إلى <br> (لحقول textarea).
+    fml: (key, fallback = '') => {
+      const v = td[key] != null && td[key] !== '' ? td[key] : fallback;
+      return escapeHtml(v).replace(/\r?\n/g, '<br>');
+    },
     // قيمة خام غير مهرَّبة (للاستخدام في الشروط فقط، لا للطباعة).
     raw: (key) => td[key],
     // خانة اختيار مرسومة بنفس شكل النموذج الورقي.

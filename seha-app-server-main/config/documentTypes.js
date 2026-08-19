@@ -49,6 +49,34 @@ const DOCUMENT_TYPES = {
     renderer: 'createPaperPDF',
     paperTemplate: 'khalid_sick_leave',
   },
+  madina_sick_leave: {
+    key: 'madina_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — المدينة الوطني',
+    label_en: 'Sick Leave Report — Madina National',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'madina_sick_leave',
+  },
+  kfmc_appointment: {
+    key: 'kfmc_appointment',
+    label_ar: 'إشعار موعد — مدينة الملك فهد الطبية',
+    label_en: 'Appointment Notice — KFMC',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfmc_appointment',
+  },
+  kfgh_medical_report: {
+    key: 'kfgh_medical_report',
+    label_ar: 'تقرير طبي — الملك فهد العام',
+    label_en: 'Medical Report — King Fahad General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfgh_medical_report',
+  },
+  haql_sick_leave: {
+    key: 'haql_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — حقل العام',
+    label_en: 'Sick Leave Report — Haql General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'haql_sick_leave',
+  },
   // مشهد مراجعة (للمريض نفسه) — القالب المضاف حديثاً.
   visit_statement: {
     key: 'visit_statement',
