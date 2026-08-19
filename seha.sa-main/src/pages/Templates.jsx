@@ -98,6 +98,12 @@ function Templates() {
               </div>
             </div>
 
+            {/* القوالب التي تعلن isMockup تُعرَّف صراحةً كنماذج تصميم قابلة
+                للتحرير، لا كمستندات رسمية. */}
+            {template.isMockup && (
+              <span className={styles.mockupBadge}>🧩 {template.mockupNotice}</span>
+            )}
+
             <p className={styles.description}>{template.description}</p>
 
             <ul className={styles.badges}>

@@ -16,12 +16,22 @@ import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 import VisitStatementPDFOriginal from '../components/VisitStatementPDFOriginal'
 import CompanionSickLeavePDFOriginal from '../components/CompanionSickLeavePDFOriginal'
+import SickLeaveEnhancedPDFTemplate5 from '../components/SickLeaveEnhancedPDFTemplate5'
 import { calcWaitingPeriod } from '../utils/documentFormat'
+import {
+  TEMPLATE5_ID,
+  TEMPLATE5_NAME_AR,
+  TEMPLATE5_NAME_EN,
+  TEMPLATE5_MOCKUP_NOTICE,
+} from '../templates/template5'
 
 export const DOC_SICK_LEAVE = 'sick_leave'
 export const DOC_COMPANION = 'companion_visit'
 export const DOC_VISIT_STATEMENT = 'visit_statement'
 export const DOC_COMPANION_SICK_LEAVE = 'companion_sick_leave'
+// القالب الخامس — نموذج تصميم مستقل، معرّفه يأتي من وحدة القالب نفسها حتى
+// لا يوجد للمعرّف مصدران يمكن أن يختلفا.
+export const DOC_SICK_LEAVE_ENHANCED = TEMPLATE5_ID
 
 export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE
 
@@ -282,6 +292,73 @@ export const DOCUMENT_TYPES = {
       doctorNameArabic: 'اسم الممارس بالعربية مطلوب',
     },
   },
+
+  // ── القالب الخامس: «تقرير إجازة مرضية - محسن» ─────────────────────────────
+  // نموذج تصميم قابل للتحرير (mockup) مستقلٌّ تماماً عن قالب «تقرير إجازة
+  // مرضية» أعلاه: مكوّن معاينة خاص، ووحدة تخطيط/تنسيق/تصيير خاصة
+  // (src/templates/template5)، ومولّد PDF خاص في الخادم. لا يشترك معه في أي
+  // ملف، فتعديل أحدهما لا يمسّ الآخر إطلاقاً.
+  //
+  // لا يحوي هذا القالب رمز QR ولا رابط تحقّق: هو نموذج عرض للتخطيط والبيانات
+  // لا مولّد مستندات موثّقة، وواجهة التطبيق تصرّح بذلك عبر isMockup.
+  [DOC_SICK_LEAVE_ENHANCED]: {
+    key: DOC_SICK_LEAVE_ENHANCED,
+    optionLabel: TEMPLATE5_NAME_AR,
+    titleAr: TEMPLATE5_NAME_AR,
+    titleEn: TEMPLATE5_NAME_EN,
+    icon: '🧩',
+    description: 'نموذج تصميم قابل للتحرير بتخطيط مرجعي: جدول واحد بأحد عشر حقلاً، وتذييل بمنطقتين يفصلهما خط رأسي واحد.',
+    accent: '#2c3e77',
+    previewComponent: SickLeaveEnhancedPDFTemplate5,
+    previewTitle: `معاينة ${TEMPLATE5_NAME_AR}`,
+    // يميّز الواجهة: بطاقة القالب وترويسة المعاينة ونموذج الإدخال تعرض تنبيهاً
+    // بأن المخرَج نموذج تصميم لا مستند رسمي.
+    isMockup: true,
+    mockupNotice: TEMPLATE5_MOCKUP_NOTICE,
+    features: {
+      times: false,
+      relation: false,
+      visitType: false,
+      leaveDuration: true,
+    },
+    labels: {
+      pageTitle: TEMPLATE5_NAME_AR,
+      docLabel: 'نموذج التقرير المحسّن',
+      deleteLabel: 'حذف نموذج التقرير المحسّن',
+      nameEn: 'الاسم (بالإنجليزية) *',
+      nameAr: 'الاسم (بالعربية) *',
+      admissionDate: 'تاريخ الدخول *',
+      dischargeDate: 'تاريخ الخروج *',
+      practitionerEn: 'اسم الممارس (بالإنجليزية) *',
+      practitionerAr: 'اسم الممارس (بالعربية) *',
+      facilityAr: 'اسم المنشأة (بالعربية) *',
+      facilityEn: 'اسم المنشأة (بالإنجليزية) *',
+      positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
+      positionAr: 'المسمى الوظيفي (بالعربية) *',
+    },
+    inquiryFields: (r) => [
+      { label: 'الاسم', value: r.name_ar },
+      { label: 'تاريخ إصدار التقرير', value: r.issue_date },
+      { label: 'تبدأ من', value: r.admission_date_en },
+      { label: 'وحتى', value: r.discharge_date_en },
+      { label: 'المدة بالأيام', value: r.leave_days },
+      { label: 'اسم الممارس', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+    ],
+    requiredFields: {
+      ...SHARED_REQUIRED,
+      name: 'الاسم بالإنجليزية مطلوب',
+      nameArabic: 'الاسم بالعربية مطلوب',
+      physicianPosition: 'المسمى الوظيفي بالإنجليزية مطلوب',
+      physicianPositionArabic: 'المسمى الوظيفي بالعربية مطلوب',
+      startDate: 'تاريخ بداية الإجازة مطلوب',
+      endDate: 'تاريخ نهاية الإجازة مطلوب',
+      doctorName: 'اسم الممارس بالإنجليزية مطلوب',
+      doctorNameArabic: 'اسم الممارس بالعربية مطلوب',
+      hospitalNameArabic: 'اسم المنشأة بالعربية مطلوب',
+      hospitalNameEnglish: 'اسم المنشأة بالإنجليزية مطلوب',
+    },
+  },
 }
 
 // ترتيب عرض القوالب في القوائم وصفحة القوالب.
@@ -290,6 +367,7 @@ export const DOCUMENT_TYPE_LIST = [
   DOCUMENT_TYPES[DOC_COMPANION],
   DOCUMENT_TYPES[DOC_COMPANION_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_VISIT_STATEMENT],
+  DOCUMENT_TYPES[DOC_SICK_LEAVE_ENHANCED],
 ]
 
 /** أي قيمة (من الخادم أو من الرابط) → مفتاح قالب مدعوم. */

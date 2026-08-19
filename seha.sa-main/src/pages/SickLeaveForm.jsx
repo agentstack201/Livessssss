@@ -1695,6 +1695,13 @@ function SickLeaveForm() {
             <small className={styles.helpText}>
               {`سيتم إصدار مستند «${docType.titleAr} (${docType.titleEn})»`}
             </small>
+            {/* القوالب المعلَّمة كنماذج تصميم في السجلّ تعرّف نفسها هنا صراحةً،
+                فلا يظن المستخدم أن المخرَج مستند رسمي. */}
+            {docType.isMockup && (
+              <small className={styles.helpText} style={{ color: '#92400e', fontWeight: 700 }}>
+                {`🧩 ${docType.mockupNotice}`}
+              </small>
+            )}
           </div>
 
           {/* Service Number */}
