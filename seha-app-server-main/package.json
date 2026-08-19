@@ -36,6 +36,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
+    "fontkit": "^2.0.4",
     "hijri-converter": "^1.1.1",
     "jpeg-js": "^0.4.4",
     "jsonwebtoken": "^9.0.3",

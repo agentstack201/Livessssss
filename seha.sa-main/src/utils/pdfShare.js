@@ -150,9 +150,11 @@ export const canSharePdfFiles = () => {
  * يرمي استثناءً فقط عند فشل جلب الملف أو فشل المشاركة رغم الدعم (ليُظهر المُستدعي
  * رسالة "حاول مرة أخرى" — والملف يكون حينها مخزَّنًا فتنجح المحاولة التالية فورًا).
  */
-export const shareLeavePdf = async (leave) => {
+export const shareLeavePdf = async (leave, preparedBlob) => {
   // ننتظر الملف المُجهَّز مسبقًا (غالبًا يكون جاهزًا من prefetch عند لمس الزر).
-  const blob = await getBlob(leave)
+  // للقوالب التي تُولَّد من بيانات غير محفوظة (معاينة القالب الخامس) يمرّر
+  // المُستدعي الملف الجاهز مباشرةً بدل جلبه برقم الخدمة.
+  const blob = preparedBlob || await getBlob(leave)
   const file = new File([blob], PDF_FILE_NAME, { type: 'application/pdf' })
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {

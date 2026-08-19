@@ -23,7 +23,7 @@ import {
   TEMPLATE5_NAME_AR,
   TEMPLATE5_NAME_EN,
   TEMPLATE5_MOCKUP_NOTICE,
-} from '../templates/template5'
+} from './template5'
 
 export const DOC_SICK_LEAVE = 'sick_leave'
 export const DOC_COMPANION = 'companion_visit'
@@ -294,20 +294,21 @@ export const DOCUMENT_TYPES = {
   },
 
   // ── القالب الخامس: «تقرير إجازة مرضية - محسن» ─────────────────────────────
-  // نموذج تصميم قابل للتحرير (mockup) مستقلٌّ تماماً عن قالب «تقرير إجازة
-  // مرضية» أعلاه: مكوّن معاينة خاص، ووحدة تخطيط/تنسيق/تصيير خاصة
-  // (src/templates/template5)، ومولّد PDF خاص في الخادم. لا يشترك معه في أي
-  // ملف، فتعديل أحدهما لا يمسّ الآخر إطلاقاً.
+  // القالب هنا ليس تصميماً مرسوماً في الواجهة: هو ملف PDF أصلي محفوظ في
+  // الخادم (templates/template5/master.pdf) تُحقن فيه البيانات هناك، فتتغيّر
+  // القيم ويبقى كل ما عداها — الخطوط والجدول والحدود والحشو والتذييل — كما هو
+  // في الملف الأصلي حرفياً. لذلك لا يوجد في الواجهة أي CSS لهذا القالب،
+  // والمعاينة تعرض الملف الحقيقي نفسه لا محاكاةً له.
   //
-  // لا يحوي هذا القالب رمز QR ولا رابط تحقّق: هو نموذج عرض للتخطيط والبيانات
-  // لا مولّد مستندات موثّقة، وواجهة التطبيق تصرّح بذلك عبر isMockup.
+  // مستقلٌّ تماماً عن قالب «تقرير إجازة مرضية» أعلاه: ملفات مختلفة ومعرّف
+  // مختلف، فتعديل أحدهما لا يمسّ الآخر إطلاقاً.
   [DOC_SICK_LEAVE_ENHANCED]: {
     key: DOC_SICK_LEAVE_ENHANCED,
     optionLabel: TEMPLATE5_NAME_AR,
     titleAr: TEMPLATE5_NAME_AR,
     titleEn: TEMPLATE5_NAME_EN,
     icon: '🧩',
-    description: 'نموذج تصميم قابل للتحرير بتخطيط مرجعي: جدول واحد بأحد عشر حقلاً، وتذييل بمنطقتين يفصلهما خط رأسي واحد.',
+    description: 'القالب الأصلي نفسه (ملف PDF) مربوطاً بالبيانات: تتغيّر القيم ويبقى التصميم والخطوط والجدول والتذييل كما هي حرفياً.',
     accent: '#2c3e77',
     previewComponent: SickLeaveEnhancedPDFTemplate5,
     previewTitle: `معاينة ${TEMPLATE5_NAME_AR}`,
