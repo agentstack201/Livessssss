@@ -40,12 +40,21 @@ const DOCUMENT_TYPES = {
     label_en: 'Companion Sick Leave Report',
     renderer: 'createCompanionSickLeavePDF',
   },
-  // مشهد مراجعة (للمريض نفسه) — القالب المضاف حديثاً.
+  // مشهد مراجعة (للمريض نفسه).
   visit_statement: {
     key: 'visit_statement',
     label_ar: 'مشهد مراجعة',
     label_en: 'Statement of Visit',
     renderer: 'createVisitStatementPDF',
+  },
+  // القالب الخامس — «تقرير إجازة مرضية - محسن»: نموذج تصميم قابل للتحرير
+  // (mockup) بمولّده الخاص ووحدة تخطيطه الخاصة (templates/template5)، مستقلٌّ
+  // تماماً عن sick_leave أعلاه ولا يشترك معه في أي ملف.
+  sick_leave_enhanced: {
+    key: 'sick_leave_enhanced',
+    label_ar: 'تقرير إجازة مرضية - محسن',
+    label_en: 'Sick Leave Report — Enhanced Template',
+    renderer: 'createSickLeaveEnhancedPDF',
   },
 };
 

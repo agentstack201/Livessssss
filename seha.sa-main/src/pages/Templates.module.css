@@ -108,6 +108,22 @@
   padding: 0.22rem 0.6rem;
 }
 
+/* شارة «نموذج تصميم قابل للتحرير» — تظهر فقط للقوالب التي تعلن isMockup في
+   سجلّ القوالب، فلا تتأثر بها بقية البطاقات إطلاقاً. */
+.mockupBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  align-self: flex-start;
+}
+
 .actions {
   display: flex;
   gap: 0.6rem;
