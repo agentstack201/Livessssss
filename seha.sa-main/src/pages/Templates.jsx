@@ -132,6 +132,21 @@ function Templates() {
         ))}
       </div>
 
+      {/* إنشاء أكثر من تقرير في وقت واحد — خيار إضافي بجانب القوالب، لا بديل
+          عنها: من يريد تقريراً واحداً يستخدم «استخدام القالب» كالمعتاد. */}
+      <div className={styles.multiCard}>
+        <div>
+          <h2 className={styles.multiTitle}>🗂️ إنشاء أكثر من تقرير في وقت واحد</h2>
+          <p className={styles.multiText}>
+            أضِف عدة إجازات دفعةً واحدة، ولكل إجازة بياناتها المستقلة تماماً
+            (المريض، الطبيب، المنشأة، الشعار، الباركود) ومعاينتها ومشاركتها وتحميلها.
+          </p>
+        </div>
+        <button type="button" className={styles.multiBtn} onClick={() => navigate('/batch')}>
+          فتح الإنشاء المتعدد
+        </button>
+      </div>
+
       <div className={styles.footer}>
         <Link to="/dashboard" className={styles.backLink}>العودة إلى لوحة التحكم</Link>
       </div>

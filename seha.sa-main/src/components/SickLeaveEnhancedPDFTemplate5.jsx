@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { downloadLeavePdf } from '../utils/pdfShare'
-import ShareTargets from './ShareTargets'
+import { downloadLeavePdf, shareLeavePdf } from '../utils/pdfShare'
 import {
   TEMPLATE5_ID,
   TEMPLATE5_NAME_AR,
@@ -21,7 +20,7 @@ import {
 const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
   const [blob, setBlob] = useState(null)
   const [error, setError] = useState('')
-  const [showShare, setShowShare] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   // نُعيد التوليد كلما تغيّرت البيانات — القالب واحد والبيانات هي المتغيّر.
   const dataKey = useMemo(() => JSON.stringify(data || {}), [data])
@@ -68,11 +67,24 @@ const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
     if (objectUrl) window.open(objectUrl, '_blank')
   }
 
-  // رابط الاستعلام الذي يحمله الباركود والرابط في التقرير — وهو نفسه ما
-  // يُرسل في نصّ رسالة المشاركة.
-  const verificationLink = `${window.location.origin}/inquiries/slenquiry`
-    + `?service_num=${encodeURIComponent(data.service_num || '')}`
-    + `&national_id=${encodeURIComponent(data.national_id || '')}`
+  // المشاركة عبر قائمة مشاركة النظام — ترسل ملف الـ PDF نفسه إلى التطبيق
+  // الذي يختاره المستخدم، وهو سلوك بقية المجموعة. الملف المُجهَّز للمعاينة
+  // يُمرَّر كما هو فلا يُجلب مرة ثانية.
+  const share = async () => {
+    if (!blob || sharing) return
+    setSharing(true)
+    try {
+      const result = await shareLeavePdf(data, blob)
+      if (result?.downloaded) {
+        alert('هذا المتصفح لا يدعم مشاركة الملفات مباشرةً، فتم تنزيل الملف. للمشاركة استخدم الهاتف.')
+      }
+    } catch (err) {
+      console.error('❌ PDF share error:', err)
+      alert('تعذّرت المشاركة، الملف جاهز الآن — اضغط «مشاركة الملف» مرة أخرى.')
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const btn = (background, extra = {}) => ({
     padding: '10px 20px',
@@ -134,9 +146,9 @@ const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
             <button onClick={print} disabled={!blob} style={btn('#0f766e', {
               cursor: blob ? 'pointer' : 'wait', opacity: blob ? 1 : 0.7,
             })}>🖨️ طباعة</button>
-            <button onClick={() => setShowShare(true)} disabled={!blob} style={btn('#2f6db4', {
-              cursor: blob ? 'pointer' : 'wait', opacity: blob ? 1 : 0.7,
-            })}>📤 مشاركة</button>
+            <button onClick={share} disabled={!blob || sharing} style={btn('#2f6db4', {
+              cursor: blob && !sharing ? 'pointer' : 'wait', opacity: blob && !sharing ? 1 : 0.7,
+            })}>{sharing ? '⏳ جاري المشاركة...' : '📤 مشاركة الملف'}</button>
             <button onClick={onClose} style={btn('#f44336')}>✖ إغلاق</button>
           </div>
         </div>
@@ -158,14 +170,6 @@ const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
           )}
         </div>
       </div>
-      {/* قائمة المشاركة: واتساب ١ و٢ وواتساب للأعمال وتيليجرام فقط. */}
-      {showShare && (
-        <ShareTargets
-          blob={blob}
-          link={verificationLink}
-          onClose={() => setShowShare(false)}
-        />
-      )}
     </div>,
     document.body
   )

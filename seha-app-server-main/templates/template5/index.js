@@ -25,6 +25,7 @@ const { ArabicFonts } = require('./arabicText');
 const { latinWidth, latinLiteral } = require('./timesMetrics');
 const { decodeImage, buildImageObjects, containMatrix } = require('./imageEmbed');
 const { FIELDS, FACILITY_BLOCK, QR, FOOTER_LOGO_BOX } = require('./fieldMap');
+const { normalizeNationality, nationalityEnglish } = require('../../utils/nationality');
 
 const TEMPLATE5_ID = 'sick_leave_enhanced';
 const TEMPLATE5_NAME_AR = 'تقرير إجازة مرضية - محسن';
@@ -33,6 +34,11 @@ const TEMPLATE5_MOCKUP_NOTICE = 'نموذج تصميم قابل للتحرير �
 
 const MASTER_PATH = path.join(__dirname, 'master.pdf');
 const FONTS_DIR = path.join(__dirname, '..', '..', 'public', 'fonts');
+
+// الشعار الافتراضي في التذييل: شعار السيف والنخلة — نفس الشعار الافتراضي
+// المستخدم في بقية مجموعة الملفات. يحلّ محلّ شعار الملف الأصلي دائماً، ولا
+// يُستخدم إلا حين لا يختار المستخدم شعاراً من مكتبة الصور.
+const DEFAULT_FOOTER_LOGO = 'images/1.png';
 
 // القالب يُحلَّل مرة واحدة لعمر العملية؛ التحليل قراءةٌ محضة فيصلح لإعادة
 // الاستخدام عبر كل الطلبات.
@@ -101,9 +107,10 @@ function mapRecordToFields(data, options) {
   const admissionAr = formatHijri(record.admission_date_ar);
   const dischargeAr = formatHijri(record.discharge_date_ar);
 
-  const nationalityAr = (country && country.country_name_ar) || record.nationality || '';
-  const nationalityEn = (country && country.country_name_en)
-    || (nationalityAr === 'سعودي' || nationalityAr === 'السعودية' ? 'Saudi Arabia' : nationalityAr);
+  // الجنسية تُوحَّد هنا أيضاً: سجل الدولة المرتبط قد يحمل «سعودي» من قائمة
+  // الدول القديمة، فيُطبع «السعودية» على كل حال.
+  const nationalityAr = normalizeNationality((country && country.country_name_ar) || record.nationality);
+  const nationalityEn = nationalityEnglish(nationalityAr, country && country.country_name_en);
 
   const licenseNumber = record.show_license_number === false ? '' : (record.license_number || '');
 
@@ -485,9 +492,10 @@ async function renderTemplate5Pdf(options) {
   let nextNum = tpl.trailer.Size;
   const extraResources = [];
 
-  // ٣) شعار المنشأة — يحلّ محلّ شعار القالب داخل مربّعه نفسه بلا تشويه.
+  // ٣) شعار المنشأة — يحلّ محلّ شعار القالب داخل مربّعه نفسه بلا تشويه:
+  //    شعار المستخدم إن اختاره من مكتبة الصور، وإلا شعار السيف والنخلة.
   //    يفشل مفتوحاً: أي تعذّر في جلب الشعار يُبقي شعار القالب كما هو.
-  const logoBytes = await loadLogoBytes(record.footer_logo);
+  const logoBytes = await loadLogoBytes(record.footer_logo || DEFAULT_FOOTER_LOGO);
   const logoImage = logoBytes ? decodeImage(logoBytes) : null;
   if (logoImage) {
     const built = buildImageObjects(logoImage, nextNum, streamObject);

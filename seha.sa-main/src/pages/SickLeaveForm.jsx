@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import styles from './SickLeaveForm.module.css'
 import MediaPicker from '../components/MediaPicker'
+import { normalizeNationality } from '../utils/nationality'
 import NationalityPicker from '../components/NationalityPicker'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 import {
@@ -505,13 +506,14 @@ function SickLeaveForm() {
         nationality: (() => {
           const rawNat = leaveData.country?.country_name_ar || leaveData.nationality || 'السعودية';
           const mapping = {
-            'سعودي': 'السعودية',
             'مصري': 'مصر',
             'سوري': 'سوريا',
             'يمني': 'اليمن',
             'أردني': 'الأردن'
           };
-          return mapping[rawNat] || rawNat;
+          // «سعودي» بأي رسم → «السعودية» (التوحيد المعتمد)، وبقية الجنسيات
+          // تُحوَّل إلى اسم الدولة كما كانت.
+          return normalizeNationality(mapping[rawNat] || rawNat);
         })(),
         employer: leaveData.employer_ar || leaveData.employer_en || '',
         physicianPosition: leaveData.position_en || '',
@@ -846,7 +848,7 @@ function SickLeaveForm() {
           name: record.name_en || '',
           nameArabic: record.name_ar || '',
           leaveId: record.leave_id || '',
-          nationality: record.country?.country_name_ar || record.nationality || 'السعودية',
+          nationality: normalizeNationality(record.country?.country_name_ar || record.nationality),
           employer: record.employer_en || '',
           physicianPosition: record.position_en || '',
           physicianPositionArabic: record.position_ar || '',
@@ -977,7 +979,9 @@ function SickLeaveForm() {
           const merged = {
             ...prev,
             ...sanitizedData,
-            nationality: finalNationality || prev.nationality,
+            // الجنسية المستخرَجة تُوحَّد قبل وضعها في النموذج، فلا يصل «سعودي»
+            // إلى الحقل حتى لو طابق صفاً بهذا الاسم في قائمة الدول.
+            nationality: normalizeNationality(finalNationality || prev.nationality),
             // Special handling for dates that might have different names in AI output
             startDate: sanitizedData.startDate || sanitizedData.admissionDate || prev.startDate || '',
             endDate: sanitizedData.endDate || sanitizedData.dischargeDate || prev.endDate || '',
@@ -1076,7 +1080,7 @@ function SickLeaveForm() {
         physician_name_ar: formData.doctorNameArabic,
         position_en: formData.physicianPosition,
         position_ar: formData.physicianPositionArabic,
-        nationality: formData.nationality || 'السعودية',
+        nationality: normalizeNationality(formData.nationality),
         countryId: countryId,
         hospital_name_en: formData.hospitalNameEnglish,
         hospital_name_ar: formData.hospitalNameArabic,
@@ -1353,9 +1357,9 @@ function SickLeaveForm() {
           report_date: formData.reportDate ? formatDateForPDF(formData.reportDate) : null,
           report_time: formData.reportTime ? formatTimeForPDF(formData.reportTime) : null,
 
-          nationality: formData.nationality,
+          nationality: normalizeNationality(formData.nationality),
           country: {
-            country_name_ar: formData.nationality,
+            country_name_ar: normalizeNationality(formData.nationality),
             country_name_en: countryNameEn
           },
           footer_logo: formData.footerLogo || null,

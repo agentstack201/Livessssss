@@ -180,3 +180,47 @@
 .backLink:hover {
   text-decoration: underline;
 }
+
+/* بطاقة «إنشاء أكثر من تقرير» — خيار إضافي أسفل شبكة القوالب، متاح لكل من
+   يستطيع إنشاء التقارير. لا يغيّر شيئاً في القوالب نفسها. */
+.multiCard {
+  margin-top: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.15rem 1.35rem;
+  border: 2px dashed #c4b5fd;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+}
+
+.multiTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #6d28d9;
+}
+
+.multiText {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: #5b5570;
+  line-height: 1.7;
+  max-width: 60ch;
+}
+
+.multiBtn {
+  padding: 0.7rem 1.4rem;
+  border: none;
+  border-radius: 10px;
+  background: #6d28d9;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.multiBtn:hover { background: #5b21b6; }
