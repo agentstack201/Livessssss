@@ -18,11 +18,13 @@
 // ───────────────────────────────────────────────────────────────────────────
 const fs = require('fs');
 const path = require('path');
+const QRCode = require('qrcode');
 
 const { loadTemplate, writeIncremental, streamObject } = require('./pdfTemplate');
 const { ArabicFonts } = require('./arabicText');
 const { latinWidth, latinLiteral } = require('./timesMetrics');
-const { FIELDS } = require('./fieldMap');
+const { decodeImage, buildImageObjects, containMatrix } = require('./imageEmbed');
+const { FIELDS, FACILITY_BLOCK, QR, FOOTER_LOGO_BOX } = require('./fieldMap');
 
 const TEMPLATE5_ID = 'sick_leave_enhanced';
 const TEMPLATE5_NAME_AR = 'تقرير إجازة مرضية - محسن';
@@ -178,7 +180,9 @@ function greedyWrap(text, maxWidth, measure) {
  * إن تجاوز عدد الأسطر ما يتّسع له الصفّ (حدوده رسمٌ ثابت في الملف)، تُضيَّق
  * المسافة بين الأسطر وحدها — بلا أي مساس بحجم الخط أو وزنه أو نصّه.
  */
-function baselines(anchor, leading, count, maxHeight) {
+function baselines(anchor, leading, count, maxHeight, explicit) {
+  // كتلة المنشأة في التذييل تحسب خطوط أساسها بنفسها (تدفّق يمنع التراكب).
+  if (explicit && explicit.length) return explicit.slice(0, count);
   let step = leading;
   if (maxHeight && count > 1 && (count - 1) * leading > maxHeight - leading) {
     step = Math.min(leading, maxHeight / count);
@@ -189,7 +193,7 @@ function baselines(anchor, leading, count, maxHeight) {
 /** كتلة نصّ لاتيني (سطر أو أكثر) بنفس مرجع الخط واللون الموجودَين في الأصل. */
 function emitLatin(spec, lines) {
   if (!lines.length) return '';
-  const ys = baselines(spec.baseline, spec.leading, lines.length, spec.maxHeight);
+  const ys = baselines(spec.baseline, spec.leading, lines.length, spec.maxHeight, spec.explicitBaselines);
   const out = ['BT', `/${spec.fontRef} ${num(spec.size)} Tf`];
   let prevX = 0;
   let prevY = 0;
@@ -239,7 +243,7 @@ function emitArabic(spec, session, lines) {
   const weight = spec.weight || 'regular';
   const shapedLines = lines.map((line) => session.shape(weight, line, spec.direction || 'rtl'));
   const ref = session.ref(weight);
-  const ys = baselines(spec.baseline, spec.leading, lines.length, spec.maxHeight);
+  const ys = baselines(spec.baseline, spec.leading, lines.length, spec.maxHeight, spec.explicitBaselines);
   const out = ['BT', `/${ref} ${num(spec.size)} Tf`];
   let prevX = 0;
   let prevY = 0;
@@ -306,37 +310,168 @@ function emitComposite(spec, session, segments) {
   return parts.filter(Boolean).join('\n');
 }
 
+// ── الباركود (رمز الاستجابة السريعة) ──────────────────────────────────────
+
+/**
+ * يرسم الباركود مربّعاتٍ متجهة في الفراغ المحجوز له أعلى نصّ التحقّق.
+ * لا صورة نقطية: الرمز يبقى حادّاً عند أي تكبير، ولا يزيد حجم الملف تقريباً.
+ * يُرسم في نطاق q…Q مستقل فلا يمسّ حالة الرسم لأي عنصر آخر في الصفحة.
+ */
+function qrOperators(url) {
+  const qr = QRCode.create(String(url), { errorCorrectionLevel: 'M' });
+  const size = qr.modules.size;
+  const bits = qr.modules.data;
+  const margin = 1;                       // هامش صامت بمقدار وحدة — كما في بقية القوالب
+  const unit = QR.size / (size + margin * 2);
+  const left = QR.centerX - QR.size / 2;
+  const bottom = QR.bottom;
+
+  const rects = [];
+  for (let row = 0; row < size; row++) {
+    let run = 0;
+    for (let col = 0; col <= size; col++) {
+      const on = col < size && bits[row * size + col];
+      if (on) { run += 1; continue; }
+      if (run) {
+        const x = left + (margin + col - run) * unit;
+        // الصف صفر في الأعلى، ومحور الصفحة يصعد — فنقلب ترتيب الصفوف.
+        const y = bottom + (margin + size - 1 - row) * unit;
+        rects.push(`${num(x)} ${num(y)} ${num(run * unit)} ${num(unit)} re`);
+        run = 0;
+      }
+    }
+  }
+  if (!rects.length) return '';
+  return `\nq\n1 1 1 rg\n${num(left)} ${num(bottom)} ${num(QR.size)} ${num(QR.size)} re\nf\n`
+    + `0 0 0 rg\n${rects.join('\n')}\nf\nQ`;
+}
+
+// ── شعار المنشأة ───────────────────────────────────────────────────────────
+
+/** مصدر الشعار (data URI أو رابط أو مسار داخل public) → بايتات الصورة. */
+async function loadLogoBytes(source) {
+  const value = String(source || '').trim();
+  if (!value) return null;
+  try {
+    if (value.startsWith('data:')) {
+      const comma = value.indexOf(',');
+      return comma < 0 ? null : Buffer.from(value.slice(comma + 1), 'base64');
+    }
+    if (/^https?:\/\//i.test(value)) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(value, { signal: controller.signal });
+        if (!response.ok) return null;
+        return Buffer.from(await response.arrayBuffer());
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    const clean = value.replace(/^\/?public\//i, '').replace(/^\//, '');
+    return fs.readFileSync(path.join(__dirname, '..', '..', 'public', clean));
+  } catch (error) {
+    console.warn('⚠️ Template-5 logo could not be loaded, keeping the template logo:', error.message);
+    return null;
+  }
+}
+
+// ── كتلة المنشأة في التذييل ────────────────────────────────────────────────
+
+/**
+ * يحسب خطوط أساس أسطر كتلة المنشأة (اسم عربي، اسم إنجليزي، رقم الترخيص).
+ * السطر الأول على خط أساس الملف الأصلي، وكل سطرٍ بعده يهبط بمقدار المسافة
+ * الأصلية — فاسمٌ من سطر واحد يعيد إنتاج الأصل حرفياً، واسمٌ أطول ينزل بلا
+ * أي تراكب. إن ضاقت المساحة تُضغط المسافات وحدها، بلا مساس بحجم الخط.
+ */
+function facilityBaselines(lineCounts) {
+  const B = FACILITY_BLOCK;
+  const steps = [];
+  for (let i = 1; i < lineCounts.ar; i++) steps.push(B.arLeading);
+  if (lineCounts.en) steps.push(B.arLeading);
+  for (let i = 1; i < lineCounts.en; i++) steps.push(B.enLeading);
+  if (lineCounts.license) steps.push(B.licenseGap);
+
+  const total = steps.reduce((sum, step) => sum + step, 0);
+  const available = B.firstBaseline - B.minBaseline;
+  const squeeze = total > available && total > 0 ? available / total : 1;
+
+  const baselines = [];
+  let y = B.firstBaseline;
+  baselines.push(y);
+  for (const step of steps) {
+    y -= step * squeeze;
+    baselines.push(y);
+  }
+  return {
+    ar: baselines.slice(0, lineCounts.ar),
+    en: baselines.slice(lineCounts.ar, lineCounts.ar + lineCounts.en),
+    license: baselines[lineCounts.ar + lineCounts.en],
+  };
+}
+
 // ── التوليد ────────────────────────────────────────────────────────────────
 
 /**
  * سجلّ → ملف PDF مبنيٌّ على القالب الأصلي نفسه.
- * @returns {Buffer}
+ *
+ * ما يتغيّر: نصوص الحقول، والباركود، ووجهة الرابط، وشعار المنشأة.
+ * ما لا يتغيّر: كل شيء آخر — بايتات الملف الأصلي كما هي.
+ *
+ * @returns {Promise<Buffer>}
  */
-function renderTemplate5Pdf(options) {
+async function renderTemplate5Pdf(options) {
   const opts = options || {};
   const tpl = template();
   const session = arabicFonts.session();
   const values = mapRecordToFields(opts.data, opts);
+  const record = opts.data || {};
 
-  // 1) توليد النصّ الجديد لكل حقل — وتفريغ الكتل الفائضة التي كان يشغلها.
+  // ── كتلة المنشأة: نلفّ أسطرها أولاً لنعرف عددها، ثم نوزّع خطوط الأساس
+  //    توزيعاً متدفّقاً يمنع أي تراكب مهما طال الاسم.
+  const specById = Object.fromEntries(FIELDS.map((f) => [f.id, f]));
+  const facilityArLines = greedyWrap(values.facilityAr || '', specById.facilityAr.maxWidth,
+    (line) => session.measure('bold', line, specById.facilityAr.size));
+  const facilityEnLines = greedyWrap(values.facilityEn || '', specById.facilityEn.maxWidth,
+    (line) => latinWidth(specById.facilityEn.fontRef, line, specById.facilityEn.size));
+  const flow = facilityBaselines({
+    ar: facilityArLines.length,
+    en: facilityEnLines.length,
+    license: values.license ? 1 : 0,
+  });
+  const explicitBaselines = {
+    facilityAr: flow.ar,
+    facilityEn: flow.en,
+  };
+
+  // ١) توليد النصّ الجديد لكل حقل — وتفريغ الكتل الفائضة التي كان يشغلها.
   const replacements = new Map();
-  for (const spec of FIELDS) {
+  for (const base of FIELDS) {
+    const spec = explicitBaselines[base.id]
+      ? { ...base, explicitBaselines: explicitBaselines[base.id] }
+      : (base.id === 'license' && flow.license != null ? { ...base, baseline: flow.license } : base);
     const value = values[spec.id];
     let text = '';
     if (spec.type === 'composite') {
       text = Array.isArray(value) ? emitComposite(spec, session, value) : '';
     } else if (spec.type === 'arabic') {
-      const measure = (s) => session.measure(spec.weight || 'regular', s, spec.size);
-      text = emitArabic(spec, session, greedyWrap(value || '', spec.maxWidth, measure));
+      const measure = (line) => session.measure(spec.weight || 'regular', line, spec.size);
+      const lines = spec.id === 'facilityAr'
+        ? facilityArLines
+        : greedyWrap(value || '', spec.maxWidth, measure);
+      text = emitArabic(spec, session, lines);
     } else {
-      const measure = (s) => latinWidth(spec.fontRef, s, spec.size);
-      text = emitLatin(spec, greedyWrap(value || '', spec.maxWidth, measure));
+      const measure = (line) => latinWidth(spec.fontRef, line, spec.size);
+      const lines = spec.id === 'facilityEn'
+        ? facilityEnLines
+        : greedyWrap(value || '', spec.maxWidth, measure);
+      text = emitLatin(spec, lines);
     }
     replacements.set(spec.blocks[0], text);
     for (let i = 1; i < spec.blocks.length; i++) replacements.set(spec.blocks[i], '');
   }
 
-  // 2) خياطة مجرى المحتوى: الكتل المستبدَلة فقط، وكل بايت آخر كما هو.
+  // ٢) خياطة مجرى المحتوى: الكتل المستبدَلة فقط، وكل بايت آخر كما هو.
   let content = '';
   let cursor = 0;
   tpl.blocks.forEach((block, index) => {
@@ -346,21 +481,73 @@ function renderTemplate5Pdf(options) {
   });
   content += tpl.content.slice(cursor);
 
-  // 3) كائنات الخطوط العربية الجديدة، ثم قاموس الصفحة بمراجعها مضافةً إليه.
-  const { objects: fontObjects, resources } = session.buildObjects(tpl.trailer.Size, streamObject);
+  const objects = [];
+  let nextNum = tpl.trailer.Size;
+  const extraResources = [];
 
-  const fontRefs = Object.entries(resources).map(([ref, objNum]) => `/${ref} ${objNum} 0 R`).join('');
-  const pageDict = fontRefs
-    ? tpl.pageDictText.replace(/(\/Font\s*<<[\s\S]*?)>>/, `$1${fontRefs}>>`)
-    : tpl.pageDictText;
+  // ٣) شعار المنشأة — يحلّ محلّ شعار القالب داخل مربّعه نفسه بلا تشويه.
+  //    يفشل مفتوحاً: أي تعذّر في جلب الشعار يُبقي شعار القالب كما هو.
+  const logoBytes = await loadLogoBytes(record.footer_logo);
+  const logoImage = logoBytes ? decodeImage(logoBytes) : null;
+  if (logoImage) {
+    const built = buildImageObjects(logoImage, nextNum, streamObject);
+    nextNum = built.nextNum;
+    objects.push(...built.objects);
+    extraResources.push({ kind: 'XObject', name: 'ImL', num: built.imageNum });
+    const fit = containMatrix(FOOTER_LOGO_BOX, logoImage.width, logoImage.height);
+    content = content.replace(
+      /112\.5 0 0 112\.5 576\.88 350\.83 cm\s*\/Im4 Do/,
+      `${num(fit.width)} 0 0 ${num(fit.height)} ${num(fit.x)} ${num(fit.y)} cm\n/ImL Do`,
+    );
+  }
 
-  const objects = [
-    { num: tpl.pageNum, body: Buffer.from(pageDict, 'latin1') },
-    streamObject(tpl.contentNum, '', Buffer.from(content, 'latin1')),
-    ...fontObjects,
-  ];
+  // ٤) الباركود — مفعّل افتراضياً، ويُطفأ بـ add_qr = false كبقية القوالب.
+  const verificationUrl = buildVerificationUrl(record, opts);
+  if (record.add_qr !== false) content += qrOperators(verificationUrl);
+
+  // ٥) وجهة الرابط في التذييل: رابط الاستعلام الخاص بنا، بلا تحريك مستطيله.
+  if (tpl.linkActionNum) {
+    objects.push({
+      num: tpl.linkActionNum,
+      body: Buffer.from(
+        `<< /Type /Action /S /URI /IsMap false /URI ${pdfString(verificationUrl)} >>`, 'latin1'),
+    });
+  }
+
+  // ٦) كائنات الخطوط العربية، ثم قاموس الصفحة بمراجعها ومرجع الشعار.
+  const { objects: fontObjects, resources } = session.buildObjects(nextNum, streamObject);
+  objects.push(...fontObjects);
+  for (const [name, objNum] of Object.entries(resources)) {
+    extraResources.push({ kind: 'Font', name, num: objNum });
+  }
+
+  let pageDict = tpl.pageDictText;
+  for (const kind of ['Font', 'XObject']) {
+    const refs = extraResources.filter((r) => r.kind === kind)
+      .map((r) => `/${r.name} ${r.num} 0 R`).join('');
+    if (refs) {
+      pageDict = pageDict.replace(new RegExp(`(/${kind}\\s*<<[^>]*)>>`), `$1${refs}>>`);
+    }
+  }
+
+  objects.push({ num: tpl.pageNum, body: Buffer.from(pageDict, 'latin1') });
+  objects.push(streamObject(tpl.contentNum, '', Buffer.from(content, 'latin1')));
 
   return writeIncremental(tpl, objects);
+}
+
+/** رابط الاستعلام العام الذي يفتحه الباركود والرابط معاً. */
+function buildVerificationUrl(record, opts) {
+  const base = String(opts.frontendUrl || process.env.FRONTEND_URL || 'https://livessssss.vercel.app')
+    .replace(/\/+$/, '');
+  return `${base}/inquiries/slenquiry`
+    + `?service_num=${encodeURIComponent(record.service_num || '')}`
+    + `&national_id=${encodeURIComponent(record.national_id || '')}`;
+}
+
+/** نصّ → سلسلة PDF حرفية مهرَّبة. */
+function pdfString(value) {
+  return `(${String(value).replace(/[\\()]/g, (ch) => `\\${ch}`)})`;
 }
 
 module.exports = {

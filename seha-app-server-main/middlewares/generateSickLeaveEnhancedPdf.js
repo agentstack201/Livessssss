@@ -15,7 +15,7 @@ const { renderTemplate5Pdf } = require('../templates/template5');
 
 module.exports = async (data, leave_days, DateObj, country) => {
   try {
-    return renderTemplate5Pdf({
+    return await renderTemplate5Pdf({
       data,
       leaveDays: leave_days,
       country,

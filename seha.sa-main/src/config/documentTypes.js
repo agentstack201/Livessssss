@@ -33,7 +33,14 @@ export const DOC_COMPANION_SICK_LEAVE = 'companion_sick_leave'
 // لا يوجد للمعرّف مصدران يمكن أن يختلفا.
 export const DOC_SICK_LEAVE_ENHANCED = TEMPLATE5_ID
 
-export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE
+// القالب الذي يبدأ به أي مستند *جديد* — القالب المحسّن، وهو أول ما يظهر في
+// كل القوائم.
+export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE_ENHANCED
+
+// القالب الذي يُحمل عليه سجلٌّ *محفوظ* لا يحمل نوعاً (سجلات ما قبل إضافة
+// أنواع المستندات). يجب أن يبقى «إجازة مرضية» إلى الأبد: تغييره يعيد طباعة
+// سجلات قديمة بقالب لم تُنشأ به. الافتراض للجديد شيء، وقراءة القديم شيء آخر.
+export const LEGACY_DOCUMENT_TYPE = DOC_SICK_LEAVE
 
 // الحقول المشتركة المطلوبة في كل القوالب (تُدمج مع الخاصة بكل قالب).
 const SHARED_REQUIRED = {
@@ -83,6 +90,8 @@ export const DOCUMENT_TYPES = {
       relation: false,     // صلة القرابة
       visitType: false,    // نوع الزيارة
       leaveDuration: true, // مدة الإجازة + تاريخا البداية والنهاية
+      dateMode: true,      // خيار «طريقة التاريخ» (الفعلي / يبدأ من الإصدار)
+      qr: true,            // الباركود (رمز الاستجابة السريعة) مع خيار إزالته
     },
     // مسمّيات الحقول التي تختلف بين القوالب.
     labels: {
@@ -321,6 +330,8 @@ export const DOCUMENT_TYPES = {
       relation: false,
       visitType: false,
       leaveDuration: true,
+      dateMode: true,
+      qr: true,
     },
     labels: {
       pageTitle: TEMPLATE5_NAME_AR,
@@ -364,17 +375,17 @@ export const DOCUMENT_TYPES = {
 
 // ترتيب عرض القوالب في القوائم وصفحة القوالب.
 export const DOCUMENT_TYPE_LIST = [
+  DOCUMENT_TYPES[DOC_SICK_LEAVE_ENHANCED],
   DOCUMENT_TYPES[DOC_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_COMPANION],
   DOCUMENT_TYPES[DOC_COMPANION_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_VISIT_STATEMENT],
-  DOCUMENT_TYPES[DOC_SICK_LEAVE_ENHANCED],
 ]
 
 /** أي قيمة (من الخادم أو من الرابط) → مفتاح قالب مدعوم. */
 export function normalizeDocumentType(value) {
   const key = typeof value === 'string' ? value.trim() : ''
-  return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, key) ? key : DEFAULT_DOCUMENT_TYPE
+  return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, key) ? key : LEGACY_DOCUMENT_TYPE
 }
 
 /** أي قيمة → كائن وصف القالب كاملاً (لا يعيد undefined أبداً). */
