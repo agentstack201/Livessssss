@@ -40,6 +40,15 @@ const DOCUMENT_TYPES = {
     label_en: 'Companion Sick Leave Report',
     renderer: 'createCompanionSickLeavePDF',
   },
+  // ── القوالب الورقية (تقارير المستشفيات) ──────────────────────────────────
+  // كلها تمرّ على نفس المولّد العام، ويحدّد paperTemplate أي تصميم يُستخدم.
+  khalid_sick_leave: {
+    key: 'khalid_sick_leave',
+    label_ar: 'تقرير بأجازة مرضية (ج) — خالد المتميز',
+    label_en: 'Sick Leave Report (C) — Khalid Distinct',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'khalid_sick_leave',
+  },
   // مشهد مراجعة (للمريض نفسه) — القالب المضاف حديثاً.
   visit_statement: {
     key: 'visit_statement',
@@ -66,9 +75,15 @@ function rendererNameFor(value) {
   return DOCUMENT_TYPES[normalizeDocumentType(value)].renderer;
 }
 
+/** معرّف التصميم الورقي لهذا النوع (أو null إن لم يكن قالباً ورقياً). */
+function paperTemplateFor(value) {
+  return DOCUMENT_TYPES[normalizeDocumentType(value)].paperTemplate || null;
+}
+
 module.exports = {
   DOCUMENT_TYPES,
   DEFAULT_DOCUMENT_TYPE,
   normalizeDocumentType,
   rendererNameFor,
+  paperTemplateFor,
 };
