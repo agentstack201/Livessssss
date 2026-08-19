@@ -1350,6 +1350,39 @@ module.exports.getAllLeaves = async (req, res) => {
 };
 
 // ───────────────────────────────────────────────────────────────────────────
+// معاينة القالب الخامس: يولّد الـ PDF من بيانات مُرسَلة في الطلب مباشرةً بلا
+// أي قراءة أو كتابة في قاعدة البيانات. تحتاجه المعاينة في الواجهة لأن القالب
+// الخامس هو ملف PDF أصلي تُحقن فيه البيانات — فالمعاينة الصادقة الوحيدة هي
+// الملف نفسه، لا محاكاةٌ له بـ HTML.
+// ───────────────────────────────────────────────────────────────────────────
+module.exports.previewTemplate5 = async (req, res) => {
+  try {
+    const { renderTemplate5Pdf } = require("../templates/template5");
+    const data = (req.body && req.body.data) || req.body || {};
+    const now = getFormattedDateTime();
+    const pdfBuffer = renderTemplate5Pdf({
+      data,
+      leaveDays: data.leave_days,
+      country: data.country,
+      reportDate: data.report_date || now.currentDate,
+      reportTime: data.report_time || now.currentTime,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="template5-preview.pdf"');
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error("❌ Template-5 preview error:", error);
+    return res.status(500).json({
+      status_code: 500,
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
 // دوال داخلية مكشوفة للاختبار فقط (نفس نمط middlewares/generatePdf.js).
 // لا تُستدعى من أي مسار في التطبيق — وجودها هنا يسمح باختبار قواعد «طريقة
 // التاريخ» ومدة الإجازة مباشرةً بدل إعادة كتابتها في الاختبار.

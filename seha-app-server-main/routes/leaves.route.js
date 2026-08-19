@@ -49,6 +49,15 @@ router
     (req, res, next) => leaveController.previewWhatsappThumbnail(req, res, next)
   );
 
+// معاينة القالب الخامس من بيانات مُرسَلة مباشرةً (بلا حفظ) — قبل المسارات
+// العامة كي لا يبتلعها مسار /sick-leaves/:service_num.
+router
+  .route("/sick-leaves/template5/preview")
+  .post(
+    checkController,
+    (req, res, next) => leaveController.previewTemplate5(req, res, next)
+  );
+
 // AI Extract - specific route before general routes
 router
   .route("/sick-leaves/ai-extract")
