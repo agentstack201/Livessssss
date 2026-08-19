@@ -1360,7 +1360,7 @@ module.exports.previewTemplate5 = async (req, res) => {
     const { renderTemplate5Pdf } = require("../templates/template5");
     const data = (req.body && req.body.data) || req.body || {};
     const now = getFormattedDateTime();
-    const pdfBuffer = renderTemplate5Pdf({
+    const pdfBuffer = await renderTemplate5Pdf({
       data,
       leaveDays: data.leave_days,
       country: data.country,

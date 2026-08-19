@@ -28,12 +28,17 @@ const MASTER_DATA = {
   position_en: 'General Dentist', position_ar: 'طبيب أسنان عام',
   hospital_name_ar: 'عيادة الاسرة الجميلة', hospital_name_en: 'Beautiful Family Medical Clinic',
   license_number: '3800027389', show_license_number: true, leave_days: 1,
+  // الملف الأصلي لا يحوي باركود، فنطفئه هنا حتى تكون المقارنة معه عادلة.
+  add_qr: false,
   report_time: '8:16 PM', report_date: 'Saturday, 15 August 2026',
 };
 const SAUDI = { country_name_ar: 'السعودية', country_name_en: 'Saudi Arabia' };
 
 const master = fs.readFileSync(MASTER_PATH);
-const output = renderTemplate5Pdf({ data: MASTER_DATA, leaveDays: 1, country: SAUDI });
+main().catch((err) => { console.error(err); process.exit(1); });
+
+async function main() {
+const output = await renderTemplate5Pdf({ data: MASTER_DATA, leaveDays: 1, country: SAUDI });
 
 // ── ١) بايتات الأصل سليمة ──────────────────────────────────────────────────
 assert.ok(output.length > master.length, 'الناتج يجب أن يكون الأصل + تحديث تراكمي');
@@ -93,6 +98,7 @@ console.log('✅ ٣) %d نصّاً لاتينياً في موضعه الأصلي
   SAMPLES.length, worst.toFixed(3));
 
 console.log('\nكل الفحوص نجحت — القالب لم يتغيّر، والبيانات وحدها هي المتبدّلة.');
+}
 
 /** آخر تعريف لكائن stream في الملف (التحديث التراكمي يعرّفه من جديد). */
 function readLastStream(buffer, objNum) {

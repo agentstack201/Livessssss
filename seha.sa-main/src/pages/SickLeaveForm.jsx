@@ -5,7 +5,7 @@ import MediaPicker from '../components/MediaPicker'
 import NationalityPicker from '../components/NationalityPicker'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 import {
-  DOC_SICK_LEAVE,
+  DEFAULT_DOCUMENT_TYPE,
   DOCUMENT_TYPE_LIST,
   getDocumentType,
   normalizeDocumentType,
@@ -118,7 +118,7 @@ function SickLeaveForm() {
   const [documentType, setDocumentType] = useState(() => {
     const fromState = location.state?.templateType
     const fromQuery = new URLSearchParams(location.search).get('template')
-    return normalizeDocumentType(fromState || fromQuery || DOC_SICK_LEAVE)
+    return normalizeDocumentType(fromState || fromQuery || DEFAULT_DOCUMENT_TYPE)
   })
 
   // وصف القالب الحالي: مسمّياته وحقوله المطلوبة والقدرات التي يفعّلها.
@@ -1085,8 +1085,8 @@ function SickLeaveForm() {
         // QR وطريقة التاريخ — الإجازة المرضية فقط. غير مفعّلَين لبقية القوالب
         // فتُرسَل قيمهما الافتراضية دون أي أثر (لا يقرأهما مولّد PDF الآخر).
         add_qr: formData.addQr,
-        date_mode: documentType === DOC_SICK_LEAVE ? formData.dateMode : 'actual',
-        leave_days: (documentType === DOC_SICK_LEAVE && formData.dateMode === 'issue_date')
+        date_mode: docType.features.dateMode ? formData.dateMode : 'actual',
+        leave_days: (docType.features.dateMode && formData.dateMode === 'issue_date')
           ? (parseInt(formData.duration, 10) || null)
           : null,
         report_time: formatTimeForPDF(formData.reportTime),
@@ -1339,8 +1339,8 @@ function SickLeaveForm() {
           license_number: formData.licenseNumber,
           show_license_number: formData.showLicenseNumber,
           add_qr: formData.addQr,
-          date_mode: documentType === DOC_SICK_LEAVE ? formData.dateMode : 'actual',
-          leave_days: (documentType === DOC_SICK_LEAVE && formData.dateMode === 'issue_date')
+          date_mode: docType.features.dateMode ? formData.dateMode : 'actual',
+          leave_days: (docType.features.dateMode && formData.dateMode === 'issue_date')
             ? (parseInt(formData.duration, 10) || null)
             : null,
 
@@ -1685,7 +1685,7 @@ function SickLeaveForm() {
               style={{
                 fontFamily: 'inherit',
                 fontWeight: 700,
-                background: documentType === DOC_SICK_LEAVE ? '#f8fafc' : '#eef2ff'
+                background: documentType === DEFAULT_DOCUMENT_TYPE ? '#eef6ff' : '#f8fafc'
               }}
             >
               {DOCUMENT_TYPE_LIST.map((t) => (
@@ -1988,8 +1988,10 @@ function SickLeaveForm() {
             )}
           </div>
 
-          {/* طريقة التاريخ + إضافة QR — الإجازة المرضية فقط (القالب الوحيد الذي يدعمهما) */}
-          {documentType === DOC_SICK_LEAVE && (
+          {/* طريقة التاريخ + الباركود — تظهران للقوالب التي تعلن دعمهما في
+              سجلّ القوالب (features.dateMode / features.qr) بدل ربطهما بقالب
+              بعينه، فأي قالب يدعمهما يحصل عليهما تلقائياً. */}
+          {docType.features.dateMode && (
             <div className={styles.fieldGroup}>
               <label className={styles.label}>طريقة التاريخ</label>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '4px' }}>
@@ -2024,7 +2026,7 @@ function SickLeaveForm() {
             </div>
           )}
 
-          {documentType === DOC_SICK_LEAVE && (
+          {docType.features.qr && (
             <div className={styles.fieldGroup}>
               <label className={styles.checkboxLabel} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                 <input

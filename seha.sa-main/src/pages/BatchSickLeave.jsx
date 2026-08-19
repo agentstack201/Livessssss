@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MediaPicker from '../components/MediaPicker'
-import { fetchLeavePdfBlob, sharePdfFiles } from '../utils/pdfShare'
+import { fetchLeavePdfBlob, sharePdfFiles, downloadNamedBlob } from '../utils/pdfShare'
+import { DEFAULT_DOCUMENT_TYPE } from '../config/documentTypes'
 
 // إنشاء عدة إجازات مرضية دفعة واحدة لنفس الزبون (أيام/فترات متفرقة):
 // بيانات مشتركة مرة واحدة + طبيب/مستشفى/شعار افتراضي، مع إمكانية تخصيص كل ملف
@@ -53,6 +54,8 @@ function BatchSickLeave() {
     doctorName: '', doctorNameArabic: '', physicianPosition: '', physicianPositionArabic: '',
     hospitalNameEnglish: 'AL NOOR SPECIALIST HOSPITAL', hospitalNameArabic: 'مستشفى النور التخصصي',
     licenseNumber: '1410845906', footerLogo: '', showLicenseNumber: true,
+    // الباركود مفعّل افتراضياً، مع خيار الإزالة — نفس آلية بقية المجموعة.
+    addQr: true,
   })
   const [createdRecords, setCreatedRecords] = useState([]) // ملخّص الإجازات المُنشأة
   const [periods, setPeriods] = useState([newPeriod(true, todayISO(), todayISO())])
@@ -193,6 +196,9 @@ function BatchSickLeave() {
       license_number: s.licenseNumber || '1410845906',
       show_license_number: s.showLicenseNumber !== false, // زر بترخيص/بدون
       footer_logo: s.footerLogo || null, // null = الشعار الافتراضي (صحة)
+      // نفس قالب المستند الجديد المفرد — فالدفعة تُطبع بالقالب الافتراضي نفسه.
+      document_type: DEFAULT_DOCUMENT_TYPE,
+      add_qr: shared.addQr !== false,
     }
   }
 
@@ -266,6 +272,16 @@ function BatchSickLeave() {
     } finally {
       setSharing(false)
     }
+  }
+
+  // تنزيل كل الملفات المُجهَّزة بضغطة واحدة — بلا قائمة مشاركة ولا خطوات.
+  const downloadAll = () => {
+    if (!prepared?.files?.length) return
+    prepared.files.forEach((file, i) => {
+      // تباعد بسيط بين التنزيلات: بعض المتصفحات تُسقط الدفعة إن تزامنت.
+      setTimeout(() => downloadNamedBlob(file, file.name), i * 220)
+    })
+    setMsg({ type: 'success', text: `جارٍ تنزيل ${prepared.count} ملف.` })
   }
 
   // ── مكتبة الشعارات ─────────────────────────────────────────────────────
@@ -357,6 +373,12 @@ function BatchSickLeave() {
                   {shared.showLicenseNumber ? 'بترخيص ✓' : 'بدون'}
                 </button>
               </div>
+            </Field>
+            <Field label="الباركود (QR)">
+              <button type="button" onClick={() => setField('addQr', !shared.addQr)}
+                title="إظهار أو إخفاء الباركود في التقرير" style={{ ...toggleBtn(shared.addQr), width: '100%' }}>
+                {shared.addQr ? 'بالباركود ✓' : 'بدون باركود'}
+              </button>
             </Field>
           </div>
           <div style={{ marginTop: 14 }}>
@@ -499,8 +521,19 @@ function BatchSickLeave() {
               {sharing ? '⏳ جارٍ المشاركة…' : `📤 مشاركة (${prepared?.count || 0})`}
             </button>
           </div>
+          {prepared?.count > 0 && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+              <button
+                type="button"
+                style={{ ...btn(ORANGE), flex: '1 1 200px', fontSize: 16, padding: '14px' }}
+                onClick={downloadAll}
+              >
+                {`📥 تحميل الكل (${prepared.count})`}
+              </button>
+            </div>
+          )}
           {prepared?.count > 0 && !busy && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>الملفات جاهزة في الذاكرة — يمكنك المشاركة الآن أو أكثر من مرة.</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>الملفات جاهزة في الذاكرة — يمكنك تنزيلها أو مشاركتها الآن أو أكثر من مرة.</div>
           )}
         </div>
       </div>

@@ -59,6 +59,17 @@ function loadTemplate(pdfBytes) {
   if (!contentsMatch) throw new Error('template: /Contents reference not found');
   const contentNum = parseInt(contentsMatch[1], 10);
 
+  // كائن إجراء الرابط الظاهر في التذييل: /Annots → التعليق من نوع Link → /A.
+  // نعيد كتابة وجهته لتشير إلى رابط التحقّق الخاص بنا بدل ما في الملف الأصلي،
+  // بلا تحريك مستطيل الرابط ولا تغيير شكل النصّ تحته.
+  let linkActionNum = null;
+  const annotsMatch = pageDict.match(/\/Annots\s*\[\s*(\d+) 0 R/);
+  if (annotsMatch) {
+    const annot = ascii.match(new RegExp('(?:^|[^0-9])' + annotsMatch[1] + ' 0 obj([\\s\\S]*?)endobj'));
+    const action = annot && annot[1].match(/\/A\s+(\d+) 0 R/);
+    if (action && /\/Subtype\s*\/Link/.test(annot[1])) linkActionNum = parseInt(action[1], 10);
+  }
+
   const stream = readStreamObject(raw, ascii, contentNum);
   const content = (stream.filter === 'FlateDecode' ? zlib.inflateSync(stream.data) : stream.data)
     .toString('latin1');
@@ -85,6 +96,7 @@ function loadTemplate(pdfBytes) {
     // المساس بأي مفتاح آخر فيه.
     pageDictText: ascii.slice(pageDictStart, pageDictEnd),
     contentNum,
+    linkActionNum,
     content,
     blocks,
     startxref,
