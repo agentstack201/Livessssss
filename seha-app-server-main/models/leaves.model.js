@@ -85,7 +85,7 @@ const leaves = sequelize.define(
     nationality: {
       type: Sequelize.STRING(191),
       allowNull: true,
-      defaultValue: 'سعودي',
+      defaultValue: 'السعودية',
     },
     hospital_name_en: {
       type: Sequelize.STRING(191),

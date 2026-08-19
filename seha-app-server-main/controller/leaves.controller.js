@@ -1,6 +1,7 @@
 const leaves = require("../models/leaves.model");
 const config = require("../config/middlewares");
 const { normalizeDocumentType, rendererNameFor } = require("../config/documentTypes");
+const { normalizeNationality } = require("../utils/nationality");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
 const { Sequelize, Op } = require("sequelize");
@@ -118,7 +119,9 @@ module.exports.addNewLeaves = async (req, res, next) => {
       physician_name_ar,
       position_en,
       position_ar,
-      nationality: nationality || 'سعودي',
+      // الجنسية تُوحَّد قبل الحفظ: «سعودي» بأي رسم → «السعودية»، والفراغ →
+      // «السعودية». التوحيد على البيانات نفسها لا على العرض.
+      nationality: normalizeNationality(nationality),
       countryId: countryId || 1,
       hospital_name_en: hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL',
       hospital_name_ar: hospital_name_ar || 'مستشفى النور التخصصي',
@@ -343,7 +346,10 @@ module.exports.updateLeave = async (req, res, next) => {
       physician_name_ar,
       position_en,
       position_ar,
-      nationality,
+      // نفس التوحيد عند التعديل — وإلا عاد «سعودي» إلى السجل من طلب قديم.
+      nationality: nationality !== undefined
+        ? normalizeNationality(nationality)
+        : normalizeNationality(existingLeave.nationality),
       countryId,
       hospital_name_en,
       hospital_name_ar,
@@ -498,7 +504,7 @@ module.exports.aiExtract = async (req, res, next) => {
       - physicianPosition: (Doctor specialty/position in ENGLISH)
       - physicianPositionArabic: (Doctor specialty/position in ARABIC)
       - employer: (Employer name — favor Arabic if available)
-      - nationality: (Patient nationality in ARABIC — e.g. 'سعودي', 'مصري')
+      - nationality: (Patient nationality in ARABIC — e.g. 'السعودية', 'مصري')
 
       ── BILINGUAL RULES ──
       For every bilingual field pair (Arabic + English):
@@ -634,6 +640,12 @@ module.exports.aiExtract = async (req, res, next) => {
     // Fill in everything the AI can't know so a single paste yields a complete,
     // ready-to-confirm record: identifiers, Hijri dates, duration, report stamp.
     const enriched = await enrichExtracted(extractedData);
+
+    // الجنسية المستخرَجة تُوحَّد قبل أن تصل النموذج: «سعودي» بأي رسم (أو أي
+    // مرادف إنجليزي) → «السعودية». فلا يعود «سعودي» إلى النظام من الاستخراج.
+    if (enriched && Object.prototype.hasOwnProperty.call(enriched, "nationality")) {
+      enriched.nationality = normalizeNationality(enriched.nationality);
+    }
 
     return res.status(200).json({
       status_code: 200,
@@ -1027,7 +1039,7 @@ function extractNationality(text) {
   const nationalities = [
     'Saudi', 'Egyptian', 'Syrian', 'Jordanian', 'Lebanese', 'Palestinian',
     'Iraqi', 'Yemeni', 'Sudanese', 'Pakistani', 'Indian', 'Bangladeshi',
-    'Filipino', 'Ethiopian', 'سعودي', 'مصري', 'سوري', 'أردني', 'لبناني',
+    'Filipino', 'Ethiopian', 'السعودية', 'مصري', 'سوري', 'أردني', 'لبناني',
     'فلسطيني', 'عراقي', 'يمني', 'سوداني', 'باكستاني', 'هندي', 'بنغلاديشي',
     'فلبيني', 'إثيوبي'
   ];
