@@ -77,6 +77,20 @@ const DOCUMENT_TYPES = {
     renderer: 'createPaperPDF',
     paperTemplate: 'haql_sick_leave',
   },
+  kfgh_sick_leave_form: {
+    key: 'kfgh_sick_leave_form',
+    label_ar: 'تقرير إجازة مرضية (نموذج) — الملك فهد العام',
+    label_en: 'Sick Leave Form — King Fahad General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfgh_sick_leave_form',
+  },
+  ksmc_sick_leave: {
+    key: 'ksmc_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — الملك سعود الطبية',
+    label_en: 'Sick Leave Report — King Saud Medical City',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'ksmc_sick_leave',
+  },
   // مشهد مراجعة (للمريض نفسه) — القالب المضاف حديثاً.
   visit_statement: {
     key: 'visit_statement',
