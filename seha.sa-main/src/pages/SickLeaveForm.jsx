@@ -4,6 +4,7 @@ import styles from './SickLeaveForm.module.css'
 import MediaPicker from '../components/MediaPicker'
 import NationalityPicker from '../components/NationalityPicker'
 import PaperFieldsEditor from '../components/PaperFieldsEditor'
+import DocumentAIExtract from '../components/DocumentAIExtract'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 import {
   DOC_SICK_LEAVE,
@@ -119,6 +120,46 @@ function SickLeaveForm() {
     const fromQuery = new URLSearchParams(location.search).get('template')
     return normalizeDocumentType(fromState || fromQuery || DOC_SICK_LEAVE)
   })
+
+  // نتيجة استخراج الذكاء الاصطناعي من ملف مرفوع: نطبّقها على النموذج.
+  // الملف مصدر بيانات فقط — التصميم يبقى من القالب المحفوظ في النظام.
+  const applyExtractedDocument = (result) => {
+    if (!result) return
+    if (result.document_type) setDocumentType(normalizeDocumentType(result.document_type))
+    if (result.template_data && Object.keys(result.template_data).length) {
+      setTemplateData((prev) => ({ ...prev, ...result.template_data }))
+    }
+    const c = result.core || {}
+    // خريطة حقول السجل الأساسية إلى أسماء النموذج. الفارغ لا يُكتب فوق قيمة
+    // موجودة، فلا يمحو الاستخراج ما أدخله المستخدم.
+    const map = {
+      service_num: 'serviceNum', leave_id: 'leaveId', national_id: 'nationalID',
+      name_ar: 'nameArabic', name_en: 'name',
+      admission_date_en: 'admissionDate', discharge_date_en: 'dischargeDate',
+      issue_date: 'issueDate', employer_ar: 'employer',
+      physician_name_ar: 'doctorNameArabic', physician_name_en: 'doctorName',
+      position_ar: 'physicianPositionArabic', position_en: 'physicianPosition',
+      nationality: 'nationality',
+      hospital_name_ar: 'hospitalNameArabic', hospital_name_en: 'hospitalNameEnglish',
+    }
+    setFormData((prev) => {
+      const next = { ...prev }
+      for (const [src, dst] of Object.entries(map)) {
+        const v = c[src]
+        if (typeof v === 'string' && v.trim()) next[dst] = v.trim()
+      }
+      if (next.serviceNum && !next.leaveId) next.leaveId = next.serviceNum
+      return next
+    })
+    // انتقل إلى النموذج ليراجع المستخدم ويعدّل.
+    setActiveTab('form')
+    window.showToast?.(
+      result.document_type
+        ? `تم التعرّف على «${result.template_title}» وتعبئة ${result.filled} حقلاً`
+        : `تم استخراج ${result.filled} حقلاً`,
+      'success'
+    )
+  }
 
   // حقول التقارير الورقية (JSON حرّ لكل قالب) وخيار الخط المختار.
   const [templateData, setTemplateData] = useState({})
@@ -1502,6 +1543,8 @@ function SickLeaveForm() {
       {activeTab === 'ai' && (
         <div className={styles.aiHero}>
           <div className={styles.aiHeroGlow} aria-hidden="true" />
+          {/* رفع ملف (PDF / Word / صورة / مسح ضوئي) واستخراج بياناته */}
+          <DocumentAIExtract onExtracted={applyExtractedDocument} />
           {aiSuccess ? (
             <div className={styles.aiCelebration}>
               <div className={styles.aiCelebrationIcon}>🎯</div>

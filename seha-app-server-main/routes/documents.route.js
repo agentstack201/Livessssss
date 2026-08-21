@@ -23,4 +23,8 @@ router.get('/documents/templates', checkController, (req, res) =>
 router.post('/documents/preview-html', checkController, (req, res) =>
   documentsController.previewHtml(req, res));
 
+// استخراج البيانات من ملف مرفوع وتحديد القالب المطابق.
+router.post('/documents/ai-extract', checkController, (req, res) =>
+  documentsController.aiExtractDocument(req, res));
+
 module.exports = router;
