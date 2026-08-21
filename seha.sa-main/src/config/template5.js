@@ -27,6 +27,13 @@ export const fetchTemplate5PreviewBlob = async (record) => {
     },
     body: JSON.stringify({ data: record || {} }),
   })
-  if (!response.ok) throw new Error(`preview request failed with status ${response.status}`)
+  if (!response.ok) {
+    // الخادم يشرح سبب الفشل بالعربية (مثل صيغة شعار غير مدعومة). نمرّره كما
+    // هو ليقرأه المستخدم بدل رسالة عامة لا تدلّه على ما يصلحه.
+    const detail = await response.json().then((d) => d?.message).catch(() => null)
+    const error = new Error(detail || `preview request failed with status ${response.status}`)
+    error.serverMessage = detail || ''
+    throw error
+  }
   return await response.blob()
 }
