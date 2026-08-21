@@ -33,7 +33,9 @@ const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
       .then((result) => { if (alive) setBlob(result) })
       .catch((err) => {
         console.error('❌ Template 5 preview error:', err)
-        if (alive) setError('تعذّر توليد المعاينة. تأكّد من اتصال الخادم ثم أعد المحاولة.')
+        // رسالة الخادم تسمّي السبب بدقّة (صيغة شعار غير مدعومة، تعذّر جلبه…)
+        // فنعرضها كما هي — المستخدم يحتاج أن يعرف ما يصلحه، لا أن يعيد المحاولة.
+        if (alive) setError(err?.serverMessage || 'تعذّر توليد المعاينة. تأكّد من اتصال الخادم ثم أعد المحاولة.')
       })
     return () => { alive = false }
   }, [dataKey])
@@ -155,7 +157,15 @@ const SickLeaveEnhancedPDFTemplate5 = ({ data, onClose }) => {
 
         <div style={{ flex: 1, background: '#f5f5f5', display: 'flex', minHeight: 0 }}>
           {error ? (
-            <p style={{ margin: 'auto', color: '#b91c1c', fontFamily: 'Cairo, sans-serif' }}>{error}</p>
+            <p style={{
+              margin: 'auto',
+              color: '#b91c1c',
+              fontFamily: 'Cairo, sans-serif',
+              maxWidth: '46ch',
+              padding: '0 24px',
+              textAlign: 'center',
+              lineHeight: 1.9,
+            }}>{error}</p>
           ) : !objectUrl ? (
             <p style={{ margin: 'auto', color: '#475569', fontFamily: 'Cairo, sans-serif' }}>
               ⏳ جاري تجهيز المعاينة...

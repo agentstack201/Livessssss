@@ -23,7 +23,7 @@ const QRCode = require('qrcode');
 const { loadTemplate, writeIncremental, streamObject } = require('./pdfTemplate');
 const { ArabicFonts } = require('./arabicText');
 const { latinWidth, latinLiteral } = require('./timesMetrics');
-const { decodeImage, buildImageObjects, containMatrix } = require('./imageEmbed');
+const { decodeImage, buildImageObjects, containMatrix, imageFormat } = require('./imageEmbed');
 const { FIELDS, FACILITY_BLOCK, QR, FOOTER_LOGO_BOX } = require('./fieldMap');
 const { normalizeNationality, nationalityEnglish } = require('../../utils/nationality');
 
@@ -354,33 +354,96 @@ function qrOperators(url) {
 }
 
 // ── شعار المنشأة ───────────────────────────────────────────────────────────
+//
+// مصدر الحقيقة الوحيد للشعار هو `record.footer_logo`. حين يكون فارغاً — ولا
+// شيء غيره — يُستخدم الشعار الافتراضي. وما عدا ذلك يُرسم الشعار المختار نفسه
+// أو يفشل التوليد برسالة تسمّي السبب.
+//
+// لماذا لا نتساهل؟ لأن هذا الملف يُبنى فوق master.pdf وفيه شعارٌ محفور أصلاً
+// (شعار عيادة أسنان لا علاقة له بالمنشأة). أي «فشلٍ صامت» هنا لا يعني غياب
+// الشعار، بل ظهور شعارٍ آخر تماماً في التقرير النهائي بينما تعرض الواجهة
+// الشعار الذي اختاره المستخدم — وهو بالضبط ما كان يحدث. الصمت ممنوع.
 
-/** مصدر الشعار (data URI أو رابط أو مسار داخل public) → بايتات الصورة. */
+/** يصف مصدر الشعار وصفاً قصيراً صالحاً لرسالة خطأ (بلا سرد base64 كامل). */
+function describeSource(value) {
+  if (value.startsWith('data:')) return `ملف مرفوع (${value.slice(5, value.indexOf(';')) || 'data'})`;
+  return value.length > 120 ? `${value.slice(0, 117)}…` : value;
+}
+
+/**
+ * مصدر الشعار (data URI أو رابط أو مسار داخل public) → بايتات الصورة.
+ * يرمي استثناءً يسمّي السبب عند التعذّر — ولا يعيد بديلاً أبداً.
+ */
 async function loadLogoBytes(source) {
   const value = String(source || '').trim();
-  if (!value) return null;
-  try {
-    if (value.startsWith('data:')) {
-      const comma = value.indexOf(',');
-      return comma < 0 ? null : Buffer.from(value.slice(comma + 1), 'base64');
-    }
-    if (/^https?:\/\//i.test(value)) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(value, { signal: controller.signal });
-        if (!response.ok) return null;
-        return Buffer.from(await response.arrayBuffer());
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-    const clean = value.replace(/^\/?public\//i, '').replace(/^\//, '');
-    return fs.readFileSync(path.join(__dirname, '..', '..', 'public', clean));
-  } catch (error) {
-    console.warn('⚠️ Template-5 logo could not be loaded, keeping the template logo:', error.message);
-    return null;
+  if (!value) throw new Error('مصدر الشعار فارغ');
+
+  if (value.startsWith('data:')) {
+    const comma = value.indexOf(',');
+    if (comma < 0) throw new Error('بيانات الشعار المرفوع غير صالحة');
+    const isBase64 = /;base64/i.test(value.slice(0, comma));
+    const payload = value.slice(comma + 1);
+    const bytes = isBase64
+      ? Buffer.from(payload, 'base64')
+      : Buffer.from(decodeURIComponent(payload), 'latin1');
+    if (!bytes.length) throw new Error('بيانات الشعار المرفوع فارغة');
+    return bytes;
   }
+
+  if (/^https?:\/\//i.test(value)) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(value, { signal: controller.signal });
+      if (!response.ok) throw new Error(`ردّ المصدر بالحالة ${response.status}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length) throw new Error('المصدر أعاد ملفاً فارغاً');
+      return bytes;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('انتهت مهلة جلب الصورة من المصدر');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const clean = value.replace(/^\/?public\//i, '').replace(/^\//, '');
+  return fs.readFileSync(path.join(__dirname, '..', '..', 'public', clean));
+}
+
+/**
+ * الشعار الذي سيُرسم في التذييل: الشعار المختار في السجلّ، أو الافتراضي حين
+ * لا يختار المستخدم شيئاً. يرمي استثناءً واضحاً بدل استبدال اختيار المستخدم.
+ */
+async function resolveFooterLogo(record) {
+  const chosen = String(record.footer_logo || '').trim();
+  const source = chosen || DEFAULT_FOOTER_LOGO;
+
+  let bytes;
+  try {
+    bytes = await loadLogoBytes(source);
+  } catch (error) {
+    if (!chosen) {
+      throw new Error(`تعذّر تحميل الشعار الافتراضي (${DEFAULT_FOOTER_LOGO}): ${error.message}`);
+    }
+    throw new Error(
+      `تعذّر جلب الشعار المختار من مكتبة الوسائط: ${error.message}`
+      + ` — المصدر: ${describeSource(chosen)}`,
+    );
+  }
+
+  const image = decodeImage(bytes);
+  if (!image) {
+    const format = imageFormat(bytes);
+    if (!chosen) {
+      throw new Error(`تعذّر قراءة الشعار الافتراضي (${DEFAULT_FOOTER_LOGO}): صيغة ${format}`);
+    }
+    throw new Error(
+      `صيغة الشعار المختار (${format}) غير مدعومة في التقرير المحسّن.`
+      + ' اختر شعاراً بصيغة PNG أو JPG أو GIF من مكتبة الوسائط.',
+    );
+  }
+  return image;
 }
 
 // ── كتلة المنشأة في التذييل ────────────────────────────────────────────────
@@ -493,21 +556,26 @@ async function renderTemplate5Pdf(options) {
   const extraResources = [];
 
   // ٣) شعار المنشأة — يحلّ محلّ شعار القالب داخل مربّعه نفسه بلا تشويه:
-  //    شعار المستخدم إن اختاره من مكتبة الصور، وإلا شعار السيف والنخلة.
-  //    يفشل مفتوحاً: أي تعذّر في جلب الشعار يُبقي شعار القالب كما هو.
-  const logoBytes = await loadLogoBytes(record.footer_logo || DEFAULT_FOOTER_LOGO);
-  const logoImage = logoBytes ? decodeImage(logoBytes) : null;
-  if (logoImage) {
-    const built = buildImageObjects(logoImage, nextNum, streamObject);
-    nextNum = built.nextNum;
-    objects.push(...built.objects);
-    extraResources.push({ kind: 'XObject', name: 'ImL', num: built.imageNum });
-    const fit = containMatrix(FOOTER_LOGO_BOX, logoImage.width, logoImage.height);
-    content = content.replace(
-      /112\.5 0 0 112\.5 576\.88 350\.83 cm\s*\/Im4 Do/,
-      `${num(fit.width)} 0 0 ${num(fit.height)} ${num(fit.x)} ${num(fit.y)} cm\n/ImL Do`,
-    );
+  //    شعار المستخدم إن اختاره من مكتبة الصور، وإلا الشعار الافتراضي.
+  //    يفشل مغلقاً: لا بديل صامت — إمّا الشعار المطلوب أو خطأ يسمّي السبب،
+  //    فلا يظهر شعار القالب المحفور أبداً بدل اختيار المستخدم.
+  const logoImage = await resolveFooterLogo(record);
+  const built = buildImageObjects(logoImage, nextNum, streamObject);
+  nextNum = built.nextNum;
+  objects.push(...built.objects);
+  extraResources.push({ kind: 'XObject', name: 'ImL', num: built.imageNum });
+  const fit = containMatrix(FOOTER_LOGO_BOX, logoImage.width, logoImage.height);
+  const drawnContent = content.replace(
+    /112\.5 0 0 112\.5 576\.88 350\.83 cm\s*\/Im4 Do/,
+    `${num(fit.width)} 0 0 ${num(fit.height)} ${num(fit.x)} ${num(fit.y)} cm\n/ImL Do`,
+  );
+  // حارسة: لو تغيّر master.pdf يوماً وما عاد أمر رسم شعاره مطابقاً، لَبقي
+  // شعار القالب مرسوماً والشعار المختار مضافاً بلا أن يُرسم — أي «شعار آخر»
+  // في التقرير النهائي. نكشف ذلك هنا بدل أن يخرج مستنداً خاطئاً.
+  if (drawnContent === content) {
+    throw new Error('تعذّر استبدال شعار القالب: لم يُعثر على أمر رسم الشعار في master.pdf');
   }
+  content = drawnContent;
 
   // ٤) الباركود — مفعّل افتراضياً، ويُطفأ بـ add_qr = false كبقية القوالب.
   const verificationUrl = buildVerificationUrl(record, opts);
