@@ -42,13 +42,7 @@ module.exports = async (templateId, data, leave_days, DateObj, country) => {
       console.warn('⚠️ QR generation failed (continuing without QR):', qrErr.message);
     }
 
-    const ctx = buildContext(tpl, data, leave_days, DateObj, country, {
-      qrDataUri, verificationUrl,
-      facilityLogo: resolveFacilityLogo(data, tpl),
-      dataUriFromPublic,
-    });
-
-    const html = pageShell(tpl, fontFaceCss, tpl.body(ctx));
+    const html = buildHtml(tpl, fontFaceCss, data, leave_days, DateObj, country, qrDataUri, verificationUrl);
 
     const browser = await getBrowser();
     page = await browser.newPage();
@@ -86,6 +80,32 @@ module.exports = async (templateId, data, leave_days, DateObj, country) => {
     throw new Error(`Failed to generate paper PDF (${templateId}): ${error.message}`);
   }
 };
+
+// بناء صفحة المستند كاملة (الهيكل + الأنماط + جسم القالب).
+function buildHtml(tpl, fontFaceCss, data, leave_days, DateObj, country, qrDataUri, verificationUrl) {
+  const ctx = buildContext(tpl, data, leave_days, DateObj, country, {
+    qrDataUri, verificationUrl,
+    facilityLogo: resolveFacilityLogo(data, tpl),
+    dataUriFromPublic,
+  });
+  return pageShell(tpl, fontFaceCss, tpl.body(ctx));
+}
+
+/**
+ * نفس الـ HTML الذي يُطبع، لكن كنص — تستهلكه معاينة الواجهة.
+ * استخدام نفس الدالة يضمن أن ما يراه المستخدم هو ما يُطبع حرفاً بحرف.
+ */
+async function renderPaperHtml(templateId, data, leave_days, DateObj, country) {
+  const tpl = getPaperTemplate(templateId);
+  const fontId = normalizeFont(data.document_font || tpl.defaultFont);
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://livessssss.vercel.app').replace(/\/+$/, '');
+  const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
+  let qrDataUri = '';
+  try {
+    qrDataUri = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 150, errorCorrectionLevel: 'M' });
+  } catch { /* المعاينة تعمل بلا QR */ }
+  return buildHtml(tpl, fontFaceCssFor(fontId), data, leave_days, DateObj, country, qrDataUri, verificationUrl);
+}
 
 // أي أصل صورة: رابط خارجي، أو data URI، أو مسار محلي داخل public.
 function resolveAsset(value) {
@@ -197,5 +217,6 @@ ${bodyHtml}
 </html>`;
 }
 
+module.exports.renderPaperHtml = renderPaperHtml;
 module.exports._pageShell = pageShell;
 module.exports._buildContext = buildContext;

@@ -52,7 +52,7 @@ app.get("/", (req, res) => {
 
 // API Routes - only if routes loaded successfully
 if (routes) {
-  app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
+  app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute, routes.documentsRoute]);
   app.use('/users', routes.usersRoute);
 } else {
   console.warn("Routes not loaded - API endpoints unavailable");

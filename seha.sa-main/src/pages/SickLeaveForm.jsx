@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import styles from './SickLeaveForm.module.css'
 import MediaPicker from '../components/MediaPicker'
 import NationalityPicker from '../components/NationalityPicker'
+import PaperFieldsEditor from '../components/PaperFieldsEditor'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 import {
   DOC_SICK_LEAVE,
@@ -118,6 +119,10 @@ function SickLeaveForm() {
     const fromQuery = new URLSearchParams(location.search).get('template')
     return normalizeDocumentType(fromState || fromQuery || DOC_SICK_LEAVE)
   })
+
+  // حقول التقارير الورقية (JSON حرّ لكل قالب) وخيار الخط المختار.
+  const [templateData, setTemplateData] = useState({})
+  const [documentFont, setDocumentFont] = useState('')
 
   // وصف القالب الحالي: مسمّياته وحقوله المطلوبة والقدرات التي يفعّلها.
   const docType = getDocumentType(documentType)
@@ -542,6 +547,8 @@ function SickLeaveForm() {
         visitTypeEnglish: leaveData.visit_type_en || ''
       })
       setDocumentType(normalizeDocumentType(leaveData.document_type))
+      setTemplateData(leaveData.template_data || {})
+      setDocumentFont(leaveData.document_font || '')
       setIsEditMode(true)
       setOriginalServiceNum(leaveData.service_num || '')
       setOriginalLeaveId(leaveData.leave_id || '')
@@ -851,6 +858,8 @@ function SickLeaveForm() {
           visitTypeEnglish: record.visit_type_en || ''
         })
         setDocumentType(normalizeDocumentType(record.document_type))
+        setTemplateData(record.template_data || {})
+        setDocumentFont(record.document_font || '')
         setIsEditMode(true)
         setOriginalServiceNum(record.service_num || '')
         setOriginalLeaveId(record.leave_id || '')
@@ -1066,7 +1075,10 @@ function SickLeaveForm() {
         relation_en: feat.relation ? formData.relationEnglish : '',
         relation_ar: feat.relation ? formData.relationArabic : '',
         visit_type_en: feat.visitType ? formData.visitTypeEnglish : '',
-        visit_type_ar: feat.visitType ? formData.visitTypeArabic : ''
+        visit_type_ar: feat.visitType ? formData.visitTypeArabic : '',
+        // حقول التقرير الورقي وخطّه — تُرسل فقط مع القوالب الورقية.
+        template_data: docType.isPaper ? templateData : {},
+        document_font: docType.isPaper ? (documentFont || null) : null
       }
 
       // Debug: طباعة البيانات المرسلة
@@ -1324,7 +1336,10 @@ function SickLeaveForm() {
           relation_en: feat.relation ? formData.relationEnglish : '',
           relation_ar: feat.relation ? formData.relationArabic : '',
           visit_type_en: feat.visitType ? formData.visitTypeEnglish : '',
-          visit_type_ar: feat.visitType ? formData.visitTypeArabic : ''
+          visit_type_ar: feat.visitType ? formData.visitTypeArabic : '',
+          template_data: docType.isPaper ? templateData : {},
+          document_font: docType.isPaper ? (documentFont || null) : null,
+          __templateTitle: docType.titleAr
         }
         setPdfData(pdfDataToUse)
         setShowPdfModal(true)
@@ -1653,6 +1668,18 @@ function SickLeaveForm() {
               {`سيتم إصدار مستند «${docType.titleAr} (${docType.titleEn})»`}
             </small>
           </div>
+
+          {/* حقول التقرير الورقي — تُبنى من وصف القالب في الخادم، ومنها
+              خانات رفع الشعارات والأختام والتواقيع. */}
+          {docType.isPaper && (
+            <PaperFieldsEditor
+              templateId={docType.key}
+              value={templateData}
+              onChange={setTemplateData}
+              font={documentFont}
+              onFontChange={setDocumentFont}
+            />
+          )}
 
           {/* Service Number */}
           <div className={styles.fieldGroup}>

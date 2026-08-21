@@ -16,6 +16,7 @@ import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 import VisitStatementPDFOriginal from '../components/VisitStatementPDFOriginal'
 import CompanionSickLeavePDFOriginal from '../components/CompanionSickLeavePDFOriginal'
+import PaperDocumentPreview from '../components/PaperDocumentPreview'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 
 export const DOC_SICK_LEAVE = 'sick_leave'
@@ -54,6 +55,93 @@ const dateTime = (date, time) => [date, time].filter(Boolean).join(' - ')
 const waitingAr = (r) => calcWaitingPeriod(
   r.admission_date_en, r.admission_time, r.discharge_date_en, r.discharge_time
 ).ar
+
+
+// ── القوالب الورقية (تقارير المستشفيات) ─────────────────────────────────────
+// كلها تشترك في نفس السلوك: التصميم والحقول يأتيان من الخادم، والمعاينة
+// تعرض HTML الخادم نفسه. فيصفها مولّد واحد بدل تكرار الكائن سبع مرات.
+const paperTemplate = ({ key, optionLabel, titleAr, titleEn, icon, accent, description }) => ({
+  key,
+  optionLabel,
+  titleAr,
+  titleEn,
+  icon,
+  accent,
+  description,
+  isPaper: true,
+  previewComponent: PaperDocumentPreview,
+  previewTitle: `معاينة ${titleAr}`,
+  // القوالب الورقية لا تستخدم حقول صحة الخاصة (أوقات/قرابة/نوع زيارة/مدة)؛
+  // حقولها كلها ديناميكية تأتي من وصف القالب في الخادم.
+  features: { times: false, relation: false, visitType: false, leaveDuration: false },
+  labels: {
+    pageTitle: titleAr,
+    docLabel: titleAr,
+    deleteLabel: `حذف ${titleAr}`,
+    nameEn: 'اسم المريض (بالإنجليزية) *',
+    nameAr: 'اسم المريض (بالعربية) *',
+    admissionDate: 'تاريخ الدخول *',
+    dischargeDate: 'تاريخ الخروج *',
+    practitionerEn: 'اسم الطبيب (بالإنجليزية) *',
+    practitionerAr: 'اسم الطبيب (بالعربية) *',
+    facilityAr: 'اسم المنشأة الصحية (بالعربية) *',
+    facilityEn: 'اسم المنشأة الصحية (بالإنجليزية) *',
+    positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
+    positionAr: 'المسمى الوظيفي (بالعربية) *',
+  },
+  inquiryFields: (r) => [
+    { label: 'الاسم', value: r.name_ar },
+    { label: 'تاريخ اصدار التقرير', value: r.issue_date },
+    { label: 'تاريخ الدخول', value: r.admission_date_en },
+    { label: 'تاريخ الخروج', value: r.discharge_date_en },
+    { label: 'اسم الطبيب', value: r.physician_name_ar },
+  ],
+  requiredFields: {
+    serviceNum: 'رقم الخدمة مطلوب',
+    nationalID: 'رقم الهوية مطلوب',
+    leaveId: 'رقم الإجازة مطلوب',
+    name: 'اسم المريض بالإنجليزية مطلوب',
+    nameArabic: 'اسم المريض بالعربية مطلوب',
+    issueDate: 'تاريخ إصدار التقرير مطلوب',
+    admissionDate: 'تاريخ الدخول مطلوب',
+    dischargeDate: 'تاريخ الخروج مطلوب',
+  },
+})
+
+const PAPER_TEMPLATE_DEFS = [
+  { key: 'khalid_sick_leave', optionLabel: 'تقرير بأجازة مرضية (ج) — خالد المتميز',
+    titleAr: 'تقرير بأجازة مرضية (ج)', titleEn: 'Sick Leave Report ( C )',
+    icon: '📄', accent: '#1d4ed8',
+    description: 'نموذج مجمع خالد المتميز الطبي — بيانات المريض وتوصيات بخانات اختيار وتذييل إداري.' },
+  { key: 'madina_sick_leave', optionLabel: 'تقرير إجازة مرضية — المدينة الوطني',
+    titleAr: 'تقرير إجازة مرضية — المدينة الوطني', titleEn: 'Sick Leave Report — Madina National',
+    icon: '🏨', accent: '#0f766e',
+    description: 'نموذج مستشفى المدينة الوطني — عمودان بخط فاصل وأقسام معنونة وبيانات الطبيب المناوب.' },
+  { key: 'kfmc_appointment', optionLabel: 'إشعار موعد — مدينة الملك فهد الطبية',
+    titleAr: 'إشعار موعد', titleEn: 'Appointment Notice',
+    icon: '📅', accent: '#7c3aed',
+    description: 'إشعار موعد بمدينة الملك فهد الطبية — بيانات الموعد والعيادة والمبنى وتعليمات المريض.' },
+  { key: 'kfgh_medical_report', optionLabel: 'تقرير طبي — الملك فهد العام',
+    titleAr: 'تقرير طبي', titleEn: 'Medical Report',
+    icon: '🩺', accent: '#b45309',
+    description: 'تقرير طبي بمستشفى الملك فهد العام — جدول بيانات ونص تقرير حر وتوصيات وختم.' },
+  { key: 'haql_sick_leave', optionLabel: 'تقرير إجازة مرضية — حقل العام',
+    titleAr: 'تقرير إجازة مرضية — حقل العام', titleEn: 'Sick Leave Report — Haql General',
+    icon: '🏥', accent: '#059669',
+    description: 'نموذج مستشفى حقل العام — صندوق بيانات وصفوف تواريخ وتوصيات وثلاث كتل توقيع.' },
+  { key: 'kfgh_sick_leave_form', optionLabel: 'تقرير إجازة مرضية (نموذج) — الملك فهد العام',
+    titleAr: 'تقرير إجازة مرضية (نموذج)', titleEn: 'Sick Leave Form',
+    icon: '📝', accent: '#0369a1',
+    description: 'نموذج إجازة مرضية ثنائي اللغة بمستشفى الملك فهد العام — ثلاثة أطباء وأختام رسمية.' },
+  { key: 'ksmc_sick_leave', optionLabel: 'تقرير إجازة مرضية — الملك سعود الطبية',
+    titleAr: 'تقرير إجازة مرضية — الملك سعود الطبية', titleEn: 'Sick Leave Report — KSMC',
+    icon: '🧾', accent: '#be123c',
+    description: 'نموذج مدينة الملك سعود الطبية — توصيات بثمان خانات وخطاب إداري وختم معتمد.' },
+]
+
+export const PAPER_DOCUMENT_TYPES = Object.fromEntries(
+  PAPER_TEMPLATE_DEFS.map((d) => [d.key, paperTemplate(d)])
+)
 
 export const DOCUMENT_TYPES = {
   // ── تقرير الإجازة المرضية — السلوك الأصلي للنظام بحذافيره ─────────────────
@@ -284,13 +372,23 @@ export const DOCUMENT_TYPES = {
   },
 }
 
+// القوالب الورقية تُضاف إلى نفس السجلّ، فتظهر تلقائياً في صفحة القوالب
+// والنموذج ولوحة التحكم وصفحة الاستعلام بلا أي تعديل في تلك الصفحات.
+Object.assign(DOCUMENT_TYPES, PAPER_DOCUMENT_TYPES)
+
 // ترتيب عرض القوالب في القوائم وصفحة القوالب.
 export const DOCUMENT_TYPE_LIST = [
   DOCUMENT_TYPES[DOC_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_COMPANION],
   DOCUMENT_TYPES[DOC_COMPANION_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_VISIT_STATEMENT],
+  ...PAPER_TEMPLATE_DEFS.map((d) => DOCUMENT_TYPES[d.key]),
 ]
+
+/** هل هذا النوع قالباً ورقياً (حقوله ديناميكية من الخادم)؟ */
+export function isPaperType(value) {
+  return Boolean(getDocumentType(value).isPaper)
+}
 
 /** أي قيمة (من الخادم أو من الرابط) → مفتاح قالب مدعوم. */
 export function normalizeDocumentType(value) {

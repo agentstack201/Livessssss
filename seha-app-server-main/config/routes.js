@@ -1,5 +1,5 @@
 // Lazy load routes with error handling
-let loginRoute, countryRoute, leaveRoute, usersRoute;
+let loginRoute, countryRoute, leaveRoute, usersRoute, documentsRoute;
 
 try {
   loginRoute = require("../routes/login.route");
@@ -131,8 +131,19 @@ try {
   setupRoute.all("*", (req, res) => res.status(503).send("Setup service unavailable"));
 }
 
+try {
+  documentsRoute = require("../routes/documents.route");
+  console.log("✅ Documents route loaded");
+} catch (error) {
+  console.error("❌ Documents route failed:", error.message);
+  const express = require("express");
+  documentsRoute = express.Router();
+  documentsRoute.all("*", (req, res) => res.status(503).json({ message: "Documents service unavailable" }));
+}
+
 module.exports = {
   loginRoute,
+  documentsRoute,
   countryRoute,
   leaveRoute,
   usersRoute,
