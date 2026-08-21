@@ -92,7 +92,7 @@ function lines(ctx, key, fallback) {
 }
 
 function body(ctx) {
-  const { f, check, esc, data, raw, facilityLogo } = ctx;
+  const { f, check, esc, data, raw, asset, facilityLogo } = ctx;
   const on = (k) => raw(k) === true || raw(k) === 'true';
 
   return `
@@ -176,7 +176,7 @@ function body(ctx) {
     <div class="pline"><span class="en">Signature: <span class="dash"></span> Badge No: ${f('badge_no')}</span><span class="ar"><span class="dash"></span> : التوقيع</span></div>
     <div class="pline">
       <span class="en">Physician Name: ${esc((data.physician_name_en || '').toUpperCase())}</span>
-      <span class="ar">${ctx.raw('signature_image') ? `<img class="sig-img" src="${esc(ctx.raw('signature_image'))}" alt="">` : ''} &nbsp; ${esc(data.physician_name_ar)} : إسم الطبيب</span>
+      <span class="ar">${ctx.asset('signature_image') ? `<img class="sig-img" src="${esc(ctx.asset('signature_image'))}" alt="">` : ''} &nbsp; ${esc(data.physician_name_ar)} : إسم الطبيب</span>
     </div>
     <div class="pline"><span class="en">Signature: <span class="dash"></span></span><span class="ar"><span class="dash"></span> : التوقيع</span></div>
     <div class="pline"><span class="en">Approval of the Director: <span class="dash" style="min-width:250px"></span></span><span class="ar">${f('director_title', 'تصديق مدير المجمع الطبي العام')}</span></div>
@@ -186,7 +186,7 @@ function body(ctx) {
 
   <!-- التذييل الإداري -->
   <div class="box"><div class="foot ar">
-    ${ctx.raw('stamp_image') ? `<img class="stamp" src="${esc(ctx.raw('stamp_image'))}" alt="">` : ''}
+    ${ctx.asset('stamp_image') ? `<img class="stamp" src="${esc(ctx.asset('stamp_image'))}" alt="">` : ''}
     <div class="ln"><span>سعادة : ${f('addressee')}</span><span>المحترم</span></div>
     <div class="ln"><span>إشارة إلى إحالتكم رقم : ${f('referral_no')}</span><span>وتاريخ ${f('referral_date')}</span></div>
     <div>بشأن طلب الكشف على الموضح اسمه أعلاه</div>

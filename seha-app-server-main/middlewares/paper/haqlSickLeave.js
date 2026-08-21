@@ -69,14 +69,14 @@ function lines(ctx, key, fallback, cls) {
 }
 
 function body(ctx) {
-  const { f, fml, esc, data, raw, check, facilityLogo } = ctx;
+  const { f, fml, esc, data, raw, asset, check, facilityLogo } = ctx;
   const on = (k) => raw(k) === true || raw(k) === 'true';
   const img = (v) => (v ? `<img src="${esc(v)}" alt="">` : '');
   const crow = (en, ar) => `<div class="crow"><span class="en en">${en}</span><span class="ar ar">${ar}</span></div>`;
 
   return `
 <div class="sheet">
-  ${raw('wave_image') ? `<div class="wave">${img(raw('wave_image'))}</div>` : ''}
+  ${asset('wave_image') ? `<div class="wave">${img(asset('wave_image'))}</div>` : ''}
   <div class="layer">
 
     <div class="moh">${img(facilityLogo)}</div>
@@ -166,15 +166,15 @@ function body(ctx) {
       <div class="ar">
         ${f('sign1_title', 'الطبيب المعالج')}<br>${f('sign1_name', esc(data.physician_name_ar))}
         ${f('license_box') ? `<div class="lic">${fml('license_box')}</div>` : ''}
-        ${img(raw('signature_image'))}
+        ${img(asset('signature_image'))}
       </div>
       <div class="ar">
         ${f('sign2_title', 'تصديق مدير خدمات المرضى والتقارير الطبية.')}<br>${f('sign2_name')}
-        ${img(raw('signature2_image'))}
+        ${img(asset('signature2_image'))}
       </div>
       <div class="ar">
         ${f('sign3_title', 'إدارة شؤون المرضى.')}<br>${f('sign3_lines', 'التوقيع :')}
-        ${img(raw('stamp_image'))}
+        ${img(asset('stamp_image'))}
       </div>
     </div>
 

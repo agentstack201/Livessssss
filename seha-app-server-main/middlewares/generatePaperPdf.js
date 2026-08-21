@@ -44,7 +44,7 @@ module.exports = async (templateId, data, leave_days, DateObj, country) => {
 
     const ctx = buildContext(tpl, data, leave_days, DateObj, country, {
       qrDataUri, verificationUrl,
-      facilityLogo: resolveFacilityLogo(data),
+      facilityLogo: resolveFacilityLogo(data, tpl),
       dataUriFromPublic,
     });
 
@@ -87,12 +87,22 @@ module.exports = async (templateId, data, leave_days, DateObj, country) => {
   }
 };
 
-// شعار المنشأة: نفس منطق القوالب القائمة (رابط، أو base64، أو ملف محلي).
-function resolveFacilityLogo(data) {
-  const raw = data.template_data?.facility_logo || data.footer_logo;
+// أي أصل صورة: رابط خارجي، أو data URI، أو مسار محلي داخل public.
+function resolveAsset(value) {
+  if (!value || typeof value !== 'string') return '';
+  if (value.startsWith('http') || value.startsWith('data:')) return value;
+  return dataUriFromPublic(value.replace(/^\//, ''));
+}
+
+// شعار المنشأة: أولوية ما اختاره المستخدم، ثم شعار التذييل المحفوظ، ثم
+// القيمة الافتراضية المعلنة في القالب.
+function resolveFacilityLogo(data, tpl) {
+  const raw = data.template_data?.facility_logo
+    || data.footer_logo
+    || tpl.defaults?.facility_logo;
   if (!raw) return '';
   if (raw.startsWith('http') || raw.startsWith('data:')) return raw;
-  return resolveFooterLogo(raw);
+  return resolveAsset(raw) || resolveFooterLogo(raw);
 }
 
 /**
@@ -100,7 +110,14 @@ function resolveFacilityLogo(data) {
  * فلا يستطيع أي نص من قاعدة البيانات كسر بنية الصفحة أو حقن وسم.
  */
 function buildContext(tpl, data, leave_days, DateObj, country, extra) {
-  const td = data.template_data || {};
+  // القيم الافتراضية التي يعلنها القالب (شعارات، أختام، تواقيع، نصوص ثابتة)
+  // تُدمج تحت ما أدخله المستخدم: فالمستند يخرج كاملاً كالأصل من أول مرة،
+  // ويظل كل عنصر قابلاً للاستبدال أو الإفراغ من خانته في النموذج.
+  const defaults = {};
+  for (const fld of tpl.fields || []) {
+    if (fld.default !== undefined) defaults[fld.key] = fld.default;
+  }
+  const td = { ...defaults, ...(tpl.defaults || {}), ...(data.template_data || {}) };
   return {
     data,
     td,
@@ -110,6 +127,9 @@ function buildContext(tpl, data, leave_days, DateObj, country, extra) {
     ...extra,
     // قيمة حقل خاص بالقالب (مُهرَّبة). الفارغ يبقى فارغاً — لا نخترع بيانات.
     f: (key, fallback = '') => escapeHtml(td[key] != null && td[key] !== '' ? td[key] : fallback),
+    // أصل صورة (شعار/ختم/توقيع): يُعاد كما هو إن كان رابطاً أو data URI،
+    // ويُضمَّن base64 إن كان مساراً محلياً — صفحة الطباعة لا تُصدر أي طلب شبكة.
+    asset: (key) => resolveAsset(td[key]),
     // حقل متعدّد الأسطر: يُهرَّب ثم تتحوّل أسطره إلى <br> (لحقول textarea).
     fml: (key, fallback = '') => {
       const v = td[key] != null && td[key] !== '' ? td[key] : fallback;

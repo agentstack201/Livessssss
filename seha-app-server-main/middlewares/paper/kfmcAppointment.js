@@ -46,7 +46,7 @@ const css = `
 `;
 
 function body(ctx) {
-  const { f, fml, esc, data, raw, facilityLogo } = ctx;
+  const { f, fml, esc, data, raw, asset, facilityLogo } = ctx;
   const img = (v, extra = '') => (v ? `<img src="${esc(v)}" alt="" ${extra}>` : '');
 
   const row = (en, ar) => `<div class="arow"><span class="en en">${en}</span><span class="ar ar">${ar}</span></div>`;
@@ -55,7 +55,7 @@ function body(ctx) {
 <div class="sheet">
 
   <header class="hdr">
-    <div class="side">${img(raw('vision_logo'))}</div>
+    <div class="side">${img(asset('vision_logo'))}</div>
     <div class="mid">${img(facilityLogo)}</div>
     <div class="ar-block ar">
       <div>${f('country_line', 'المملكة العربية السعودية')}</div>
@@ -89,13 +89,13 @@ function body(ctx) {
   <div class="signs">
     <div class="dept ar">
       ${f('dept_name', 'إدارة شئون المرضى')}
-      ${img(raw('stamp_image'))}
+      ${img(asset('stamp_image'))}
     </div>
     <div class="doc">
       ${f('clinic_box') ? `<div class="box en">${fml('clinic_box')}</div>` : ''}
       <div class="ar">${f('doctor_name_ar', esc(data.physician_name_ar))}</div>
       <div class="en">${f('doctor_name_en', esc(data.physician_name_en))}</div>
-      ${img(raw('signature_image'))}
+      ${img(asset('signature_image'))}
     </div>
   </div>
 

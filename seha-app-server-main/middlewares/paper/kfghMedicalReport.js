@@ -66,12 +66,12 @@ function lines(ctx, key, fallback, cls) {
 }
 
 function body(ctx) {
-  const { f, fml, esc, data, raw, facilityLogo } = ctx;
+  const { f, fml, esc, data, raw, asset, facilityLogo } = ctx;
   const img = (v, cls = '') => (v ? `<img class="${cls}" src="${esc(v)}" alt="">` : '');
 
   return `
 <div class="sheet">
-  ${raw('watermark_image') ? `<div class="wm">${img(raw('watermark_image'))}</div>` : ''}
+  ${asset('watermark_image') ? `<div class="wm">${img(asset('watermark_image'))}</div>` : ''}
   <div class="layer">
 
     <header class="hdr">
@@ -87,7 +87,7 @@ function body(ctx) {
       <tr>
         <td class="lbl ar">رقم الملف الطبي</td>
         <td class="val en">${f('medical_record_no')}</td>
-        <td class="logo" rowspan="5">${img(raw('table_logo'))}</td>
+        <td class="logo" rowspan="5">${img(asset('table_logo'))}</td>
       </tr>
       <tr>
         <td class="lbl ar">اسم المريض</td>
@@ -128,8 +128,8 @@ function body(ctx) {
     <div class="sig">
       <div class="who ar">${f('signer_title', 'الطبيب الاستشاري')}</div>
       <div class="imgs">
-        <span class="stamp-lbl ar">${f('stamp_label', 'الختم:')} ${img(raw('stamp_image'))}</span>
-        <span>${img(raw('signature_image'))}</span>
+        <span class="stamp-lbl ar">${f('stamp_label', 'الختم:')} ${img(asset('stamp_image'))}</span>
+        <span>${img(asset('signature_image'))}</span>
       </div>
     </div>
 

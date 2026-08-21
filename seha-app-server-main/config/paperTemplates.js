@@ -77,8 +77,8 @@ const PAPER_TEMPLATES = {
       T('report_tel', 'هاتف التقرير', { group: 'الترويسة' }),
       T('facility_ar', 'اسم المنشأة (عربي)', { group: 'الترويسة' }),
       T('facility_en', 'اسم المنشأة (إنجليزي)', { group: 'الترويسة' }),
-      T('nhic_logo', 'شعار المركز الوطني', { type: 'image', group: 'الترويسة' }),
-      T('platform_logo', 'شعار المنصة (التذييل)', { type: 'image', group: 'الترويسة' }),
+      T('nhic_logo', 'شعار المركز الوطني', { default: '/images/national-center.jpg', type: 'image', group: 'الترويسة' }),
+      T('platform_logo', 'شعار المنصة (التذييل)', { default: '/images/seha.jpg', type: 'image', group: 'الترويسة' }),
       T('platform_caption', 'نص التذييل', { group: 'الترويسة' }),
 
       T('medical_record_no', 'رقم السجل الطبي', { group: 'بيانات المريض' }),
@@ -113,6 +113,8 @@ const PAPER_TEMPLATES = {
     titleEn: 'Appointment Notice',
     defaultFont: DEFAULT_FONT,
     module: './paper/kfmcAppointment',
+    // أصول مستخرجة من المستند الأصلي — تُعرض افتراضياً وتبقى قابلة للاستبدال.
+    defaults: { 'facility_logo': '/images/1.png' },
     fields: [
       T('doc_title', 'عنوان المستند', { group: 'الترويسة' }),
       T('country_line', 'سطر الدولة', { group: 'الترويسة' }),
@@ -163,11 +165,13 @@ const PAPER_TEMPLATES = {
     titleEn: 'Medical Report — King Fahad General',
     defaultFont: DEFAULT_FONT,
     module: './paper/kfghMedicalReport',
+    // أصول مستخرجة من المستند الأصلي — تُعرض افتراضياً وتبقى قابلة للاستبدال.
+    defaults: { 'facility_logo': '/images/1.png', 'stamp_image': '/images/paper/kfgh-seal-rect.png' },
     fields: [
       T('badge_title', 'نص المربّع', { group: 'الترويسة' }),
       T('title_en', 'العنوان الإنجليزي', { group: 'الترويسة' }),
-      T('table_logo', 'شعار داخل الجدول', { type: 'image', group: 'الترويسة' }),
-      T('watermark_image', 'العلامة المائية', { type: 'image', group: 'الترويسة' }),
+      T('table_logo', 'شعار داخل الجدول', { default: '/images/1.png', type: 'image', group: 'الترويسة' }),
+      T('watermark_image', 'العلامة المائية', { default: '/images/paper/moh-watermark.png', type: 'image', group: 'الترويسة' }),
       T('medical_record_no', 'رقم الملف الطبي', { group: 'بيانات المريض' }),
       T('date_of_birth', 'تاريخ الميلاد', { group: 'بيانات المريض' }),
       T('gender_ar', 'الجنس', { group: 'بيانات المريض' }),
@@ -193,6 +197,8 @@ const PAPER_TEMPLATES = {
     titleEn: 'Sick Leave Report — Haql General',
     defaultFont: DEFAULT_FONT,
     module: './paper/haqlSickLeave',
+    // أصول مستخرجة من المستند الأصلي — تُعرض افتراضياً وتبقى قابلة للاستبدال.
+    defaults: { 'facility_logo': '/images/1.png' },
     fields: [
       T('title_ar', 'العنوان (عربي)', { group: 'الترويسة' }),
       T('title_en', 'العنوان (إنجليزي)', { group: 'الترويسة' }),
@@ -241,8 +247,10 @@ const PAPER_TEMPLATES = {
     titleEn: 'Sick Leave Form — King Fahad General',
     defaultFont: DEFAULT_FONT,
     module: './paper/kfghSickLeaveForm',
+    // أصول مستخرجة من المستند الأصلي — تُعرض افتراضياً وتبقى قابلة للاستبدال.
+    defaults: { 'stamp_image': '/images/paper/kfgh-seal-rect.png', 'signature_image': '/images/paper/kfgh-physician-signature.png' },
     fields: [
-      T('header_image', 'صورة الترويسة (بعرض الصفحة)', { type: 'image', group: 'الترويسة' }),
+      T('header_image', 'صورة الترويسة (بعرض الصفحة)', { default: '/images/paper/kfgh-letterhead.png', type: 'image', group: 'الترويسة' }),
       T('medical_record_no', 'رقم الملف الطبي', { group: 'بيانات المريض' }),
       T('sex', 'الجنس', { type: 'select', group: 'بيانات المريض', options: [
         { value: '', label: '—' }, { value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' } ] }),
@@ -266,7 +274,7 @@ const PAPER_TEMPLATES = {
       T('physician3', 'الطبيب الثالث', { group: 'الأطباء' }),
       T('signature2_image', 'توقيع الطبيب الثاني', { type: 'image', group: 'التواقيع والأختام' }),
       T('signature3_image', 'توقيع الطبيب الثالث', { type: 'image', group: 'التواقيع والأختام' }),
-      T('seal2_image', 'الختم الثاني (the seal)', { type: 'image', group: 'التواقيع والأختام' }),
+      T('seal2_image', 'الختم الثاني (the seal)', { default: '/images/paper/kfgh-seal-oval.png', type: 'image', group: 'التواقيع والأختام' }),
       T('efoot_note', 'حاشية الوثيقة الإلكترونية', { type: 'textarea', group: 'التذييل' }),
       ...LETTERHEAD_FIELDS,
     ],
@@ -279,8 +287,10 @@ const PAPER_TEMPLATES = {
     titleEn: 'Sick Leave Report — King Saud Medical City',
     defaultFont: DEFAULT_FONT,
     module: './paper/ksmcSickLeave',
+    // أصول مستخرجة من المستند الأصلي — تُعرض افتراضياً وتبقى قابلة للاستبدال.
+    defaults: { 'stamp_image': '/images/paper/ksmc-seal.png', 'signature_image': '/images/paper/ksmc-signature.png', 'doctor_boxes_image': '/images/paper/ksmc-doctor-boxes.png' },
     fields: [
-      T('header_image', 'صورة الترويسة (بعرض الصفحة)', { type: 'image', group: 'الترويسة' }),
+      T('header_image', 'صورة الترويسة (بعرض الصفحة)', { default: '/images/paper/ksmc-letterhead.png', type: 'image', group: 'الترويسة' }),
       T('title_ar', 'العنوان (عربي)', { group: 'الترويسة' }),
       T('title_en', 'العنوان (إنجليزي)', { group: 'الترويسة' }),
       T('medical_record_no', 'رقم السجل الطبي', { group: 'بيانات المريض' }),
@@ -310,6 +320,10 @@ const PAPER_TEMPLATES = {
       T('letter_line2', 'سطر الخطاب الثاني', { type: 'textarea', group: 'الخطاب' }),
       T('signer_title', 'صفة الموقّع', { group: 'الخطاب' }),
       T('signer_name', 'اسم الموقّع', { group: 'الخطاب' }),
+      T('physician1', 'اسم الطبيب', { group: 'الأطباء' }),
+      T('physician2', 'اسم الطبيب المعالج', { group: 'الأطباء' }),
+      T('doctor_boxes_image', 'مربّعات أسماء الأطباء (صورة)', { type: 'image', group: 'التواقيع والأختام' }),
+      T('important_note', 'الملاحظة الهامة', { type: 'textarea', group: 'الخطاب' }),
       ...LETTERHEAD_FIELDS,
     ],
   },

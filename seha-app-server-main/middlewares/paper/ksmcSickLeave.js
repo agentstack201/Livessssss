@@ -11,7 +11,7 @@ const css = `
 .sheet { width: 210mm; height: 297mm; padding: 8mm 12mm 6mm; direction: ltr; overflow: hidden; position: relative; }
 
 .lh { text-align: center; margin-bottom: 6px; }
-.lh img { max-width: 100%; max-height: 92px; object-fit: contain; }
+.lh > img { width: 100%; height: auto; object-fit: contain; display: block; }
 .lh .txt { display: flex; align-items: center; gap: 10px; }
 .lh .txt .en { flex: 1; text-align: left; font-size: 13px; font-weight: 700; line-height: 1.9; }
 .lh .txt .ar { flex: 1; text-align: right; font-size: 13px; font-weight: 700; line-height: 1.9; }
@@ -39,10 +39,18 @@ const css = `
 .ritem .ar { flex: 1; text-align: right; display: flex; gap: 8px; align-items: baseline; justify-content: flex-end; }
 
 /* ── الخطاب الإداري ───────────────────────────────────────────────────── */
-.letter { margin-top: 16px; direction: rtl; text-align: right; font-size: 13px; font-weight: 700; line-height: 2.0; }
+.letter { margin-top: 8px; direction: rtl; text-align: right; font-size: 12.6px; font-weight: 700; line-height: 1.85; }
 .letter .greet { display: flex; justify-content: space-between; }
-.sig { margin-top: 16px; display: flex; align-items: flex-end; justify-content: space-between; }
-.sig img { max-height: 110px; max-width: 200px; object-fit: contain; }
+.sig { margin-top: 10px; display: flex; align-items: flex-end; justify-content: space-between; }
+.sig img { max-height: 84px; max-width: 165px; object-fit: contain; }
+
+/* صفوف الأطباء ومربّعات الأسماء — كما في تذييل المستند الأصلي */
+.docs { margin-top: 8px; border-top: 1.1px solid #000; padding-top: 8px; position: relative; }
+.docs .drow { display: flex; align-items: baseline; gap: 12px; padding: 5px 0; font-size: 12.6px; font-weight: 700; }
+.docs .drow .en { flex: 1; text-align: left; display: flex; gap: 40px; }
+.docs .drow .ar { flex: 1; text-align: right; }
+.docs .boxes { position: absolute; left: 44%; top: 4px; max-height: 96px; object-fit: contain; }
+.note-imp { margin-top: 6px; font-size: 11.6px; font-weight: 700; text-align: right; }
 `;
 
 const HDR_EN = ['KINGDOM OF SAUDA ARABIA', 'Ministry of health', 'King Saud Medical City'];
@@ -55,7 +63,7 @@ function lines(ctx, key, fallback, cls) {
 }
 
 function body(ctx) {
-  const { f, fml, esc, data, raw, check, facilityLogo } = ctx;
+  const { f, fml, esc, data, raw, asset, check, facilityLogo } = ctx;
   const on = (k) => raw(k) === true || raw(k) === 'true';
   const img = (v) => (v ? `<img src="${esc(v)}" alt="">` : '');
   const row = (en, ar) => `<div class="brow"><span class="en en">${en}</span><span class="ar ar">${ar}</span></div>`;
@@ -64,8 +72,8 @@ function body(ctx) {
       <span class="ar ar">${ar} ${check(on(k))}</span>
     </div>`;
 
-  const header = raw('header_image')
-    ? `<div class="lh">${img(raw('header_image'))}</div>`
+  const header = asset('header_image')
+    ? `<div class="lh">${img(asset('header_image'))}</div>`
     : `<div class="lh"><div class="txt">
          <div class="en">${lines(ctx, 'header_en', HDR_EN, 'en')}</div>
          <div class="mid">${img(facilityLogo)}</div>
@@ -108,15 +116,28 @@ function body(ctx) {
     ${item('rec_others', `Others:`, `أخرى : ${f('others_text')}`)}
   </div>
 
+  <div class="docs">
+    ${asset('doctor_boxes_image') ? `<img class="boxes" src="${esc(asset('doctor_boxes_image'))}" alt="">` : ''}
+    <div class="drow">
+      <span class="en en"><span>Treating physician Name:</span><span>Signature:</span></span>
+      <span class="ar ar">${f('physician1', esc(data.physician_name_ar))} : اسم الطبيب</span>
+    </div>
+    <div class="drow">
+      <span class="en en"><span>physician Name:</span><span>Signature:</span></span>
+      <span class="ar ar">${f('physician2')} : اسم الطبيب المعالج</span>
+    </div>
+  </div>
+
   <div class="letter ar">
     <div class="greet"><span>سعادة/ ${f('addressee')}</span><span>المحترم</span></div>
     <div>${f('salutation', 'السلام عليكم ورحمة الله وبركاته')}</div>
     <div>${f('letter_line1', 'إشارة الى مراجعة الموظف لديكم الموضح اسمه اعلاها للكشف')}</div>
     <div>${f('letter_line2', 'عليه تجدون بعالية التقرير الصادر بشأنه')}</div>
     <div class="sig">
-      <span>${img(raw('stamp_image'))}</span>
-      <span>${f('signer_title')}<br>${f('signer_name', esc(data.physician_name_ar))}<br>${img(raw('signature_image'))}</span>
+      <span>${img(asset('stamp_image'))}</span>
+      <span>${img(asset('signature_image'))}</span>
     </div>
+    <div class="note-imp">${f('important_note', 'ملاحظة هامة : لا يعتمد هذا التقرير مالم يحمل الختم الرسمي')}</div>
   </div>
 </div>`;
 }

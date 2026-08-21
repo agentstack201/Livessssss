@@ -5,10 +5,10 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 const css = `
-.sheet { width: 210mm; height: 297mm; padding: 10mm 12mm; direction: ltr; overflow: hidden; }
+.sheet { width: 210mm; height: 297mm; padding: 8mm 12mm 6mm; direction: ltr; overflow: hidden; }
 
 /* ── الترويسة: شعار المركز الوطني يسار، العنوان وسط، شعار المستشفى يمين ── */
-.hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .hdr .side { width: 150px; flex-shrink: 0; text-align: center; }
 .hdr .side img { max-width: 100%; max-height: 62px; object-fit: contain; }
 .hdr .mid { flex: 1; text-align: center; line-height: 1.35; }
@@ -17,7 +17,7 @@ const css = `
 .hdr .t-no { font-size: 15px; font-weight: 700; }
 
 /* ── الفقرة التمهيدية ─────────────────────────────────────────────────── */
-.intro { display: flex; gap: 20px; margin-bottom: 16px; font-size: 12.4px; line-height: 1.75; }
+.intro { display: flex; gap: 20px; margin-bottom: 12px; font-size: 12.2px; line-height: 1.65; }
 .intro .en { flex: 1; text-align: left; font-weight: 600; }
 .intro .ar { flex: 1; text-align: right; font-weight: 700; }
 
@@ -35,13 +35,13 @@ const css = `
 .indent-ar { padding-right: 26px !important; }
 
 /* ── التذييل: شعار صحة ─────────────────────────────────────────────────── */
-.foot { margin-top: 22px; text-align: center; }
-.foot img { max-height: 60px; object-fit: contain; }
+.foot { margin-top: 10px; text-align: center; }
+.foot img { max-height: 46px; object-fit: contain; }
 .foot .cap { font-size: 13px; font-weight: 700; color: #1f8a80; margin-top: 2px; }
 `;
 
 function body(ctx) {
-  const { f, esc, data, raw, facilityLogo } = ctx;
+  const { f, esc, data, raw, asset, facilityLogo } = ctx;
   const days = ctx.leave_days || '';
   const img = (v, cls) => (v ? `<img class="${cls}" src="${esc(v)}" alt="">` : '');
 
@@ -53,7 +53,7 @@ function body(ctx) {
 <div class="sheet">
 
   <header class="hdr">
-    <div class="side">${img(raw('nhic_logo'), '')}</div>
+    <div class="side">${img(asset('nhic_logo'), '')}</div>
     <div class="mid">
       <div class="t-ar ar">تقرير إجازة مرضية</div>
       <div class="t-en en">Sick Leave</div>
@@ -111,7 +111,7 @@ function body(ctx) {
   </div>
 
   <div class="foot">
-    ${img(raw('platform_logo'), '')}
+    ${img(asset('platform_logo'), '')}
     <div class="cap ar">${f('platform_caption', 'منصة الخدمات الصحية')}</div>
   </div>
 

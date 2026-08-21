@@ -9,7 +9,7 @@ const css = `
 .sheet { width: 210mm; height: 297mm; padding: 8mm 12mm 6mm; direction: ltr; overflow: hidden; position: relative; }
 
 .lh { text-align: center; margin-bottom: 4px; }
-.lh img { max-width: 100%; max-height: 84px; object-fit: contain; }
+.lh > img { width: 100%; height: auto; object-fit: contain; display: block; }
 .lh .txt { display: flex; align-items: center; gap: 10px; }
 .lh .txt .en { flex: 1; text-align: left; font-size: 12.4px; font-weight: 700; line-height: 1.55; }
 .lh .txt .ar { flex: 1; text-align: right; font-size: 12.8px; font-weight: 700; line-height: 1.55; }
@@ -30,14 +30,16 @@ const css = `
 .docs { margin-top: 14px; }
 .drow { display: flex; align-items: flex-end; gap: 12px; padding: 7px 0; font-size: 13px; font-weight: 700; }
 .drow .en { flex: 1; text-align: left; display: flex; gap: 46px; }
-.drow .ar { flex: 1; text-align: right; position: relative; }
-.drow .ar img { position: absolute; right: 60px; bottom: 2px; max-height: 42px; max-width: 150px; object-fit: contain; }
+.drow .ar { flex: 1; text-align: right; }
+.drow .ar img { max-height: 40px; max-width: 150px; object-fit: contain; vertical-align: -14px; }
 
 /* ── الأختام ──────────────────────────────────────────────────────────── */
-.seals { display: flex; align-items: flex-start; gap: 12px; margin-top: 10px; font-size: 13px; font-weight: 700; }
+.seals { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; font-size: 13px; font-weight: 700; }
 .seals .en { flex: 1; text-align: left; }
 .seals .ar { flex: 1; text-align: right; }
-.seals img { max-height: 120px; max-width: 190px; object-fit: contain; vertical-align: middle; }
+.seals img { display: block; margin-top: 4px; max-height: 118px; max-width: 200px; object-fit: contain; }
+.seals .en img { margin-left: 34px; }
+.seals .ar img { margin-right: 34px; margin-left: auto; }
 
 .efoot { position: absolute; left: 12mm; right: 12mm; bottom: 7mm; text-align: center;
          font-size: 10.6px; font-weight: 700; text-decoration: underline; line-height: 1.65; }
@@ -53,13 +55,13 @@ function lines(ctx, key, fallback, cls) {
 }
 
 function body(ctx) {
-  const { f, fml, esc, data, raw, check, facilityLogo } = ctx;
+  const { f, fml, esc, data, raw, asset, check, facilityLogo } = ctx;
   const img = (v) => (v ? `<img src="${esc(v)}" alt="">` : '');
   const row = (en, ar) => `<div class="brow"><span class="en en">${en}</span><span class="ar ar">${ar}</span></div>`;
 
   // الترويسة: صورة بعرض الصفحة إن وُجدت، وإلا نصّ ثلاثي كما في الأصل.
-  const header = raw('header_image')
-    ? `<div class="lh">${img(raw('header_image'))}</div>`
+  const header = asset('header_image')
+    ? `<div class="lh">${img(asset('header_image'))}</div>`
     : `<div class="lh"><div class="txt">
          <div class="en">${lines(ctx, 'header_en', HDR_EN, 'en')}</div>
          <div class="mid">${img(facilityLogo)}</div>
@@ -96,21 +98,21 @@ function body(ctx) {
   <div class="docs">
     <div class="drow">
       <span class="en"><span>Name of physician:</span><span>signature:</span></span>
-      <span class="ar">${img(raw('signature_image'))} التوقيع : &nbsp; ${f('physician1', esc(data.physician_name_ar))} : الطبيب</span>
+      <span class="ar">${img(asset('signature_image'))} التوقيع : &nbsp; ${f('physician1', esc(data.physician_name_ar))} : الطبيب</span>
     </div>
     <div class="drow">
       <span class="en"><span>Name of physician:</span><span>signature:</span></span>
-      <span class="ar">${img(raw('signature2_image'))} التوقيع : &nbsp; ${f('physician2')} : الطبيب</span>
+      <span class="ar">${img(asset('signature2_image'))} التوقيع : &nbsp; ${f('physician2')} : الطبيب</span>
     </div>
     <div class="drow">
       <span class="en"><span>Name of physician:</span><span>signature:</span></span>
-      <span class="ar">${img(raw('signature3_image'))} التوقيع : &nbsp; ${f('physician3')} : الطبيب</span>
+      <span class="ar">${img(asset('signature3_image'))} التوقيع : &nbsp; ${f('physician3')} : الطبيب</span>
     </div>
   </div>
 
   <div class="seals">
-    <span class="en">the seal : ${img(raw('seal2_image'))}</span>
-    <span class="ar">${img(raw('stamp_image'))} &nbsp; الختم :</span>
+    <span class="en"><span>the seal :</span>${img(asset('seal2_image'))}</span>
+    <span class="ar"><span>: الختم</span>${img(asset('stamp_image'))}</span>
   </div>
 
   <div class="efoot ar">${fml('efoot_note', 'هذه الوثيقة صادرة من قسم التقارير الطبية عن طريق الحاسب الآلي معتمدة بالتوقيع الألكتروني ولا تحتاج إلى توقيع يدوي ويكتفى بالختم الرسمي لمستشفى الملك فهد العام')}</div>
