@@ -5,6 +5,7 @@ const createPDF = require("../middlewares/generatePdf"); // استخدام ال�
 const createCompanionPDF = require("../middlewares/generateCompanionPdf"); // قالب «مشهد مراجعة لمرافق»
 const createVisitStatementPDF = require("../middlewares/generateVisitStatementPdf"); // قالب «مشهد مراجعة»
 const createCompanionSickLeavePDF = require("../middlewares/generateCompanionSickLeavePdf"); // قالب «تقرير مرافقة مريض»
+const createSickLeaveEnhancedPDF = require("../middlewares/generateSickLeaveEnhancedPdf"); // القالب الخامس «تقرير إجازة مرضية - محسن»
 const generatePaperPdf = require("../middlewares/generatePaperPdf"); // المولّد العام للقوالب الورقية
 const calcDays = require("../middlewares/calcDays");
 
@@ -26,6 +27,7 @@ module.exports = {
   createCompanionPDF,
   createVisitStatementPDF,
   createCompanionSickLeavePDF,
+  createSickLeaveEnhancedPDF,
   createPaperPDF,
   calcDays,
   convertDates,

@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare';
+import { wrapName, wrapText } from '../utils/nameWrap';
 
 // استخدام الصور والخطوط من مجلد public في الفرونت اند
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
@@ -65,6 +66,12 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
 
   // حساب مدة الإجازة - محسّن وفوري
   const calculateDuration = () => {
+    // وضع "يبدأ من تاريخ الإصدار": المدة قيمة مستقلة محفوظة، لا تُحسب من
+    // الفرق بين التاريخين (كلاهما يساوي تاريخ الإصدار في هذا الوضع).
+    if (data.date_mode === 'issue_date' && data.leave_days) {
+      return parseInt(data.leave_days, 10) || 0;
+    }
+
     // التحقق من وجود تاريخ الدخول على الأقل
     if (!data.admission_date_en) return 0;
 
@@ -266,7 +273,10 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
         }
       body {
 font-family: "NotoSansArabic", sans-serif;
-        margin: 0px 0px 20px 20px;
+        /* الجسم بعرض الصفحة نفسه (210mm)، فأي هامش أفقي يزيحه عن مركزها
+           ويقصّ الطرف الآخر. الهامش الأيسر كان 20px والأيمن صفراً، فكان
+           المستند كله منزاحاً 20px إلى اليمين. صفر يعيده إلى المنتصف. */
+        margin: 0px 0px 20px 0px;
         max-height: 297mm;
         height: 297mm;
         overflow: hidden;
@@ -377,6 +387,32 @@ font-family: "NotoSansArabic", sans-serif;
         line-height: 1.1;
         padding-top: 4px;
         padding-bottom: 4px;
+        /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+           دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+        overflow-wrap: break-word;
+        word-break: normal;
+      }
+      /* وحدة لا تنكسر: أداة وصل مربوطة بالاسم الذي تخصّه (انظر nameWrap.js). */
+      .nb {
+        white-space: nowrap;
+      }
+      /* كلمة واحدة أطول من أي عمود. مع break-word وحدها يبقى «أقلّ عرض ممكن»
+         للعمود = طول الكلمة كاملة، فيتمدّد الجدول أعرض من الصفحة ويضغط
+         المتصفح الصفحة كلها لتصغر (نص مجهري ونِسَب مشوّهة). قيمة anywhere
+         تجعل الكسر محسوباً ضمن أقلّ عرض للعمود فيبقى الجدول داخل A4 — ولا
+         تُوضع إلا على الكلمات الطويلة وحدها، فلا تتأثر أي بيانات عادية. */
+      .brk {
+        overflow-wrap: anywhere;
+      }
+      /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+         ترك اللقب وحده في السطر التالي («... MOHAMMED / ALSHAHRANY»). المتصفّح
+         يوازن بين الأسطر مع احترام الوحدات التي لا تنكسر أعلاه، فلا يتغيّر حجم
+         الخط ولا عرض الخلية، وعدد الأسطر يبقى كما هو (الارتفاع يتكيّف طبيعياً
+         عند الحاجة). المحرّك الذي لا يعرف balance يقع على pretty ثم على
+         الالتفاف العادي — والوحدات تبقى محمية في الحالتين. */
+      .name-cell {
+        text-wrap: pretty;
+        text-wrap: balance;
       }
       .darkBg {
         background-color: #f7f7f7 !important;
@@ -408,10 +444,14 @@ font-family: "NotoSansArabic", sans-serif;
       .leave-duration .two {
         color: #ffffff !important;
       }
+      /* خلية العنوان العربي (آخر عمود) هي التي تحدّد ارتفاع كل صف: سطر الخط
+         العربي وحده ٣٠px عند حجم ١٣px، فيصير الصف ٣٠+٦+٦ = ٤٢px. قياس المستند
+         المرجعي أظهر صفوفه أقصر من صفوفنا، فخُفّض الحشو الرأسي بكسلاً واحداً من
+         كل جهة (٤٠px) ليطابقه. لا يمسّ هذا حجم الخط ولا عرض الأعمدة ولا ترتيبها. */
       .custom-table tbody tr td:last-child {
         // width: 110px;
         // min-width: 110px;
-        padding: 6px 4px;
+        padding: 5px 4px;
       }
       
       .custom-table tbody tr td:last-child.ar-text {
@@ -501,7 +541,16 @@ font-family: "NotoSansArabic", sans-serif;
         right:25% ;
 
 
-      
+
+    }
+    /* إخفاء الـ QR لا يعني تحريك ما تحته: هذا المُباعد يشغل نفس صندوق الصورة
+       (ارتفاع 90px، سطر داخلي محاذٍ لخط القاعدة) بعرض صفر، فيبقى نص التحقق
+       والرابط والطابع الزمني عند إحداثياتها نفسها بالضبط كما في المستند
+       المرجعي — يختفي الرمز وحده ولا يتغيّر أي شيء آخر في التذييل. */
+    .qr-placeholder {
+      display: inline-block;
+      height: 90px;
+      width: 0;
     }
 
 
@@ -571,7 +620,7 @@ font-family: "NotoSansArabic", sans-serif;
 <tbody>
   <tr class="transparnt-bg">
     <td class="one en-text" colspan="1">Leave ID</td>
-    <td class="two en-text" colspan="2">${data.leave_id || ''}</td>
+    <td class="two en-text" colspan="2">${wrapText(data.leave_id)}</td>
     <td class="one ar-text" colspan="1">رمز الإجازة</td>
   </tr>
   <tr class="leave-duration">
@@ -599,37 +648,37 @@ font-family: "NotoSansArabic", sans-serif;
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${(data.name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.name_ar || ''}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
     <td class="one en-text" colspan="1">National ID / Iqama</td>
-    <td class="two en-text" colspan="2">${data.national_id || ''}</td>
+    <td class="two en-text" colspan="2">${wrapText(data.national_id)}</td>
     <td class="one ar-text" colspan="1">رقم الهوية / الإقامة</td>
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Nationality</td>
-    <td class="two en-text">${data.country?.country_name_en || 'Saudi'}</td>
-    <td class="two ar-text">${data.country?.country_name_ar || data.nationality || 'سعودي'}</td>
+    <td class="two en-text">${wrapText(data.country?.country_name_en || 'Saudi')}</td>
+    <td class="two ar-text">${wrapText(data.country?.country_name_ar || data.nationality || 'سعودي')}</td>
     <td class="one ar-text">الجنسية</td>
   </tr>
   <tr>
     <td class="one en-text">Employer</td>
     <td class="two en-text">${''}</td>
-    <td class="two ar-text">${data.employer_ar || ''}</td>
+    <td class="two ar-text">${wrapText(data.employer_ar)}</td>
     <td class="one ar-text">جهة العمل</td>
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Physician Name</td>
-    <td class="two en-text">${(data.physician_name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.physician_name_ar || ''}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>
     <td class="one en-text">Position</td>
-    <td class="two en-text">${data.position_en || ''}</td>
-    <td class="two ar-text">${data.position_ar || ''}</td>
+    <td class="two en-text">${wrapText(data.position_en)}</td>
+    <td class="two ar-text">${wrapText(data.position_ar)}</td>
     <td class="one ar-text">المسمى الوظيفى</td>
   </tr>
 </tbody>
@@ -640,16 +689,18 @@ font-family: "NotoSansArabic", sans-serif;
     <!-- QR Code Section -->
     <div class="qr-section">
     <div style="margin-left: 45px !important;">
-             <img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">
+             ${data.add_qr !== false
+               ? `<img style="height: 90px;margin:0px " src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}" alt="QR Code">`
+               : `<span class="qr-placeholder"></span>`}
 
       <p class="ar-text" style='margin:0px ;margin-top : -5px !important ; font-size:10px !important; font-weight: 900 !important; color: #000;' >للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة الرسمي</p>
       <p class="en-text" style='margin:0px ; font-size:10px !important; font-weight: 900 !important; color: #000;' >To check the report please visit Seha's official website</p>
- 
+
 
 <a class="en-text"
            style="margin: 0px; margin-top : 7px !important ; font-size: 10px; font-weight: 900 !important; color:blue; text-decoration: underline;"
           href='${verificationUrl}'
-          target="_blank">www.seha.sa/#/inquiries/skenquiry</a>
+          target="_blank">www.seha.sa/#/inquiries/slenquiry</a>
     </div>
       <!-- Timestamp -->
   <div class="timestamp">

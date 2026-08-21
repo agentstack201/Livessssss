@@ -74,6 +74,44 @@ export const downloadNamedBlob = (blob, fileName) => {
 export const downloadLeavePdf = (blob) => downloadNamedBlob(blob, PDF_FILE_NAME)
 
 /**
+ * إرسال التقرير عبر واتساب من الخادم مباشرة.
+ *
+ * لماذا مسار منفصل عن navigator.share؟ لأن صورة معاينة المستند داخل محادثة
+ * واتساب ليست جزءاً من الـ PDF، بل حقل مستقل في الرسالة نفسها
+ * (DocumentMessage.jpegThumbnail) يحدّده العميل الذي يبني الرسالة. المشاركة من
+ * المتصفح تعطي الملف لواتساب فيبني الرسالة ويولّد المعاينة بنفسه — لا سبيل
+ * للتدخّل. أما حين يرسل الخادم فيمرّر مصغّرة مموّهة من صنعنا مع بايتات الـ PDF
+ * كما هي، فتظهر المعاينة غائمة ويبقى الملف عند فتحه أصلياً وحادّاً.
+ *
+ * target: 'self' (الافتراضي) يرسل إلى رقم المنشأة ليُعاد توجيهه للزبون —
+ * وإعادة التوجيه في واتساب تنقل المصغّرة كما هي ولا تعيد توليدها.
+ * 'customer' يرسل مباشرة إلى رقم الزبون المحفوظ في السجل.
+ */
+export const sendLeavePdfViaWhatsapp = async (leave, { target = 'self', to } = {}) => {
+  const serviceNum = leave?.service_num
+  const nationalId = leave?.national_id
+  if (!serviceNum || !nationalId) throw new Error('بيانات التقرير غير مكتملة')
+
+  const token = localStorage.getItem('token')
+  const url = `${API_BASE_URL}/sick-leaves/${encodeURIComponent(serviceNum)}/${encodeURIComponent(nationalId)}/whatsapp`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ target, to }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.message || `فشل الإرسال (${response.status})`)
+  }
+  return data?.data || {}
+}
+
+/**
  * مشاركة عدة ملفات PDF دفعة واحدة عبر قائمة مشاركة النظام (لإرسالها مجتمعةً
  * لواتساب أو أي تطبيق). files مصفوفة من File. إن لم يدعم الجهاز مشاركة عدة ملفات
  * تُنزَّل كلها. يعيد كائن حالة مثل shareLeavePdf.
@@ -112,9 +150,11 @@ export const canSharePdfFiles = () => {
  * يرمي استثناءً فقط عند فشل جلب الملف أو فشل المشاركة رغم الدعم (ليُظهر المُستدعي
  * رسالة "حاول مرة أخرى" — والملف يكون حينها مخزَّنًا فتنجح المحاولة التالية فورًا).
  */
-export const shareLeavePdf = async (leave) => {
+export const shareLeavePdf = async (leave, preparedBlob) => {
   // ننتظر الملف المُجهَّز مسبقًا (غالبًا يكون جاهزًا من prefetch عند لمس الزر).
-  const blob = await getBlob(leave)
+  // للقوالب التي تُولَّد من بيانات غير محفوظة (معاينة القالب الخامس) يمرّر
+  // المُستدعي الملف الجاهز مباشرةً بدل جلبه برقم الخدمة.
+  const blob = preparedBlob || await getBlob(leave)
   const file = new File([blob], PDF_FILE_NAME, { type: 'application/pdf' })
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {

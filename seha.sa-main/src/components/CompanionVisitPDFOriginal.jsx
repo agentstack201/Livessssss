@@ -21,6 +21,7 @@ import {
   arabicMeridiem,
   calcWaitingPeriod,
 } from '../utils/documentFormat';
+import { wrapName } from '../utils/nameWrap';
 
 // يُعاد تصديرها للحفاظ على المستوردين الحاليين (SickLeaveForm، SickLeaveInquiry).
 export { calcWaitingPeriod };
@@ -244,7 +245,10 @@ const CompanionVisitPDFOriginal = ({ data, onClose }) => {
         }
       body {
 font-family: "NotoSansArabic", sans-serif;
-        margin: 0px 0px 20px 20px;
+        /* الجسم بعرض الصفحة نفسه (210mm)، فأي هامش أفقي يزيحه عن مركزها
+           ويقصّ الطرف الآخر. الهامش الأيسر كان 20px والأيمن صفراً، فكان
+           المستند كله منزاحاً 20px إلى اليمين. صفر يعيده إلى المنتصف. */
+        margin: 0px 0px 20px 0px;
         max-height: 297mm;
         height: 297mm;
         overflow: hidden;
@@ -336,13 +340,17 @@ font-family: "NotoSansArabic", sans-serif;
         font-weight: 400;
       }
 
+      /* هذا القالب وحده يحمل أطول عناوين الأعمدة (Admission Date/Time و
+         Discharge Date/Time). عند 13.5px يبلغ عرض العنوان 127.5px داخل خلية
+         عرضها 130px بلا حشو أفقي، فيكاد يلتصق بحدّي الخلية. 12.5px يترك 6px
+         على كل جهة. عرض العمود وترتيبه ولونه كما هي. */
       .custom-table .one {
         width: 130px;
         min-width: 130px;
         color: #366fb4 !important;
         font-weight: 700;
         padding: 6px 0px;
-        font-size: 13.5px;
+        font-size: 12.5px;
       }
 
       .custom-table .two {
@@ -352,6 +360,25 @@ font-family: "NotoSansArabic", sans-serif;
         line-height: 1.1;
         padding-top: 4px;
         padding-bottom: 4px;
+        /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+           دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+        overflow-wrap: break-word;
+        word-break: normal;
+      }
+      /* وحدة لا تنكسر: كلمات الاسم المرتبطة منطقياً تنتقل معاً (انظر nameWrap.js). */
+      .nb {
+        white-space: nowrap;
+      }
+      /* كلمة واحدة أطول من أي عمود: يُسمح بالكسر داخلها وحدها حتى لا يتمدّد
+         الجدول أعرض من الصفحة. */
+      .brk {
+        overflow-wrap: anywhere;
+      }
+      /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+         ترك اللقب وحده في السطر التالي. حجم الخط وعرض الخلية وعدد الأسطر كما هي. */
+      .name-cell {
+        text-wrap: pretty;
+        text-wrap: balance;
       }
       .darkBg {
         background-color: #f7f7f7 !important;
@@ -558,8 +585,8 @@ font-family: "NotoSansArabic", sans-serif;
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Companion Name</td>
-    <td class="two en-text">${(data.name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.name_ar || ''}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">اسم المرافق</td>
   </tr>
   <tr>
@@ -587,8 +614,8 @@ font-family: "NotoSansArabic", sans-serif;
   </tr>
   <tr>
     <td class="one en-text">Practitioner Name</td>
-    <td class="two en-text">${(data.physician_name_en || '').toUpperCase()}</td>
-    <td class="two ar-text">${data.physician_name_ar || ''}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس الصحي</td>
   </tr>
   <tr class="darkBg">

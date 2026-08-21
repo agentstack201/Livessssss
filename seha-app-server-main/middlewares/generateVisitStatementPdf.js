@@ -21,11 +21,13 @@ const { dataUriFromPublic, fontFaceCss, resolveFooterLogo, getBrowser } = _inter
 
 const {
   formatDate,
+  formatHijriDate,
   formatTime12,
   arabicMeridiem,
   waitingPeriod,
   escapeHtml,
 } = require('./documentFormat');
+const { wrapName } = require('./nameWrap');
 
 module.exports = async (data, leave_days, DateObj, country) => {
   let page;
@@ -71,11 +73,12 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     const admissionEn = [formatDate(data.admission_date_en), admissionTimeEn].filter(Boolean).join(' - ');
     const dischargeEn = [formatDate(data.discharge_date_en), dischargeTimeEn].filter(Boolean).join(' - ');
-    // المستند الرسمي المرفق يعرض التاريخ الميلادي في العمود العربي أيضاً
-    // (لا الهجري) — بخلاف قالب المرافق. نلتزم بالأصل هنا حرفياً، ويبقى
-    // admission_date_ar الهجري محفوظاً في قاعدة البيانات كما هو لبقية القوالب.
-    const admissionAr = [formatDate(data.admission_date_en), admissionTimeAr].filter(Boolean).join(' - ');
-    const dischargeAr = [formatDate(data.discharge_date_en), dischargeTimeAr].filter(Boolean).join(' - ');
+    // العمود العربي يعرض التاريخ الهجري — كما في بقية القوالب. القيمة مأخوذة من
+    // admission_date_ar المحفوظ، وهو مشتقّ خوارزمياً من نفس التاريخ الميلادي عبر
+    // convertDates (hijri-converter) عند الحفظ والتعديل، فالعمودان يصفان اليوم
+    // نفسه بتقويمين. كان هذا السطر يمرّر التاريخ الميلادي فيتطابق العمودان.
+    const admissionAr = [formatHijriDate(data.admission_date_ar), admissionTimeAr].filter(Boolean).join(' - ');
+    const dischargeAr = [formatHijriDate(data.discharge_date_ar), dischargeTimeAr].filter(Boolean).join(' - ');
 
     // نموذج الإدخال يحوي حقل «جهة العمل» واحداً يملأ العربية والإنجليزية بنفس
     // النص، فعرضه في العمود الإنجليزي يُظهر نصاً عربياً في خانة إنجليزية —
@@ -114,7 +117,10 @@ module.exports = async (data, leave_days, DateObj, country) => {
       }
       body {
         font-family: "NotoSansArabic", sans-serif;
-        margin: 0px 0px 20px 20px;
+        /* الجسم بعرض الصفحة نفسه (210mm)، فأي هامش أفقي يزيحه عن مركزها
+           ويقصّ الطرف الآخر. الهامش الأيسر كان 20px والأيمن صفراً، فكان
+           المستند كله منزاحاً 20px إلى اليمين. صفر يعيده إلى المنتصف. */
+        margin: 0px 0px 20px 0px;
         max-height: 297mm;
         height: 297mm;
         overflow: hidden;
@@ -227,6 +233,25 @@ module.exports = async (data, leave_days, DateObj, country) => {
         line-height: 1.1;
         padding-top: 4px;
         padding-bottom: 4px;
+        /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+           دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+        overflow-wrap: break-word;
+        word-break: normal;
+      }
+      /* وحدة لا تنكسر: كلمات الاسم المرتبطة منطقياً تنتقل معاً (انظر nameWrap.js). */
+      .nb {
+        white-space: nowrap;
+      }
+      /* كلمة واحدة أطول من أي عمود: يُسمح بالكسر داخلها وحدها حتى لا يتمدّد
+         الجدول أعرض من الصفحة. */
+      .brk {
+        overflow-wrap: anywhere;
+      }
+      /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+         ترك اللقب وحده في السطر التالي. حجم الخط وعرض الخلية وعدد الأسطر كما هي. */
+      .name-cell {
+        text-wrap: pretty;
+        text-wrap: balance;
       }
       .darkBg {
         background-color: #f7f7f7 !important;
@@ -433,8 +458,8 @@ module.exports = async (data, leave_days, DateObj, country) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${escapeHtml((data.name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
@@ -456,8 +481,8 @@ module.exports = async (data, leave_days, DateObj, country) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Practitioner Name</td>
-    <td class="two en-text">${escapeHtml((data.physician_name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.physician_name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>

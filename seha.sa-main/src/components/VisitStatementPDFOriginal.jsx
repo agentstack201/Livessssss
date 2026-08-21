@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { fetchLeavePdfBlob, downloadLeavePdf, shareLeavePdf, prefetchLeavePdf } from '../utils/pdfShare';
 import {
   formatDate,
+  formatHijriDate,
   formatTime12,
   arabicMeridiem,
   calcWaitingPeriod,
@@ -11,6 +12,7 @@ import {
   defaultReportDate,
   defaultReportTime,
 } from '../utils/documentFormat';
+import { wrapName } from '../utils/nameWrap';
 
 // ───────────────────────────────────────────────────────────────────────────
 // معاينة «مشهد مراجعة» — Statement of Visit
@@ -150,10 +152,11 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
 
   const admissionEn = [formatDate(data.admission_date_en), admissionTimeEn].filter(Boolean).join(' - ');
   const dischargeEn = [formatDate(data.discharge_date_en), dischargeTimeEn].filter(Boolean).join(' - ');
-  // المستند الرسمي المرفق يعرض التاريخ الميلادي في العمود العربي أيضاً
-  // (لا الهجري) — مطابقةً للأصل، وبنفس منطق الخادم بالضبط.
-  const admissionAr = [formatDate(data.admission_date_en), admissionTimeAr].filter(Boolean).join(' - ');
-  const dischargeAr = [formatDate(data.discharge_date_en), dischargeTimeAr].filter(Boolean).join(' - ');
+  // العمود العربي يعرض التاريخ الهجري — كما في بقية القوالب، وبنفس منطق الخادم
+  // بالضبط. القيمة مأخوذة من admission_date_ar المحفوظ، وهو مشتقّ خوارزمياً من
+  // نفس التاريخ الميلادي عبر convertDates (hijri-converter) عند الحفظ والتعديل.
+  const admissionAr = [formatHijriDate(data.admission_date_ar), admissionTimeAr].filter(Boolean).join(' - ');
+  const dischargeAr = [formatHijriDate(data.discharge_date_ar), dischargeTimeAr].filter(Boolean).join(' - ');
 
   // نفس منطق الخادم: حقل «جهة العمل» واحد يملأ اللغتين، والمستند الأصلي يترك
   // الخانة الإنجليزية فارغة — فلا نعرضها إلا إن كانت مختلفة فعلاً عن العربية.
@@ -282,6 +285,25 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
           line-height: 1.1;
           padding-top: 4px;
           padding-bottom: 4px;
+          /* اسم طويل جداً بلا مسافات: يلتف على السطر بدل الخروج من الخلية،
+             دون كسر الكلمات العادية (يبقى الالتفاف على حدود الكلمة أولاً). */
+          overflow-wrap: break-word;
+          word-break: normal;
+        }
+        /* وحدة لا تنكسر: كلمات الاسم المرتبطة منطقياً تنتقل معاً (انظر nameWrap.js). */
+        .vs-doc .nb {
+          white-space: nowrap;
+        }
+        /* كلمة واحدة أطول من أي عمود: يُسمح بالكسر داخلها وحدها حتى لا يتمدّد
+           الجدول أعرض من الصفحة. */
+        .vs-doc .brk {
+          overflow-wrap: anywhere;
+        }
+        /* خلية اسم: توزيع الكلمات على الأسطر بالتساوي بدل ملء السطر الأول ثم
+           ترك اللقب وحده في السطر التالي. حجم الخط وعرض الخلية وعدد الأسطر كما هي. */
+        .vs-doc .name-cell {
+          text-wrap: pretty;
+          text-wrap: balance;
         }
         .vs-doc .darkBg, .vs-doc .darkBg td { background-color: #f7f7f7 !important; }
         /* الصفوف الثلاثة الزرقاء الداكنة: الدخول، الخروج، فترة الانتظار */
@@ -547,8 +569,8 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Name</td>
-    <td class="two en-text">${escapeHtml((data.name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.name_ar)}</td>
     <td class="one ar-text">الاسم</td>
   </tr>
   <tr>
@@ -570,8 +592,8 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   </tr>
   <tr class="darkBg">
     <td class="one en-text">Practitioner Name</td>
-    <td class="two en-text">${escapeHtml((data.physician_name_en || '').toUpperCase())}</td>
-    <td class="two ar-text">${escapeHtml(data.physician_name_ar)}</td>
+    <td class="two en-text name-cell">${wrapName((data.physician_name_en || '').toUpperCase())}</td>
+    <td class="two ar-text name-cell">${wrapName(data.physician_name_ar)}</td>
     <td class="one ar-text">اسم الممارس</td>
   </tr>
   <tr>

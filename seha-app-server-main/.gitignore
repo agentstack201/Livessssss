@@ -16,3 +16,6 @@ node_modules
 
 # Generated PDFs
 public/leaves/*.pdf
+wa-test-sample.pdf
+wa-test-thumbnail.jpg
+.wa-test-auth/

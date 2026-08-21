@@ -1,6 +1,7 @@
 const leaves = require("../models/leaves.model");
 const config = require("../config/middlewares");
 const { normalizeDocumentType, rendererNameFor } = require("../config/documentTypes");
+const { normalizeNationality } = require("../utils/nationality");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
 const { Sequelize, Op } = require("sequelize");
@@ -15,6 +16,30 @@ const getFormattedDateTime = () => {
 
   return { currentTime, currentDate };
 };
+
+// طريقة التاريخ: أي قيمة غير 'issue_date' بالضبط تعود للسلوك الحالي
+// (actual) — فلا يمكن لقيمة غير متوقعة أن تغيّر طريقة حساب مدة الإجازة.
+const normalizeDateMode = (value) => (value === 'issue_date' ? 'issue_date' : 'actual');
+
+// مدة الإجازة كقيمة مستقلة تُحفظ فقط في وضع "يبدأ من تاريخ الإصدار"، وفقط
+// إذا كانت رقماً صحيحاً موجباً صالحاً. في أي حالة أخرى تبقى NULL ويستمر
+// حساب calcDays() من تاريخي الدخول والخروج كما كان دائماً.
+const normalizeLeaveDaysOverride = (dateMode, rawValue) => {
+  if (dateMode !== 'issue_date') return null;
+  const parsed = parseInt(rawValue, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+// مدة الإجازة الفعلية لسجل ما: في وضع "يبدأ من تاريخ الإصدار" مع قيمة
+// leave_days محفوظة تُستخدم هذه القيمة كما أُدخلت. في أي حالة أخرى (وكل
+// السجلات القديمة بلا date_mode) يبقى الحساب من الفرق بين تاريخي الدخول
+// والخروج تماماً كما كان قبل هذا التعديل — لا تغيير على السلوك الحالي.
+function resolveLeaveDays(leave) {
+  if (leave.date_mode === 'issue_date' && leave.leave_days) {
+    return leave.leave_days;
+  }
+  return config.calcDays(leave.admission_date_en, leave.discharge_date_en);
+}
 
 module.exports.addNewLeaves = async (req, res, next) => {
   let {
@@ -43,6 +68,10 @@ module.exports.addNewLeaves = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // QR اختياري وطريقة التاريخ (اختياريان — انظر resolveLeaveDays أدناه)
+    add_qr,
+    date_mode,
+    leave_days,
     // حقول قالب «مشهد مراجعة لمرافق» (اختيارية — تُتجاهل مع الإجازة المرضية)
     document_type,
     admission_time,
@@ -93,12 +122,17 @@ module.exports.addNewLeaves = async (req, res, next) => {
       physician_name_ar,
       position_en,
       position_ar,
-      nationality: nationality || 'سعودي',
+      // الجنسية تُوحَّد قبل الحفظ: «سعودي» بأي رسم → «السعودية»، والفراغ →
+      // «السعودية». التوحيد على البيانات نفسها لا على العرض.
+      nationality: normalizeNationality(nationality),
       countryId: countryId || 1,
       hospital_name_en: hospital_name_en || 'AL NOOR SPECIALIST HOSPITAL',
       hospital_name_ar: hospital_name_ar || 'مستشفى النور التخصصي',
       license_number: license_number || '1410845906',
       show_license_number: show_license_number !== false && show_license_number !== 'false',
+      add_qr: add_qr !== false && add_qr !== 'false',
+      date_mode: normalizeDateMode(date_mode),
+      leave_days: normalizeLeaveDaysOverride(normalizeDateMode(date_mode), leave_days),
       report_time: report_time || DateObj.currentTime,
       report_date: report_date || DateObj.currentDate,
       footer_logo,
@@ -184,11 +218,7 @@ module.exports.getOneLeaveDetails = async (req, res, next) => {
     console.log('📋 Found leave:', leave ? 'Yes' : 'No');
 
     if (leave) {
-      let leave_days = config.calcDays(
-        leave.dataValues.admission_date_en,
-        leave.dataValues.discharge_date_en
-      );
-      leave.dataValues.leave_days = leave_days;
+      leave.dataValues.leave_days = resolveLeaveDays(leave.dataValues);
 
       // Return as array to match frontend expectation
       return res.status(200).json([leave]);
@@ -233,6 +263,10 @@ module.exports.updateLeave = async (req, res, next) => {
     report_date,
     footer_logo,
     show_license_number,
+    // QR اختياري وطريقة التاريخ (اختياريان)
+    add_qr,
+    date_mode,
+    leave_days,
     // حقول قالب «مشهد مراجعة لمرافق» (اختيارية)
     document_type,
     admission_time,
@@ -319,13 +353,30 @@ module.exports.updateLeave = async (req, res, next) => {
       physician_name_ar,
       position_en,
       position_ar,
-      nationality,
+      // نفس التوحيد عند التعديل — وإلا عاد «سعودي» إلى السجل من طلب قديم.
+      nationality: nationality !== undefined
+        ? normalizeNationality(nationality)
+        : normalizeNationality(existingLeave.nationality),
       countryId,
       hospital_name_en,
       hospital_name_ar,
       license_number,
       show_license_number: show_license_number !== false && show_license_number !== 'false',
       footer_logo: footer_logo !== undefined ? footer_logo : existingLeave.footer_logo,
+      // QR وطريقة التاريخ: تُحدَّثان فقط إذا أُرسلتا، وإلا تبقيان كما كانتا —
+      // فطلب تعديل قديم لا يرسل هذين الحقلين لا يُسقط الـ QR ولا يغيّر الوضع.
+      add_qr: add_qr !== undefined
+        ? (add_qr !== false && add_qr !== 'false')
+        : existingLeave.add_qr,
+      date_mode: date_mode !== undefined
+        ? normalizeDateMode(date_mode)
+        : normalizeDateMode(existingLeave.date_mode),
+      leave_days: leave_days !== undefined
+        ? normalizeLeaveDaysOverride(
+            date_mode !== undefined ? normalizeDateMode(date_mode) : normalizeDateMode(existingLeave.date_mode),
+            leave_days
+          )
+        : existingLeave.leave_days,
       // حقول قالب «مشهد مراجعة لمرافق»: تُحدَّث فقط إذا أُرسلت، وإلا تبقى كما هي
       // (فالطلبات القديمة التي لا ترسلها لا تفقد بياناتها).
       document_type: document_type !== undefined
@@ -437,34 +488,74 @@ module.exports.aiExtract = async (req, res, next) => {
     const { llmGenerate } = require("../utils/llm");
 
     const prompt = `
-      You are an expert medical data extractor. Your task is to extract sick leave details from the text below and return a valid JSON object only.
-      
-      Extract these fields (use specific keys):
-      - serviceNum: (Format: GSL261... or PSL261...)
-      - nationalID: (10 digits)
-      - name: (Patient Name in English)
-      - nameArabic: (Patient Name in Arabic)
-      - leaveId: (Leave ID / CSL number)
-      - nationality: (Patient Nationality in ARABIC - e.g., 'سعودي', 'مصري')
-      - employer: (Employer Name - Favor Arabic if available)
-      - physicianPosition: (Doctor Position English)
-      - physicianPositionArabic: (Doctor Position Arabic)
-      - admissionDate: (YYYY-MM-DD)
-      - dischargeDate: (YYYY-MM-DD)
-      - issueDate: (YYYY-MM-DD)
-      - doctorName: (Physician Name English)
-      - doctorNameArabic: (Physician Name Arabic)
-      - hospitalNameEnglish
-      - hospitalNameArabic
-      
-      If any field is missing or ambiguous, leave it as an empty string "".
-      Do NOT wrap the output in markdown or code blocks (like \`\`\`json). Just return the raw JSON string.
-      
+      You are an expert medical data extractor for Saudi sick-leave forms.
+      Extract data from the text below and return a single valid JSON object.
+
+      ── FIELDS TO EXTRACT ──
+      (use these exact keys)
+
+      Single-value fields (extract as-is, never translate):
+      - serviceNum: (Format: GSL261... or PSL261...) or ""
+      - nationalID: (10-digit Saudi ID/Iqama) or ""
+      - phone: (phone number) or ""
+      - leaveId: (Leave ID / CSL number) or ""
+      - admissionDate: (YYYY-MM-DD) or ""
+      - dischargeDate: (YYYY-MM-DD) or ""
+      - issueDate: (YYYY-MM-DD) or ""
+      - licenseNumber: (medical license number) or ""
+
+      Bilingual fields — ALWAYS provide BOTH Arabic AND English:
+      - name: (Patient name in ENGLISH)
+      - nameArabic: (Patient name in ARABIC)
+      - doctorName: (Doctor name in ENGLISH)
+      - doctorNameArabic: (Doctor name in ARABIC)
+      - hospitalNameEnglish: (Hospital name in ENGLISH)
+      - hospitalNameArabic: (Hospital name in ARABIC)
+      - physicianPosition: (Doctor specialty/position in ENGLISH)
+      - physicianPositionArabic: (Doctor specialty/position in ARABIC)
+      - employer: (Employer name — favor Arabic if available)
+      - nationality: (Patient nationality in ARABIC — e.g. 'السعودية', 'مصري')
+
+      ── BILINGUAL RULES ──
+      For every bilingual field pair (Arabic + English):
+
+      1. If ONLY Arabic is in the source text:
+         - Keep the Arabic value as-is
+         - Generate the English equivalent:
+           • Personal names → natural transliteration (محمد تركي البلوي → Mohammed Turki Al-Balawi)
+           • Titles/positions → standard English (طبيب عام → General Practitioner)
+           • Hospital names → formal translation (مستشفى الملك فهد → King Fahad Hospital)
+           • Nationality → keep Arabic for nationality field
+
+      2. If ONLY English is in the source text:
+         - Keep the English value as-is
+         - Generate the Arabic equivalent
+
+      3. If BOTH Arabic and English exist in the source:
+         - Preserve both exactly as written
+
+      4. If NEITHER exists → return "" for both
+
+      ── NAME RULES ──
+      - Preserve the original word order. NEVER rearrange family names.
+      - For "عبدالمجيد ... الشمري", output English as "Abdulmajeed ... Al-Shammari"
+        NOT "Al-Shammari ... Abdulmajeed"
+      - If the user already provides an English spelling, preserve it exactly.
+
+      ── DATA INTEGRITY ──
+      - NEVER invent missing information
+      - NEVER fabricate ID numbers, phone numbers, or dates
+      - If a field is missing from the text, return ""
+      - Do NOT complete partial dates (year-only stays year-only)
+
+      Return ONLY the raw JSON object. No markdown, no code blocks, no explanation.
+
       Text to process:
       """
       ${clientInfo}
       """
     `;
+
 
     let text;
     try {
@@ -500,10 +591,71 @@ module.exports.aiExtract = async (req, res, next) => {
       });
     }
 
+    // ── Bilingual validation ────────────────────────────────────────────────
+    // Safety net: if the AI returned Arabic but left English empty (or vice
+    // versa) for a bilingual field pair, generate the missing side. This keeps
+    // the extraction as ONE AI call in the happy path; only on failure does a
+    // small repair call fire.
+    const bilingualPairs = [
+      { ar: "nameArabic",            en: "name",                 type: "name" },
+      { ar: "doctorNameArabic",      en: "doctorName",           type: "name" },
+      { ar: "hospitalNameArabic",    en: "hospitalNameEnglish",  type: "translate" },
+      { ar: "physicianPositionArabic", en: "physicianPosition",  type: "translate" },
+    ];
+
+    const isArabic = (s) => /[\u0600-\u06FF]/.test(s);
+    const repairPrompts = [];
+
+    for (const pair of bilingualPairs) {
+      const arVal = (extractedData[pair.ar] || "").trim();
+      const enVal = (extractedData[pair.en] || "").trim();
+
+      if (arVal && !enVal) {
+        // Arabic exists, English missing — queue a repair
+        repairPrompts.push({ key: pair.en, text: arVal, type: pair.type });
+      } else if (enVal && !arVal && !isArabic(enVal)) {
+        // English exists, Arabic missing — queue a repair
+        repairPrompts.push({ key: pair.ar, text: enVal, type: pair.type === "name" ? "name_to_ar" : "translate_to_ar" });
+      }
+    }
+
+    if (repairPrompts.length > 0) {
+      try {
+        const repairPrompt =
+          `You are a bilingual Arabic-English assistant for Saudi medical forms.\n` +
+          `For each item below, provide the translation/transliteration.\n` +
+          `Return ONLY a JSON object with the numbered keys.\n\n` +
+          repairPrompts.map((r, i) => {
+            if (r.type === "name") return `${i}: Transliterate this Arabic name to English naturally (محمد → Mohammed): "${r.text}"`;
+            if (r.type === "name_to_ar") return `${i}: Transliterate this English name to Arabic naturally (Mohammed → محمد): "${r.text}"`;
+            if (r.type === "translate") return `${i}: Translate to standard English: "${r.text}"`;
+            return `${i}: Translate to Arabic: "${r.text}"`;
+          }).join("\n");
+
+        const repairOut = await llmGenerate(repairPrompt, { json: true });
+        const repairData = JSON.parse(repairOut.text.replace(/```json/g, "").replace(/```/g, "").trim());
+
+        repairPrompts.forEach((r, i) => {
+          const val = (repairData[String(i)] || "").trim();
+          if (val) extractedData[r.key] = val;
+        });
+        console.log(`🔧 Bilingual repair: filled ${repairPrompts.length} missing field(s)`);
+      } catch (repairErr) {
+        console.warn("⚠️ Bilingual repair failed (non-fatal):", repairErr.message);
+        // Non-fatal — the form will just have the Arabic side filled
+      }
+    }
+
     // ── Paste-to-Fill enrichment ───────────────────────────────────────────
     // Fill in everything the AI can't know so a single paste yields a complete,
     // ready-to-confirm record: identifiers, Hijri dates, duration, report stamp.
     const enriched = await enrichExtracted(extractedData);
+
+    // الجنسية المستخرَجة تُوحَّد قبل أن تصل النموذج: «سعودي» بأي رسم (أو أي
+    // مرادف إنجليزي) → «السعودية». فلا يعود «سعودي» إلى النظام من الاستخراج.
+    if (enriched && Object.prototype.hasOwnProperty.call(enriched, "nationality")) {
+      enriched.nationality = normalizeNationality(enriched.nationality);
+    }
 
     return res.status(200).json({
       status_code: 200,
@@ -912,7 +1064,7 @@ function extractNationality(text) {
   const nationalities = [
     'Saudi', 'Egyptian', 'Syrian', 'Jordanian', 'Lebanese', 'Palestinian',
     'Iraqi', 'Yemeni', 'Sudanese', 'Pakistani', 'Indian', 'Bangladeshi',
-    'Filipino', 'Ethiopian', 'سعودي', 'مصري', 'سوري', 'أردني', 'لبناني',
+    'Filipino', 'Ethiopian', 'السعودية', 'مصري', 'سوري', 'أردني', 'لبناني',
     'فلسطيني', 'عراقي', 'يمني', 'سوداني', 'باكستاني', 'هندي', 'بنغلاديشي',
     'فلبيني', 'إثيوبي'
   ];
@@ -955,10 +1107,7 @@ module.exports.downloadPDF = async (req, res, next) => {
     console.log('✅ Leave found:', leave.id);
 
     // Calculate leave days
-    const leave_days = config.calcDays(
-      leave.admission_date_en,
-      leave.discharge_date_en
-    );
+    const leave_days = resolveLeaveDays(leave);
     console.log('📊 Leave days:', leave_days);
 
     // Get country details
@@ -998,6 +1147,130 @@ module.exports.downloadPDF = async (req, res, next) => {
       status_code: 500,
       data: null,
       message: error.message,
+    });
+  }
+};
+
+// معاينة صورة المصغّرة قبل الإرسال — تُعيد الـ JPEG نفسها التي سترافق الرسالة،
+// فيمكن ضبط WHATSAPP_THUMB_WIDTH / _BLUR / _QUALITY ورؤية الأثر فوراً بلا
+// إرسال أي رسالة. لا علاقة لها بالملف: الـ PDF يُقرأ فقط ولا يُعدَّل.
+module.exports.previewWhatsappThumbnail = async (req, res) => {
+  try {
+    const { service_num, national_id } = req.params;
+    const leave = await leaves.findOne({
+      where: { service_num, national_id },
+      include: [{ model: Country, as: 'country' }],
+    });
+    if (!leave) {
+      return res.status(404).json({ status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية' });
+    }
+
+    const leave_days = resolveLeaveDays(leave);
+    const country = await Country.findOne({ where: { id: leave.countryId } });
+    const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
+    const pdfBuffer = await renderPdf(leave.dataValues, leave_days, getFormattedDateTime(), country);
+
+    const buildThumbnail = require('../middlewares/whatsappThumbnail');
+    const thumb = await buildThumbnail(pdfBuffer);
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', thumb.buffer.length);
+    res.setHeader('X-Thumbnail-Size', `${thumb.width}x${thumb.height}`);
+    return res.send(thumb.buffer);
+  } catch (error) {
+    console.error('❌ WhatsApp thumbnail preview error:', error);
+    return res.status(500).json({ status_code: 500, success: false, message: error.message });
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// إرسال التقرير عبر واتساب من الخادم.
+//
+// هذه هي نقطة التحكّم الوحيدة في صورة معاينة المستند داخل المحادثة: عندما يبني
+// الخادم الرسالة بنفسه يستطيع تمرير jpegThumbnail خاصة به (مموّهة)، بينما تبقى
+// بايتات الـ PDF كما هي حرفياً — فيُفتح الملف لدى المستلم بجودته الأصلية كاملة.
+// عبر navigator.share في المتصفح هذا مستحيل: واتساب هو من يبني الرسالة ويولّد
+// المعاينة بنفسه.
+//
+// الوجهة الافتراضية هي رقمنا نحن (WHATSAPP_SELF_NUMBER) ليقوم الموظف بإعادة
+// توجيه الرسالة للزبون — وإعادة التوجيه تنقل المصغّرة كما هي ولا تعيد توليدها.
+// ويمكن الإرسال مباشرة لرقم الزبون المحفوظ في السجل بـ target=customer.
+// ───────────────────────────────────────────────────────────────────────────
+module.exports.sendPdfToWhatsapp = async (req, res) => {
+  try {
+    const whatsapp = require('../utils/whatsappSender');
+    if (!whatsapp.isEnabled()) {
+      return res.status(503).json({
+        status_code: 503,
+        success: false,
+        message: 'خدمة الإرسال عبر واتساب غير مفعّلة على الخادم',
+      });
+    }
+
+    const { service_num, national_id } = req.params;
+    const { target = 'self', to } = req.body || {};
+
+    const leave = await leaves.findOne({
+      where: { service_num, national_id },
+      include: [{ model: Country, as: 'country' }],
+    });
+    if (!leave) {
+      return res.status(404).json({
+        status_code: 404, success: false, message: 'لم يتم العثور على الإجازة المرضية',
+      });
+    }
+
+    // اختيار المستلم: رقم صريح، أو رقم الزبون المحفوظ، أو رقمنا (الافتراضي).
+    const destination = to
+      || (target === 'customer' ? leave.phone : process.env.WHATSAPP_SELF_NUMBER);
+    if (!destination) {
+      return res.status(400).json({
+        status_code: 400, success: false,
+        message: target === 'customer'
+          ? 'لا يوجد رقم جوال محفوظ لهذا الزبون'
+          : 'لم يُضبط رقم الاستقبال WHATSAPP_SELF_NUMBER على الخادم',
+      });
+    }
+
+    // نفس مسار توليد الـ PDF المستخدم في التنزيل — بلا أي اختلاف.
+    const leave_days = resolveLeaveDays(leave);
+    const country = await Country.findOne({ where: { id: leave.countryId } });
+    const DateObj = getFormattedDateTime();
+    const renderPdf = config[rendererNameFor(normalizeDocumentType(leave.document_type))];
+    const pdfBuffer = await renderPdf(leave.dataValues, leave_days, DateObj, country);
+
+    // المصغّرة تُبنى بقراءة الصفحة الأولى فقط — الملف لا يُعدَّل إطلاقاً.
+    let thumbnail = null;
+    try {
+      const buildThumbnail = require('../middlewares/whatsappThumbnail');
+      const t = await buildThumbnail(pdfBuffer);
+      thumbnail = t.buffer;
+      console.log(`[WA] THUMBNAIL_BUILT ${t.width}x${t.height} bytes=${t.buffer.length} q=${t.quality} pdfBytes=${pdfBuffer.length}`);
+    } catch (thumbErr) {
+      // فشل «مفتوح»: نرسل الملف بلا مصغّرة مخصّصة بدل ألا نرسل شيئاً.
+      console.error(`[WA] THUMBNAIL_ERROR msg=${thumbErr.message}`);
+    }
+
+    console.log(`[WA] SEND_START to=${destination} pdfBytes=${pdfBuffer.length} thumb=${thumbnail ? thumbnail.length : 0}`);
+    const sent = await whatsapp.sendDocument({
+      to: destination,
+      pdfBuffer,                 // كما خرج من المولّد، بايت ببايت
+      fileName: 'sickLeaves.pdf',
+      thumbnail,
+    });
+
+    console.log(`[WA] SEND_OK messageId=${sent.id} to=${sent.to}`);
+    return res.status(200).json({
+      status_code: 200,
+      success: true,
+      data: { messageId: sent.id, to: sent.to, thumbnailBytes: thumbnail ? thumbnail.length : 0 },
+      message: 'تم إرسال التقرير عبر واتساب',
+    });
+  } catch (error) {
+    console.error(`[WA] SEND_ERROR msg=${error.message}`);
+    console.error(`[WA] SEND_ERROR_AT ${String(error.stack).split('\n')[1]?.trim() || 'n/a'}`);
+    return res.status(500).json({
+      status_code: 500, success: false, message: error.message,
     });
   }
 };
@@ -1111,4 +1384,48 @@ module.exports.getAllLeaves = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// معاينة القالب الخامس: يولّد الـ PDF من بيانات مُرسَلة في الطلب مباشرةً بلا
+// أي قراءة أو كتابة في قاعدة البيانات. تحتاجه المعاينة في الواجهة لأن القالب
+// الخامس هو ملف PDF أصلي تُحقن فيه البيانات — فالمعاينة الصادقة الوحيدة هي
+// الملف نفسه، لا محاكاةٌ له بـ HTML.
+// ───────────────────────────────────────────────────────────────────────────
+module.exports.previewTemplate5 = async (req, res) => {
+  try {
+    const { renderTemplate5Pdf } = require("../templates/template5");
+    const data = (req.body && req.body.data) || req.body || {};
+    const now = getFormattedDateTime();
+    const pdfBuffer = await renderTemplate5Pdf({
+      data,
+      leaveDays: data.leave_days,
+      country: data.country,
+      reportDate: data.report_date || now.currentDate,
+      reportTime: data.report_time || now.currentTime,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="template5-preview.pdf"');
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error("❌ Template-5 preview error:", error);
+    return res.status(500).json({
+      status_code: 500,
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// دوال داخلية مكشوفة للاختبار فقط (نفس نمط middlewares/generatePdf.js).
+// لا تُستدعى من أي مسار في التطبيق — وجودها هنا يسمح باختبار قواعد «طريقة
+// التاريخ» ومدة الإجازة مباشرةً بدل إعادة كتابتها في الاختبار.
+// ───────────────────────────────────────────────────────────────────────────
+module.exports._internals = {
+  normalizeDateMode,
+  normalizeLeaveDaysOverride,
+  resolveLeaveDays,
 };

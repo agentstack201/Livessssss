@@ -74,7 +74,13 @@ const PdfPreview = () => {
     return diff + 1;
   };
 
-  const leaveDays = calcDays(data.admission_date_en, data.discharge_date_en);
+  // الخادم يحسب المدة ويعيدها مع السجل (leave_days): في وضع «يبدأ من تاريخ
+  // الإصدار» هي القيمة المستقلة التي أدخلها المستخدم، وفي كل ما عداها هي نفس
+  // ناتج calcDays أدناه. نستعملها كما هي حتى لا تعرض هذه الصفحة «يوم واحد»
+  // بينما يطبع الـ PDF المدة الصحيحة.
+  const leaveDays = Number(data.leave_days) > 0
+    ? Number(data.leave_days)
+    : calcDays(data.admission_date_en, data.discharge_date_en);
 
   return (
     <div className={styles.container}>

@@ -16,15 +16,32 @@ import SickLeavePDFOriginal from '../components/SickLeavePDFOriginal'
 import CompanionVisitPDFOriginal from '../components/CompanionVisitPDFOriginal'
 import VisitStatementPDFOriginal from '../components/VisitStatementPDFOriginal'
 import CompanionSickLeavePDFOriginal from '../components/CompanionSickLeavePDFOriginal'
+import SickLeaveEnhancedPDFTemplate5 from '../components/SickLeaveEnhancedPDFTemplate5'
 import PaperDocumentPreview from '../components/PaperDocumentPreview'
 import { calcWaitingPeriod } from '../utils/documentFormat'
+import {
+  TEMPLATE5_ID,
+  TEMPLATE5_NAME_AR,
+  TEMPLATE5_NAME_EN,
+  TEMPLATE5_MOCKUP_NOTICE,
+} from './template5'
 
 export const DOC_SICK_LEAVE = 'sick_leave'
 export const DOC_COMPANION = 'companion_visit'
 export const DOC_VISIT_STATEMENT = 'visit_statement'
 export const DOC_COMPANION_SICK_LEAVE = 'companion_sick_leave'
+// القالب الخامس — نموذج تصميم مستقل، معرّفه يأتي من وحدة القالب نفسها حتى
+// لا يوجد للمعرّف مصدران يمكن أن يختلفا.
+export const DOC_SICK_LEAVE_ENHANCED = TEMPLATE5_ID
 
-export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE
+// القالب الذي يبدأ به أي مستند *جديد* — القالب المحسّن، وهو أول ما يظهر في
+// كل القوائم.
+export const DEFAULT_DOCUMENT_TYPE = DOC_SICK_LEAVE_ENHANCED
+
+// القالب الذي يُحمل عليه سجلٌّ *محفوظ* لا يحمل نوعاً (سجلات ما قبل إضافة
+// أنواع المستندات). يجب أن يبقى «إجازة مرضية» إلى الأبد: تغييره يعيد طباعة
+// سجلات قديمة بقالب لم تُنشأ به. الافتراض للجديد شيء، وقراءة القديم شيء آخر.
+export const LEGACY_DOCUMENT_TYPE = DOC_SICK_LEAVE
 
 // الحقول المشتركة المطلوبة في كل القوالب (تُدمج مع الخاصة بكل قالب).
 const SHARED_REQUIRED = {
@@ -161,6 +178,8 @@ export const DOCUMENT_TYPES = {
       relation: false,     // صلة القرابة
       visitType: false,    // نوع الزيارة
       leaveDuration: true, // مدة الإجازة + تاريخا البداية والنهاية
+      dateMode: true,      // خيار «طريقة التاريخ» (الفعلي / يبدأ من الإصدار)
+      qr: true,            // الباركود (رمز الاستجابة السريعة) مع خيار إزالته
     },
     // مسمّيات الحقول التي تختلف بين القوالب.
     labels: {
@@ -370,6 +389,76 @@ export const DOCUMENT_TYPES = {
       doctorNameArabic: 'اسم الممارس بالعربية مطلوب',
     },
   },
+
+  // ── القالب الخامس: «تقرير إجازة مرضية - محسن» ─────────────────────────────
+  // القالب هنا ليس تصميماً مرسوماً في الواجهة: هو ملف PDF أصلي محفوظ في
+  // الخادم (templates/template5/master.pdf) تُحقن فيه البيانات هناك، فتتغيّر
+  // القيم ويبقى كل ما عداها — الخطوط والجدول والحدود والحشو والتذييل — كما هو
+  // في الملف الأصلي حرفياً. لذلك لا يوجد في الواجهة أي CSS لهذا القالب،
+  // والمعاينة تعرض الملف الحقيقي نفسه لا محاكاةً له.
+  //
+  // مستقلٌّ تماماً عن قالب «تقرير إجازة مرضية» أعلاه: ملفات مختلفة ومعرّف
+  // مختلف، فتعديل أحدهما لا يمسّ الآخر إطلاقاً.
+  [DOC_SICK_LEAVE_ENHANCED]: {
+    key: DOC_SICK_LEAVE_ENHANCED,
+    optionLabel: TEMPLATE5_NAME_AR,
+    titleAr: TEMPLATE5_NAME_AR,
+    titleEn: TEMPLATE5_NAME_EN,
+    icon: '🧩',
+    description: 'القالب الأصلي نفسه (ملف PDF) مربوطاً بالبيانات: تتغيّر القيم ويبقى التصميم والخطوط والجدول والتذييل كما هي حرفياً.',
+    accent: '#2c3e77',
+    previewComponent: SickLeaveEnhancedPDFTemplate5,
+    previewTitle: `معاينة ${TEMPLATE5_NAME_AR}`,
+    // يميّز الواجهة: بطاقة القالب وترويسة المعاينة ونموذج الإدخال تعرض تنبيهاً
+    // بأن المخرَج نموذج تصميم لا مستند رسمي.
+    isMockup: true,
+    mockupNotice: TEMPLATE5_MOCKUP_NOTICE,
+    features: {
+      times: false,
+      relation: false,
+      visitType: false,
+      leaveDuration: true,
+      dateMode: true,
+      qr: true,
+    },
+    labels: {
+      pageTitle: TEMPLATE5_NAME_AR,
+      docLabel: 'نموذج التقرير المحسّن',
+      deleteLabel: 'حذف نموذج التقرير المحسّن',
+      nameEn: 'الاسم (بالإنجليزية) *',
+      nameAr: 'الاسم (بالعربية) *',
+      admissionDate: 'تاريخ الدخول *',
+      dischargeDate: 'تاريخ الخروج *',
+      practitionerEn: 'اسم الممارس (بالإنجليزية) *',
+      practitionerAr: 'اسم الممارس (بالعربية) *',
+      facilityAr: 'اسم المنشأة (بالعربية) *',
+      facilityEn: 'اسم المنشأة (بالإنجليزية) *',
+      positionEn: 'المسمى الوظيفي (بالإنجليزية) *',
+      positionAr: 'المسمى الوظيفي (بالعربية) *',
+    },
+    inquiryFields: (r) => [
+      { label: 'الاسم', value: r.name_ar },
+      { label: 'تاريخ إصدار التقرير', value: r.issue_date },
+      { label: 'تبدأ من', value: r.admission_date_en },
+      { label: 'وحتى', value: r.discharge_date_en },
+      { label: 'المدة بالأيام', value: r.leave_days },
+      { label: 'اسم الممارس', value: r.physician_name_ar },
+      { label: 'المسمى الوظيفي', value: r.position_ar },
+    ],
+    requiredFields: {
+      ...SHARED_REQUIRED,
+      name: 'الاسم بالإنجليزية مطلوب',
+      nameArabic: 'الاسم بالعربية مطلوب',
+      physicianPosition: 'المسمى الوظيفي بالإنجليزية مطلوب',
+      physicianPositionArabic: 'المسمى الوظيفي بالعربية مطلوب',
+      startDate: 'تاريخ بداية الإجازة مطلوب',
+      endDate: 'تاريخ نهاية الإجازة مطلوب',
+      doctorName: 'اسم الممارس بالإنجليزية مطلوب',
+      doctorNameArabic: 'اسم الممارس بالعربية مطلوب',
+      hospitalNameArabic: 'اسم المنشأة بالعربية مطلوب',
+      hospitalNameEnglish: 'اسم المنشأة بالإنجليزية مطلوب',
+    },
+  },
 }
 
 // القوالب الورقية تُضاف إلى نفس السجلّ، فتظهر تلقائياً في صفحة القوالب
@@ -378,6 +467,7 @@ Object.assign(DOCUMENT_TYPES, PAPER_DOCUMENT_TYPES)
 
 // ترتيب عرض القوالب في القوائم وصفحة القوالب.
 export const DOCUMENT_TYPE_LIST = [
+  DOCUMENT_TYPES[DOC_SICK_LEAVE_ENHANCED],
   DOCUMENT_TYPES[DOC_SICK_LEAVE],
   DOCUMENT_TYPES[DOC_COMPANION],
   DOCUMENT_TYPES[DOC_COMPANION_SICK_LEAVE],
@@ -393,7 +483,7 @@ export function isPaperType(value) {
 /** أي قيمة (من الخادم أو من الرابط) → مفتاح قالب مدعوم. */
 export function normalizeDocumentType(value) {
   const key = typeof value === 'string' ? value.trim() : ''
-  return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, key) ? key : DEFAULT_DOCUMENT_TYPE
+  return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, key) ? key : LEGACY_DOCUMENT_TYPE
 }
 
 /** أي قيمة → كائن وصف القالب كاملاً (لا يعيد undefined أبداً). */

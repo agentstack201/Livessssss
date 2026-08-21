@@ -30,6 +30,34 @@ router
     (req, res, next) => leaveController.downloadPDF(req, res, next)
   );
 
+// إرسال التقرير عبر واتساب من الخادم (مع صورة معاينة مخصّصة) — قبل المسارات
+// العامة كي لا يبتلعها مسار /sick-leaves.
+router
+  .route("/sick-leaves/:service_num/:national_id/whatsapp")
+  .post(
+    config.auth,
+    checkController,
+    (req, res, next) => leaveController.sendPdfToWhatsapp(req, res, next)
+  );
+
+// معاينة المصغّرة التي سترافق رسالة واتساب (لضبط شكلها قبل أي إرسال).
+router
+  .route("/sick-leaves/:service_num/:national_id/whatsapp-thumbnail")
+  .get(
+    config.auth,
+    checkController,
+    (req, res, next) => leaveController.previewWhatsappThumbnail(req, res, next)
+  );
+
+// معاينة القالب الخامس من بيانات مُرسَلة مباشرةً (بلا حفظ) — قبل المسارات
+// العامة كي لا يبتلعها مسار /sick-leaves/:service_num.
+router
+  .route("/sick-leaves/template5/preview")
+  .post(
+    checkController,
+    (req, res, next) => leaveController.previewTemplate5(req, res, next)
+  );
+
 // AI Extract - specific route before general routes
 router
   .route("/sick-leaves/ai-extract")

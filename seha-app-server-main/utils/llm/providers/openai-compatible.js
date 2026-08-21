@@ -41,11 +41,38 @@ async function chat({ apiKey, baseUrl, model, messages, json = false, timeoutMs 
   if (!res.ok) {
     const err = (res.body && res.body.error) || {};
     const providerMessage = err.message || (res.body && res.body.raw) || `HTTP ${res.status}`;
-    const invalidKey = res.status === 401 || res.status === 403;
+    const hay = (providerMessage || "").toLowerCase();
+
+    // Classify the error granularly so the pool can make intelligent decisions.
+    // Only a true 401 means the key itself is invalid. A 403 from OpenRouter can
+    // mean "model unavailable for free", content policy, or permission issues —
+    // none of which should permanently disable the key.
+    let code;
+    let retryable = isRetryableStatus(res.status);
+
+    if (res.status === 401) {
+      code = "INVALID_KEY";
+    } else if (res.status === 402) {
+      code = "INSUFFICIENT_CREDITS";
+    } else if (hay.includes("unavailable for free") || hay.includes("free tier")) {
+      code = "FREE_TIER_UNAVAILABLE";
+      retryable = true; // other keys/models may work
+    } else if (res.status === 404 || hay.includes("not found") || hay.includes("does not exist")) {
+      code = "MODEL_NOT_FOUND";
+    } else if (res.status === 429) {
+      code = "QUOTA";
+    } else if (res.status === 403 && (hay.includes("content") || hay.includes("moderation") || hay.includes("safety"))) {
+      code = "SAFETY_BLOCKED";
+    } else if (res.status === 403) {
+      code = "PERMISSION_DENIED";
+    } else {
+      code = "PROVIDER_ERROR";
+    }
+
     throw new AdapterError({
       httpStatus: res.status,
-      retryable: isRetryableStatus(res.status),
-      code: invalidKey ? "INVALID_KEY" : res.status === 429 ? "QUOTA" : "PROVIDER_ERROR",
+      retryable,
+      code,
       providerMessage,
       providerStatus: err.type || err.code || null,
       message: providerMessage,

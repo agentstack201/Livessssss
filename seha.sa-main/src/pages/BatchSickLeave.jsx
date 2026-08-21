@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MediaPicker from '../components/MediaPicker'
-import { fetchLeavePdfBlob, sharePdfFiles } from '../utils/pdfShare'
+import { fetchLeavePdfBlob, sharePdfFiles, downloadNamedBlob, shareLeavePdf } from '../utils/pdfShare'
+import { DEFAULT_DOCUMENT_TYPE, getDocumentType } from '../config/documentTypes'
+import { normalizeNationality } from '../utils/nationality'
 
 // إنشاء عدة إجازات مرضية دفعة واحدة لنفس الزبون (أيام/فترات متفرقة):
 // بيانات مشتركة مرة واحدة + طبيب/مستشفى/شعار افتراضي، مع إمكانية تخصيص كل ملف
@@ -29,17 +31,31 @@ const todayISO = () => {
 }
 
 let _pid = 0
-// حقول الطبيب/المستشفى/الشعار لكل ملف (فارغة = استخدم المشتركة).
+// كل إجازة تحمل بياناتها كاملةً. ما دامت غير مخصّصة (custom = false) تقرأ من
+// البيانات المشتركة أعلى الصفحة — وهو الوضع الافتراضي وأسهل الحالات. وبمجرد
+// تفعيل «تخصيص» تُنسخ إليها كل القيم مرة واحدة وتصير مستقلة تماماً: تعديل
+// المشتركة بعدها لا يمسّها، وتعديلها لا يمسّ أي إجازة أخرى.
 const newPeriod = (single = false, from = '', to = '') => ({
   id: ++_pid, single, from, to, custom: false,
+  // بيانات المريض والتقرير
+  nationalID: '', name: '', nameArabic: '', nationality: '', countryId: null,
+  employer: '', issueDate: '', serviceNumType: '',
+  // الطبيب والمنشأة والشعار
   doctorName: '', doctorNameArabic: '', physicianPosition: '', physicianPositionArabic: '',
   hospitalNameEnglish: '', hospitalNameArabic: '', licenseNumber: '', footerLogo: '',
   showLicenseNumber: true,
+  // الباركود
+  addQr: true,
 })
 
+// المفاتيح التي تُنسخ من البيانات المشتركة عند تفعيل «تخصيص هذه الإجازة».
+// بعد النسخ لا تقرأ الإجازة من المشتركة إطلاقاً — وهذا ما يجعلها مستقلة.
 const CUSTOM_KEYS = [
+  'nationalID', 'name', 'nameArabic', 'nationality', 'countryId', 'employer',
+  'issueDate', 'serviceNumType',
   'doctorName', 'doctorNameArabic', 'physicianPosition', 'physicianPositionArabic',
   'hospitalNameEnglish', 'hospitalNameArabic', 'licenseNumber', 'footerLogo',
+  'addQr',
 ]
 
 function BatchSickLeave() {
@@ -53,6 +69,8 @@ function BatchSickLeave() {
     doctorName: '', doctorNameArabic: '', physicianPosition: '', physicianPositionArabic: '',
     hospitalNameEnglish: 'AL NOOR SPECIALIST HOSPITAL', hospitalNameArabic: 'مستشفى النور التخصصي',
     licenseNumber: '1410845906', footerLogo: '', showLicenseNumber: true,
+    // الباركود مفعّل افتراضياً، مع خيار الإزالة — نفس آلية بقية المجموعة.
+    addQr: true,
   })
   const [createdRecords, setCreatedRecords] = useState([]) // ملخّص الإجازات المُنشأة
   const [periods, setPeriods] = useState([newPeriod(true, todayISO(), todayISO())])
@@ -64,6 +82,8 @@ function BatchSickLeave() {
   const [prefillNote, setPrefillNote] = useState('')
   const [prepared, setPrepared] = useState(null) // { files: File[], count } بعد التوليد
   const [showPreview, setShowPreview] = useState(false)
+  const [singlePreview, setSinglePreview] = useState(null) // سجل إجازة واحدة للمعاينة
+  const [sharingIndex, setSharingIndex] = useState(-1)
   const [showPicker, setShowPicker] = useState(false)
   const [pickerTarget, setPickerTarget] = useState(null) // 'shared' | periodId
 
@@ -134,8 +154,18 @@ function BatchSickLeave() {
       if (x.custom) return { ...x, custom: false } // العودة للمشتركة
       // تفعيل التخصيص: انسخ الافتراضيات المشتركة كنقطة بداية
       const seed = {}
-      CUSTOM_KEYS.forEach((k) => { seed[k] = x[k] || shared[k] })
-      return { ...x, custom: true, ...seed, showLicenseNumber: shared.showLicenseNumber !== false }
+      CUSTOM_KEYS.forEach((k) => {
+        const own = x[k]
+        seed[k] = (own === '' || own === null || own === undefined) ? shared[k] : own
+      })
+      return {
+        ...x,
+        custom: true,
+        ...seed,
+        showLicenseNumber: x.showLicenseNumber !== undefined
+          ? x.showLicenseNumber
+          : shared.showLicenseNumber !== false,
+      }
     }))
     dirty()
   }
@@ -165,34 +195,48 @@ function BatchSickLeave() {
 
   // ── التحقق ─────────────────────────────────────────────────────────────
   const validate = () => {
-    if (!/^\d{6,}$/.test(shared.nationalID.trim())) return 'أدخل رقم هوية صحيحًا'
-    if (!shared.name.trim() || !shared.nameArabic.trim()) return 'اسم الزبون (عربي/إنجليزي) مطلوب'
-    if (!shared.issueDate) return 'تاريخ إصدار التقرير مطلوب'
-    if (!validPeriods.length) return 'أضف فترة واحدة صحيحة على الأقل'
-    for (const p of validPeriods) {
+    if (!validPeriods.length) return 'أضف إجازة واحدة صحيحة على الأقل'
+    // كل إجازة تُتحقّق من مصدرها هي — فالمخصّصة تُحاسَب على بياناتها الخاصة.
+    for (let i = 0; i < validPeriods.length; i++) {
+      const p = validPeriods[i]
       const s = srcFor(p)
-      if (!s.doctorName.trim() || !s.doctorNameArabic.trim() || !s.physicianPosition.trim() || !s.physicianPositionArabic.trim())
-        return 'أكمل بيانات الطبيب والمسمّى (المشتركة أو المخصّصة لكل ملف)'
+      const at = validPeriods.length > 1 ? ` (الإجازة ${i + 1})` : ''
+      if (!/^\d{6,}$/.test(String(s.nationalID || '').trim())) return `أدخل رقم هوية صحيحًا${at}`
+      if (!String(s.name || '').trim() || !String(s.nameArabic || '').trim()) return `اسم الزبون (عربي/إنجليزي) مطلوب${at}`
+      if (!(s.issueDate || shared.issueDate)) return `تاريخ إصدار التقرير مطلوب${at}`
+      const filled = (v) => String(v || '').trim() !== ''
+      if (!filled(s.doctorName) || !filled(s.doctorNameArabic)
+        || !filled(s.physicianPosition) || !filled(s.physicianPositionArabic)) {
+        return `أكمل بيانات الطبيب والمسمّى${at}`
+      }
     }
     return null
   }
 
+  // حمولة إجازة واحدة — كل حقولها من مصدر تلك الإجازة (نفسها إن كانت مخصّصة،
+  // وإلا البيانات المشتركة). لا يقرأ هذا الباني من `shared` مباشرةً إطلاقاً،
+  // فإجازتان مخصّصتان لا تتأثر إحداهما بالأخرى ولا بالمشتركة.
   const buildPayload = (period) => {
     const s = srcFor(period)
-    const service_num = generateId(shared.serviceNumType)
+    const service_num = generateId(s.serviceNumType || shared.serviceNumType)
+    const text = (v) => String(v || '').trim()
     return {
       service_num, leave_id: service_num,
-      national_id: shared.nationalID.trim(),
-      name_en: shared.name.trim(), name_ar: shared.nameArabic.trim(),
-      admission_date_en: period.from, discharge_date_en: period.to, issue_date: shared.issueDate,
-      employer_en: shared.employer, employer_ar: shared.employer,
-      physician_name_en: s.doctorName.trim(), physician_name_ar: s.doctorNameArabic.trim(),
-      position_en: s.physicianPosition.trim(), position_ar: s.physicianPositionArabic.trim(),
-      nationality: shared.nationality || 'السعودية', countryId: shared.countryId || undefined,
+      national_id: text(s.nationalID),
+      name_en: text(s.name), name_ar: text(s.nameArabic),
+      admission_date_en: period.from, discharge_date_en: period.to,
+      issue_date: s.issueDate || shared.issueDate,
+      employer_en: s.employer, employer_ar: s.employer,
+      physician_name_en: text(s.doctorName), physician_name_ar: text(s.doctorNameArabic),
+      position_en: text(s.physicianPosition), position_ar: text(s.physicianPositionArabic),
+      nationality: normalizeNationality(s.nationality), countryId: s.countryId || undefined,
       hospital_name_en: s.hospitalNameEnglish, hospital_name_ar: s.hospitalNameArabic,
       license_number: s.licenseNumber || '1410845906',
       show_license_number: s.showLicenseNumber !== false, // زر بترخيص/بدون
-      footer_logo: s.footerLogo || null, // null = الشعار الافتراضي (صحة)
+      footer_logo: s.footerLogo || null, // null = شعار السيف والنخلة الافتراضي
+      // نفس قالب المستند الجديد المفرد — فالدفعة تُطبع بالقالب الافتراضي نفسه.
+      document_type: DEFAULT_DOCUMENT_TYPE,
+      add_qr: s.addQr !== false,
     }
   }
 
@@ -217,8 +261,10 @@ function BatchSickLeave() {
         if (!res.ok) return null
         return {
           service_num: payload.service_num, national_id: payload.national_id,
-          name: shared.nameArabic.trim() || shared.name.trim(),
+          name: payload.name_ar || payload.name_en,
           from: period.from, to: period.to, single: period.single,
+          // الحمولة كاملةً — تحتاجها المعاينة والمشاركة لكل إجازة على حدة.
+          payload,
         }
       }))
       const ok = records.filter(Boolean)
@@ -268,6 +314,42 @@ function BatchSickLeave() {
     }
   }
 
+  // تنزيل كل الملفات المُجهَّزة بضغطة واحدة — بلا قائمة مشاركة ولا خطوات.
+  const downloadAll = () => {
+    if (!prepared?.files?.length) return
+    prepared.files.forEach((file, i) => {
+      // تباعد بسيط بين التنزيلات: بعض المتصفحات تُسقط الدفعة إن تزامنت.
+      setTimeout(() => downloadNamedBlob(file, file.name), i * 220)
+    })
+    setMsg({ type: 'success', text: `جارٍ تنزيل ${prepared.count} ملف.` })
+  }
+
+  // ── إجراءات إجازة واحدة: معاينة/تحميل/مشاركة — نفس ما توفّره صفحة الإجازة
+  //    المفردة، لكن لكل إجازة في الدفعة على حدة.
+  const fileAt = (i) => prepared?.files?.[i] || null
+
+  const previewOne = (record) => setSinglePreview(record.payload || null)
+
+  const downloadOne = (i, record) => {
+    const file = fileAt(i)
+    if (file) downloadNamedBlob(file, `${record.service_num}.pdf`)
+  }
+
+  const shareOne = async (i, record) => {
+    if (sharingIndex >= 0) return
+    const file = fileAt(i)
+    setSharingIndex(i)
+    try {
+      const result = await shareLeavePdf(record.payload || record, file)
+      if (result?.downloaded) setMsg({ type: 'info', text: 'المتصفح لا يدعم المشاركة فتم تنزيل الملف.' })
+    } catch (e) {
+      console.error('Share one error:', e)
+      setMsg({ type: 'error', text: 'تعذّرت المشاركة، الملف جاهز — حاول مرة أخرى.' })
+    } finally {
+      setSharingIndex(-1)
+    }
+  }
+
   // ── مكتبة الشعارات ─────────────────────────────────────────────────────
   const openPicker = (target) => { setPickerTarget(target); setShowPicker(true) }
   const onPickLogo = (media) => {
@@ -294,11 +376,14 @@ function BatchSickLeave() {
     <div style={page} dir="rtl">
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h1 style={{ color: NAVY, margin: 0, fontSize: 22 }}>🗂️ إجازات متعددة (دفعة واحدة)</h1>
+          <h1 style={{ color: NAVY, margin: 0, fontSize: 22 }}>🗂️ إنشاء إجازة أو أكثر</h1>
           <button style={btn('#64748b')} onClick={() => navigate('/dashboard')}>لوحة التحكم</button>
         </div>
         <p style={{ color: '#64748b', marginTop: 6, fontSize: 14 }}>
-          عبّئ بيانات الزبون مرة واحدة، أضِف الأيام/الفترات المتفرقة (ويمكن تخصيص طبيب/مستشفى/شعار لكل ملف)، ثم «توليد» ثم «مشاركة» الكل دفعة واحدة.
+          إجازة واحدة؟ اترك كل شيء كما هو وأضف فترتها فقط. عدة إجازات؟ أضِف ما تشاء —
+          ويمكن جعل أي إجازة مستقلة تماماً ببياناتها الخاصة (المريض، الطبيب، المنشأة،
+          الشعار، الباركود). بعد «توليد» تحصل كل إجازة على معاينتها ومشاركتها وتحميلها،
+          أو نزّلها كلها بضغطة واحدة.
         </p>
 
         {/* بيانات الزبون */}
@@ -358,6 +443,12 @@ function BatchSickLeave() {
                 </button>
               </div>
             </Field>
+            <Field label="الباركود (QR)">
+              <button type="button" onClick={() => setField('addQr', !shared.addQr)}
+                title="إظهار أو إخفاء الباركود في التقرير" style={{ ...toggleBtn(shared.addQr), width: '100%' }}>
+                {shared.addQr ? 'بالباركود ✓' : 'بدون باركود'}
+              </button>
+            </Field>
           </div>
           <div style={{ marginTop: 14 }}>
             <label style={{ fontSize: 13, color: '#475569', display: 'block', marginBottom: 8, fontWeight: 700 }}>الشعار الافتراضي (يظهر أسفل التقرير)</label>
@@ -395,7 +486,7 @@ function BatchSickLeave() {
                       <Field label="إلى" inline><input style={input} type="date" value={p.to} onChange={(e) => updatePeriod(p.id, { to: e.target.value })} /></Field>
                     </>
                   )}
-                  <button style={miniBtn(p.custom ? GREEN : '#64748b')} onClick={() => toggleCustom(p.id)} title="طبيب/مستشفى/شعار خاص لهذا الملف">{p.custom ? '✓ مخصّص' : '⚙️ تخصيص'}</button>
+                  <button style={miniBtn(p.custom ? GREEN : '#64748b')} onClick={() => toggleCustom(p.id)} title="بيانات مستقلة تماماً لهذه الإجازة (مريض/طبيب/منشأة/شعار/باركود)">{p.custom ? '✓ مستقلة' : '⚙️ بيانات مستقلة'}</button>
                   <button style={miniBtn('#0ea5e9')} onClick={() => duplicatePeriod(p.id)} title="نسخ">⧉</button>
                   <button style={miniBtn('#b91c1c')} onClick={() => removePeriod(p.id)} title="حذف">✕</button>
                 </div>
@@ -411,7 +502,16 @@ function BatchSickLeave() {
                         </select>
                       </div>
                     )}
+                    <div style={{ fontSize: 12, color: '#6d28d9', fontWeight: 700, marginBottom: 8 }}>
+                      بيانات هذه الإجازة وحدها — مستقلة تماماً عن البيانات المشتركة وعن بقية الإجازات
+                    </div>
                     <div style={grid2}>
+                      <Field label="رقم الهوية"><input style={input} dir="ltr" value={p.nationalID} onChange={(e) => updatePeriod(p.id, { nationalID: e.target.value })} /></Field>
+                      <Field label="تاريخ الإصدار"><input style={input} type="date" value={p.issueDate} onChange={(e) => updatePeriod(p.id, { issueDate: e.target.value })} /></Field>
+                      <Field label="الاسم (عربي)"><input style={input} value={p.nameArabic} onChange={(e) => updatePeriod(p.id, { nameArabic: e.target.value })} /></Field>
+                      <Field label="الاسم (إنجليزي)"><input style={input} dir="ltr" value={p.name} onChange={(e) => updatePeriod(p.id, { name: e.target.value })} /></Field>
+                      <Field label="الجنسية"><input style={input} value={p.nationality} onChange={(e) => updatePeriod(p.id, { nationality: e.target.value })} /></Field>
+                      <Field label="جهة العمل"><input style={input} value={p.employer} onChange={(e) => updatePeriod(p.id, { employer: e.target.value })} /></Field>
                       <Field label="طبيب (عربي)"><input style={input} value={p.doctorNameArabic} onChange={(e) => updatePeriod(p.id, { doctorNameArabic: e.target.value })} /></Field>
                       <Field label="طبيب (إنجليزي)"><input style={input} dir="ltr" value={p.doctorName} onChange={(e) => updatePeriod(p.id, { doctorName: e.target.value })} /></Field>
                       <Field label="مسمّى (عربي)"><input style={input} value={p.physicianPositionArabic} onChange={(e) => updatePeriod(p.id, { physicianPositionArabic: e.target.value })} /></Field>
@@ -428,6 +528,12 @@ function BatchSickLeave() {
                             {p.showLicenseNumber ? 'بترخيص ✓' : 'بدون'}
                           </button>
                         </div>
+                      </Field>
+                      <Field label="الباركود (QR)">
+                        <button type="button" onClick={() => updatePeriod(p.id, { addQr: p.addQr === false })}
+                          title="إظهار أو إخفاء الباركود في هذه الإجازة" style={{ ...toggleBtn(p.addQr !== false), width: '100%' }}>
+                          {p.addQr !== false ? 'بالباركود ✓' : 'بدون باركود'}
+                        </button>
                       </Field>
                     </div>
                     <div style={{ marginTop: 10 }}>
@@ -448,7 +554,7 @@ function BatchSickLeave() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr>{['#', 'رمز الخدمة', 'الاسم', 'من', 'إلى'].map((t) => <th key={t} style={thTd(true)}>{t}</th>)}</tr>
+                  <tr>{['#', 'رمز الخدمة', 'الاسم', 'من', 'إلى', 'إجراءات'].map((t) => <th key={t} style={thTd(true)}>{t}</th>)}</tr>
                 </thead>
                 <tbody>
                   {createdRecords.map((r, i) => (
@@ -458,6 +564,17 @@ function BatchSickLeave() {
                       <td style={thTd()}>{r.name || '—'}</td>
                       <td style={{ ...thTd(), direction: 'ltr' }}>{r.from}</td>
                       <td style={{ ...thTd(), direction: 'ltr' }}>{r.single ? '—' : r.to}</td>
+                      <td style={thTd()}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button style={miniBtn('#0ea5e9')} onClick={() => previewOne(r)} title="معاينة هذه الإجازة">👁️</button>
+                          <button style={miniBtn(GREEN)} disabled={!fileAt(i)}
+                            onClick={() => downloadOne(i, r)} title="تحميل هذه الإجازة">📥</button>
+                          <button style={miniBtn('#2f6db4')} disabled={sharingIndex === i}
+                            onClick={() => shareOne(i, r)} title="مشاركة هذه الإجازة">
+                            {sharingIndex === i ? '⏳' : '📤'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -499,13 +616,31 @@ function BatchSickLeave() {
               {sharing ? '⏳ جارٍ المشاركة…' : `📤 مشاركة (${prepared?.count || 0})`}
             </button>
           </div>
+          {prepared?.count > 0 && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+              <button
+                type="button"
+                style={{ ...btn(ORANGE), flex: '1 1 200px', fontSize: 16, padding: '14px' }}
+                onClick={downloadAll}
+              >
+                {`📥 تحميل الكل (${prepared.count})`}
+              </button>
+            </div>
+          )}
           {prepared?.count > 0 && !busy && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>الملفات جاهزة في الذاكرة — يمكنك المشاركة الآن أو أكثر من مرة.</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>الملفات جاهزة في الذاكرة — يمكنك تنزيلها أو مشاركتها الآن أو أكثر من مرة.</div>
           )}
         </div>
       </div>
 
       <MediaPicker isOpen={showPicker} onClose={() => setShowPicker(false)} onSelect={onPickLogo} accept="image" category="all" />
+
+      {/* معاينة إجازة واحدة — نفس مكوّن المعاينة المستخدَم في الصفحة المفردة،
+          فتحصل كل إجازة على الرابط والباركود والشعار والتحميل والمشاركة. */}
+      {singlePreview && (() => {
+        const PreviewComponent = getDocumentType(singlePreview.document_type).previewComponent
+        return <PreviewComponent data={singlePreview} onClose={() => setSinglePreview(null)} />
+      })()}
 
       {showPreview && prepared?.files?.length > 0 && (
         <PreviewModal files={prepared.files} onClose={() => setShowPreview(false)} />

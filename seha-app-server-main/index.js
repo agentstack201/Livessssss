@@ -201,6 +201,7 @@ if (routes) {
   app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
   if (routes.keysRoute) app.use(routes.keysRoute);
   if (routes.setupRoute) app.use(routes.setupRoute);
+  if (routes.whatsappRoute) app.use(routes.whatsappRoute);
   app.use('/users', routes.usersRoute);
   app.use('/media', routes.mediaRoute);
   app.use('/settings', routes.settingsRoute);
@@ -249,6 +250,16 @@ if (sequelize) {
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_ar VARCHAR(191) DEFAULT '';`),
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_en VARCHAR(191) DEFAULT '';`),
         sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_ar VARCHAR(191) DEFAULT '';`),
+        // QR اختياري وطريقة التاريخ — أعمدة اختيارية أُضيفت مع هذه الميزة.
+        // نفس الـ DDL الموجود في migrations/add-qr-date-mode-fields.js حرفياً؛
+        // ذلك الملف سكربت يدوي لا يشغّله النشر (startCommand = npm start فقط)،
+        // فبدون هذه الأسطر يبقى العمود مفقوداً في قاعدة البيانات ويفشل إنشاء
+        // أي إجازة بـ «column "add_qr" of relation "leaves" does not exist».
+        // add_qr افتراضيّه TRUE عمداً: السجل الذي لا يحدّد قيمة يُظهر الـ QR
+        // كما كان دائماً قبل هذه الميزة (وهو ما يعتمد عليه data.add_qr !== false).
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS add_qr BOOLEAN DEFAULT TRUE;`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS date_mode VARCHAR(20) DEFAULT 'actual';`),
+        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS leave_days INTEGER DEFAULT NULL;`),
         // توسيع عمود رابط الوسائط ليتّسع لروابط data:base64 عند الرفع المحلي
         sequelize.query(`ALTER TABLE media ALTER COLUMN url TYPE TEXT;`)
       ]).then(() => {
@@ -265,8 +276,8 @@ if (sequelize) {
     })
     .then(() => {
       // Move any legacy single-setting Gemini key(s) into the rotation pool.
-      const { importLegacyGeminiKeys } = require("./utils/llm/bootstrap.js");
-      return importLegacyGeminiKeys();
+      const { importLegacyGeminiKeys, recoverInvalidatedKeys } = require("./utils/llm/bootstrap.js");
+      return importLegacyGeminiKeys().then(() => recoverInvalidatedKeys());
     })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
@@ -279,6 +290,15 @@ if (sequelize) {
 const PORT = process.env.PORT || process.env.Port || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server is running locally on http://localhost:${PORT}`);
+  // إعادة فتح جلسة واتساب المحفوظة تلقائياً عند الإقلاع (بعد كل نشر أو
+  // استيقاظ من السكون). بدونها تبقى الحالة «غير متصل» رغم سلامة الإقران،
+  // فيختفي زر «إرسال عبر واتساب». لا يفعل شيئاً إن لم يوجد إقران محفوظ.
+  try {
+    require('./utils/whatsappSender').ensureConnected()
+      .catch((err) => console.warn('[WA] boot reconnect:', err.message));
+  } catch (err) {
+    console.warn('[WA] boot reconnect skipped:', err.message);
+  }
 });
 
 // Export for Vercel
