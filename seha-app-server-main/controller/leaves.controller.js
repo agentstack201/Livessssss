@@ -80,6 +80,9 @@ module.exports.addNewLeaves = async (req, res, next) => {
     relation_ar,
     visit_type_en,
     visit_type_ar,
+    // حقول التقارير الورقية: كائن JSON حرّ لكل قالب + خيار الخط.
+    template_data,
+    document_font,
   } = req.body;
   try {
     // Ensure leave_id and service_num are identical
@@ -142,6 +145,8 @@ module.exports.addNewLeaves = async (req, res, next) => {
       relation_ar: relation_ar || '',
       visit_type_en: visit_type_en || '',
       visit_type_ar: visit_type_ar || '',
+      template_data: sanitizeTemplateData(template_data),
+      document_font: document_font || null,
       created_by: req.user?.name || 'system',
       user_id: req.user?.id || null,
     });
@@ -270,6 +275,8 @@ module.exports.updateLeave = async (req, res, next) => {
     relation_ar,
     visit_type_en,
     visit_type_ar,
+    template_data,
+    document_font,
   } = req.body;
 
   try {
@@ -381,6 +388,9 @@ module.exports.updateLeave = async (req, res, next) => {
       relation_ar: relation_ar !== undefined ? relation_ar : existingLeave.relation_ar,
       visit_type_en: visit_type_en !== undefined ? visit_type_en : existingLeave.visit_type_en,
       visit_type_ar: visit_type_ar !== undefined ? visit_type_ar : existingLeave.visit_type_ar,
+      // كما بقية حقول القوالب: تُحدَّث فقط إذا أُرسلت، وإلا تبقى كما هي.
+      template_data: template_data !== undefined ? sanitizeTemplateData(template_data) : existingLeave.template_data,
+      document_font: document_font !== undefined ? (document_font || null) : existingLeave.document_font,
       // إضافة حقول التاريخ والوقت مع القيم الافتراضية إذا كانت فارغة
       report_time: report_time || existingLeave.report_time || (() => {
         const DateObj = getFormattedDateTime();
@@ -789,6 +799,21 @@ module.exports.getClientByNationalId = async (req, res) => {
 // ============================================
 // Helper Functions
 // ============================================
+
+// template_data كائن حرّ يأتي من العميل. نقبله ككائن مسطّح بقيم بسيطة فقط
+// (نص/منطقي/رقم) وبحدّ لطول النص، فلا يُخزَّن فيه شيء غير متوقّع. الصور
+// تصل كـ data URI أو رابط، وكلاهما نص.
+function sanitizeTemplateData(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof k !== 'string' || k.length > 64) continue;
+    if (typeof v === 'boolean' || typeof v === 'number') out[k] = v;
+    else if (typeof v === 'string') out[k] = v.length > 2_000_000 ? v.slice(0, 2_000_000) : v;
+    // أي شيء آخر (كائنات/مصفوفات/دوال) يُتجاهل عمداً.
+  }
+  return out;
+}
 
 // Validate ID format
 // PSL: PSL + 11 digits starting with 261 (total 14 chars)

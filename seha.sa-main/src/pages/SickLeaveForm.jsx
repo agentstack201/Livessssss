@@ -4,6 +4,8 @@ import styles from './SickLeaveForm.module.css'
 import MediaPicker from '../components/MediaPicker'
 import { normalizeNationality } from '../utils/nationality'
 import NationalityPicker from '../components/NationalityPicker'
+import PaperFieldsEditor from '../components/PaperFieldsEditor'
+import DocumentAIExtract from '../components/DocumentAIExtract'
 import { calcWaitingPeriod } from '../utils/documentFormat'
 import {
   DEFAULT_DOCUMENT_TYPE,
@@ -121,6 +123,50 @@ function SickLeaveForm() {
     const fromQuery = new URLSearchParams(location.search).get('template')
     return normalizeDocumentType(fromState || fromQuery || DEFAULT_DOCUMENT_TYPE)
   })
+
+  // نتيجة استخراج الذكاء الاصطناعي من ملف مرفوع: نطبّقها على النموذج.
+  // الملف مصدر بيانات فقط — التصميم يبقى من القالب المحفوظ في النظام.
+  const applyExtractedDocument = (result) => {
+    if (!result) return
+    if (result.document_type) setDocumentType(normalizeDocumentType(result.document_type))
+    if (result.template_data && Object.keys(result.template_data).length) {
+      setTemplateData((prev) => ({ ...prev, ...result.template_data }))
+    }
+    const c = result.core || {}
+    // خريطة حقول السجل الأساسية إلى أسماء النموذج. الفارغ لا يُكتب فوق قيمة
+    // موجودة، فلا يمحو الاستخراج ما أدخله المستخدم.
+    const map = {
+      service_num: 'serviceNum', leave_id: 'leaveId', national_id: 'nationalID',
+      name_ar: 'nameArabic', name_en: 'name',
+      admission_date_en: 'admissionDate', discharge_date_en: 'dischargeDate',
+      issue_date: 'issueDate', employer_ar: 'employer',
+      physician_name_ar: 'doctorNameArabic', physician_name_en: 'doctorName',
+      position_ar: 'physicianPositionArabic', position_en: 'physicianPosition',
+      nationality: 'nationality',
+      hospital_name_ar: 'hospitalNameArabic', hospital_name_en: 'hospitalNameEnglish',
+    }
+    setFormData((prev) => {
+      const next = { ...prev }
+      for (const [src, dst] of Object.entries(map)) {
+        const v = c[src]
+        if (typeof v === 'string' && v.trim()) next[dst] = v.trim()
+      }
+      if (next.serviceNum && !next.leaveId) next.leaveId = next.serviceNum
+      return next
+    })
+    // انتقل إلى النموذج ليراجع المستخدم ويعدّل.
+    setActiveTab('form')
+    window.showToast?.(
+      result.document_type
+        ? `تم التعرّف على «${result.template_title}» وتعبئة ${result.filled} حقلاً`
+        : `تم استخراج ${result.filled} حقلاً`,
+      'success'
+    )
+  }
+
+  // حقول التقارير الورقية (JSON حرّ لكل قالب) وخيار الخط المختار.
+  const [templateData, setTemplateData] = useState({})
+  const [documentFont, setDocumentFont] = useState('')
 
   // وصف القالب الحالي: مسمّياته وحقوله المطلوبة والقدرات التي يفعّلها.
   const docType = getDocumentType(documentType)
@@ -548,6 +594,8 @@ function SickLeaveForm() {
         visitTypeEnglish: leaveData.visit_type_en || ''
       })
       setDocumentType(normalizeDocumentType(leaveData.document_type))
+      setTemplateData(leaveData.template_data || {})
+      setDocumentFont(leaveData.document_font || '')
       setIsEditMode(true)
       setOriginalServiceNum(leaveData.service_num || '')
       setOriginalLeaveId(leaveData.leave_id || '')
@@ -880,6 +928,8 @@ function SickLeaveForm() {
           visitTypeEnglish: record.visit_type_en || ''
         })
         setDocumentType(normalizeDocumentType(record.document_type))
+        setTemplateData(record.template_data || {})
+        setDocumentFont(record.document_font || '')
         setIsEditMode(true)
         setOriginalServiceNum(record.service_num || '')
         setOriginalLeaveId(record.leave_id || '')
@@ -1104,7 +1154,10 @@ function SickLeaveForm() {
         relation_en: feat.relation ? formData.relationEnglish : '',
         relation_ar: feat.relation ? formData.relationArabic : '',
         visit_type_en: feat.visitType ? formData.visitTypeEnglish : '',
-        visit_type_ar: feat.visitType ? formData.visitTypeArabic : ''
+        visit_type_ar: feat.visitType ? formData.visitTypeArabic : '',
+        // حقول التقرير الورقي وخطّه — تُرسل فقط مع القوالب الورقية.
+        template_data: docType.isPaper ? templateData : {},
+        document_font: docType.isPaper ? (documentFont || null) : null
       }
 
       // Debug: طباعة البيانات المرسلة
@@ -1371,7 +1424,10 @@ function SickLeaveForm() {
           relation_en: feat.relation ? formData.relationEnglish : '',
           relation_ar: feat.relation ? formData.relationArabic : '',
           visit_type_en: feat.visitType ? formData.visitTypeEnglish : '',
-          visit_type_ar: feat.visitType ? formData.visitTypeArabic : ''
+          visit_type_ar: feat.visitType ? formData.visitTypeArabic : '',
+          template_data: docType.isPaper ? templateData : {},
+          document_font: docType.isPaper ? (documentFont || null) : null,
+          __templateTitle: docType.titleAr
         }
         setPdfData(pdfDataToUse)
         setShowPdfModal(true)
@@ -1534,6 +1590,8 @@ function SickLeaveForm() {
       {activeTab === 'ai' && (
         <div className={styles.aiHero}>
           <div className={styles.aiHeroGlow} aria-hidden="true" />
+          {/* رفع ملف (PDF / Word / صورة / مسح ضوئي) واستخراج بياناته */}
+          <DocumentAIExtract onExtracted={applyExtractedDocument} />
           {aiSuccess ? (
             <div className={styles.aiCelebration}>
               <div className={styles.aiCelebrationIcon}>🎯</div>
@@ -1707,6 +1765,18 @@ function SickLeaveForm() {
               </small>
             )}
           </div>
+
+          {/* حقول التقرير الورقي — تُبنى من وصف القالب في الخادم، ومنها
+              خانات رفع الشعارات والأختام والتواقيع. */}
+          {docType.isPaper && (
+            <PaperFieldsEditor
+              templateId={docType.key}
+              value={templateData}
+              onChange={setTemplateData}
+              font={documentFont}
+              onFontChange={setDocumentFont}
+            />
+          )}
 
           {/* Service Number */}
           <div className={styles.fieldGroup}>

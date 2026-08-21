@@ -56,6 +56,57 @@ const DOCUMENT_TYPES = {
     label_en: 'Sick Leave Report — Enhanced Template',
     renderer: 'createSickLeaveEnhancedPDF',
   },
+  // ── القوالب الورقية (تقارير المستشفيات) ──────────────────────────────────
+  // كلها تمرّ على نفس المولّد العام، ويحدّد paperTemplate أي تصميم يُستخدم.
+  khalid_sick_leave: {
+    key: 'khalid_sick_leave',
+    label_ar: 'تقرير بأجازة مرضية (ج) — خالد المتميز',
+    label_en: 'Sick Leave Report (C) — Khalid Distinct',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'khalid_sick_leave',
+  },
+  madina_sick_leave: {
+    key: 'madina_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — المدينة الوطني',
+    label_en: 'Sick Leave Report — Madina National',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'madina_sick_leave',
+  },
+  kfmc_appointment: {
+    key: 'kfmc_appointment',
+    label_ar: 'إشعار موعد — مدينة الملك فهد الطبية',
+    label_en: 'Appointment Notice — KFMC',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfmc_appointment',
+  },
+  kfgh_medical_report: {
+    key: 'kfgh_medical_report',
+    label_ar: 'تقرير طبي — الملك فهد العام',
+    label_en: 'Medical Report — King Fahad General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfgh_medical_report',
+  },
+  haql_sick_leave: {
+    key: 'haql_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — حقل العام',
+    label_en: 'Sick Leave Report — Haql General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'haql_sick_leave',
+  },
+  kfgh_sick_leave_form: {
+    key: 'kfgh_sick_leave_form',
+    label_ar: 'تقرير إجازة مرضية (نموذج) — الملك فهد العام',
+    label_en: 'Sick Leave Form — King Fahad General',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'kfgh_sick_leave_form',
+  },
+  ksmc_sick_leave: {
+    key: 'ksmc_sick_leave',
+    label_ar: 'تقرير إجازة مرضية — الملك سعود الطبية',
+    label_en: 'Sick Leave Report — King Saud Medical City',
+    renderer: 'createPaperPDF',
+    paperTemplate: 'ksmc_sick_leave',
+  },
 };
 
 /**
@@ -75,9 +126,15 @@ function rendererNameFor(value) {
   return DOCUMENT_TYPES[normalizeDocumentType(value)].renderer;
 }
 
+/** معرّف التصميم الورقي لهذا النوع (أو null إن لم يكن قالباً ورقياً). */
+function paperTemplateFor(value) {
+  return DOCUMENT_TYPES[normalizeDocumentType(value)].paperTemplate || null;
+}
+
 module.exports = {
   DOCUMENT_TYPES,
   DEFAULT_DOCUMENT_TYPE,
   normalizeDocumentType,
   rendererNameFor,
+  paperTemplateFor,
 };

@@ -168,6 +168,23 @@ const leaves = sequelize.define(
       defaultValue: '',
       comment: 'نوع الزيارة بالعربية (مشهد مراجعة لمرافق)',
     },
+    // ── القوالب الورقية ───────────────────────────────────────────────────
+    // حقول كل تقرير ورقي الخاصة به (الجنس، تاريخ الميلاد، المهنة، رقم الملف
+    // الطبي، التشخيص، خانات التوصيات، بيانات إشعار الموعد…). عمود واحد بدل
+    // عشرات الأعمدة الفارغة، فإضافة قالب جديد لا تحتاج أي هجرة.
+    template_data: {
+      type: Sequelize.JSONB,
+      allowNull: true,
+      defaultValue: {},
+      comment: 'حقول القالب الورقي الخاصة (JSON)',
+    },
+    // خيار الخط المختار من config/documentFonts.js (فارغ = افتراضي القالب).
+    document_font: {
+      type: Sequelize.STRING(32),
+      allowNull: true,
+      defaultValue: null,
+      comment: 'معرّف خيار الخط المستخدم في هذا المستند',
+    },
     created_by: {
       type: Sequelize.STRING(191),
       allowNull: true,

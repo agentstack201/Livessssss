@@ -15,16 +15,35 @@ const SAFETY_SETTINGS = [
   "HARM_CATEGORY_DANGEROUS_CONTENT",
 ].map((category) => ({ category, threshold: "BLOCK_NONE" }));
 
+// محتوى الرسالة: إمّا نصّ كما كان، أو مصفوفة أجزاء لدعم الملفات والصور.
+// الشكل المقبول للأجزاء:
+//   { type: 'text',  text: '...' }
+//   { type: 'file',  mimeType: 'application/pdf', data: '<base64>' }
+// أي شيء آخر يُتجاهل. الاستدعاءات النصّية القديمة تمرّ كما هي بلا تغيير.
+function toParts(content) {
+  if (typeof content === "string") return [{ text: content }];
+  if (!Array.isArray(content)) return [{ text: String(content ?? "") }];
+  const parts = [];
+  for (const c of content) {
+    if (!c) continue;
+    if (c.type === "text" && c.text) parts.push({ text: c.text });
+    else if (c.type === "file" && c.data && c.mimeType) {
+      parts.push({ inlineData: { mimeType: c.mimeType, data: c.data } });
+    }
+  }
+  return parts.length ? parts : [{ text: "" }];
+}
+
 // OpenAI-style messages -> Gemini contents + optional systemInstruction.
 function toGemini(messages) {
   const contents = [];
   let system = null;
   for (const m of messages) {
     if (m.role === "system") {
-      system = { parts: [{ text: m.content }] };
+      system = { parts: toParts(m.content) };
       continue;
     }
-    contents.push({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] });
+    contents.push({ role: m.role === "assistant" ? "model" : "user", parts: toParts(m.content) });
   }
   return { contents, system };
 }

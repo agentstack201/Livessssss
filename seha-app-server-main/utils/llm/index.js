@@ -35,6 +35,15 @@ async function llmGenerate(prompt, opts = {}) {
     const out = await pool.chat([{ role: "user", content: prompt }], opts);
     return { text: out.text, provider: out.provider, model: out.model, usage: out.usage };
   }
+  // المسار القديم نصّي فقط، فلا يقبل الملفات والصور.
+  if (Array.isArray(prompt)) {
+    const err = new Error(
+      "قراءة الملفات تحتاج مفتاح API مضافاً في إدارة المفاتيح. أضف مفتاحاً ثم أعد المحاولة."
+    );
+    err.code = "NO_KEYS";
+    err.httpStatus = 400;
+    throw err;
+  }
   // Legacy fallback: keys still only in the gemini_api_key setting.
   const out = await legacyGemini.geminiGenerate(prompt, opts);
   return { text: out.text, provider: "gemini", model: out.usedModel, usage: null };
