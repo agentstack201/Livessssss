@@ -23,14 +23,15 @@
 
 const jpeg = require('jpeg-js');
 
-// القيم الافتراضية هي التوليفة «الثقيلة» — الأقرب لشكل الملف المرجعي: بقع
-// وشريط كحلي فقط بلا أي نص مقروء.
+// القيم الافتراضية توليفة متوسطة: تُميَّز الشعارات وهيكل الجدول فيُعرف أنه
+// تقرير صحة، ولا يُقرأ أي نص أو رقم. أخفّ من التوليفة الثقيلة (120/4/40)
+// وأغمض من الخفيفة (300/1/70).
 // مقاس المصغّرة. واتساب يعرضها مكبّرة داخل الفقاعة، فكلما صغُرت زاد الغيام.
-const DEFAULT_WIDTH = Number(process.env.WHATSAPP_THUMB_WIDTH || 120);
+const DEFAULT_WIDTH = Number(process.env.WHATSAPP_THUMB_WIDTH || 180);
 // نصف قطر التمويه بالبكسل (على المصغّرة الصغيرة، لا على المستند).
-const DEFAULT_BLUR = Number(process.env.WHATSAPP_THUMB_BLUR || 4);
+const DEFAULT_BLUR = Number(process.env.WHATSAPP_THUMB_BLUR || 2);
 // جودة ضغط JPEG (1–100).
-const DEFAULT_QUALITY = Number(process.env.WHATSAPP_THUMB_QUALITY || 40);
+const DEFAULT_QUALITY = Number(process.env.WHATSAPP_THUMB_QUALITY || 50);
 // سقف حجم المصغّرة. هي تُنقل داخل الرسالة نفسها لا كملف منفصل، والرسائل
 // الضخمة قد يرفضها الخادم أو يبطئ إرسالها. المقاسات الافتراضية تُنتج ~٢ ك.ب،
 // وهذا السقف مجرّد شبكة أمان إن رفع أحدهم العرض أو الجودة كثيراً.
