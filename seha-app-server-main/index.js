@@ -196,18 +196,11 @@ app.get("/", (req, res) => {
   `);
 });
 
-// API Routes - only if routes loaded successfully
-if (routes) {
-  app.use([routes.loginRoute, routes.countryRoute, routes.leaveRoute, routes.doctorRoute, routes.hospitalRoute]);
-  if (routes.keysRoute) app.use(routes.keysRoute);
-  if (routes.setupRoute) app.use(routes.setupRoute);
-  if (routes.whatsappRoute) app.use(routes.whatsappRoute);
-  app.use('/users', routes.usersRoute);
-  app.use('/media', routes.mediaRoute);
-  app.use('/settings', routes.settingsRoute);
-} else {
-  console.warn("Routes not loaded - API endpoints unavailable");
-}
+// API Routes — التركيب كله من config/mountRoutes.js، وهو المصدر الوحيد
+// لما يُركَّب. لا تضِف app.use(...) لمسار هنا: أضِفه إلى MOUNTS هناك، وإلا
+// حُمِّل المسار وطبع «loaded» ثم ردّ 404 على كل طلب.
+const { mountRoutes } = require("./config/mountRoutes.js");
+mountRoutes(app, routes);
 
 // Static files
 app.use("/public", express.static(path.join(__dirname, "public")));
@@ -235,37 +228,14 @@ if (sequelize) {
     })
     .then(() => {
       console.log('✅ All models synchronized successfully!');
-      // Run auto-migrations for permission table
-      return Promise.all([
-        sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_doctors BOOLEAN DEFAULT false;`),
-        sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_hospitals BOOLEAN DEFAULT false;`),
-        sequelize.query(`ALTER TABLE permissions ADD COLUMN IF NOT EXISTS can_manage_settings BOOLEAN DEFAULT false;`),
-        // رقم جوال الزبون لإرسال التقرير عبر واتساب
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';`),
-        // قالب «مشهد مراجعة لمرافق» — أعمدة اختيارية لا تمسّ الإجازة المرضية
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS document_type VARCHAR(32) DEFAULT 'sick_leave';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS admission_time VARCHAR(32) DEFAULT '';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS discharge_time VARCHAR(32) DEFAULT '';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_en VARCHAR(191) DEFAULT '';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS relation_ar VARCHAR(191) DEFAULT '';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_en VARCHAR(191) DEFAULT '';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS visit_type_ar VARCHAR(191) DEFAULT '';`),
-        // QR اختياري وطريقة التاريخ — أعمدة اختيارية أُضيفت مع هذه الميزة.
-        // نفس الـ DDL الموجود في migrations/add-qr-date-mode-fields.js حرفياً؛
-        // ذلك الملف سكربت يدوي لا يشغّله النشر (startCommand = npm start فقط)،
-        // فبدون هذه الأسطر يبقى العمود مفقوداً في قاعدة البيانات ويفشل إنشاء
-        // أي إجازة بـ «column "add_qr" of relation "leaves" does not exist».
-        // add_qr افتراضيّه TRUE عمداً: السجل الذي لا يحدّد قيمة يُظهر الـ QR
-        // كما كان دائماً قبل هذه الميزة (وهو ما يعتمد عليه data.add_qr !== false).
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS add_qr BOOLEAN DEFAULT TRUE;`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS date_mode VARCHAR(20) DEFAULT 'actual';`),
-        sequelize.query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS leave_days INTEGER DEFAULT NULL;`),
-        // توسيع عمود رابط الوسائط ليتّسع لروابط data:base64 عند الرفع المحلي
-        sequelize.query(`ALTER TABLE media ALTER COLUMN url TYPE TEXT;`)
-      ]).then(() => {
-        console.log('✅ Database permissions table successfully updated with new columns!');
-      }).catch((err) => {
-        console.warn('⚠️ Auto-migration warnings (checking columns):', err.message);
+      // مزامنة الأعمدة المطلوبة من config/schemaSync.js — المصدر الوحيد
+      // للـ DDL. النشر لا يشغّل ملفات migrations/ إطلاقاً، وsync({alter:false})
+      // لا يضيف عموداً إلى جدول قائم، فهذه هي الطريقة الوحيدة التي تصل بها
+      // الأعمدة الجديدة إلى قاعدة الإنتاج. تتحقّق أيضاً أن كل عمود يعلنه
+      // النموذج موجود فعلاً، وتطبع اسم أي عمود ناقص عند الإقلاع.
+      const { syncSchema } = require("./config/schemaSync.js");
+      return syncSchema(sequelize).catch((err) => {
+        console.warn('⚠️ Schema sync warning:', err.message);
       });
     })
     .then(() => {

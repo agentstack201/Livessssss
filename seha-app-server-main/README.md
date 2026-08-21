@@ -62,7 +62,7 @@ npm run dev
 
 ```
 seha-app-server/
-├── app.js                    # نقطة الدخول الرئيسية
+├── index.js                  # نقطة الدخول الرئيسية (npm start)
 ├── config/
 │   ├── database.js           # إعدادات قاعدة البيانات
 │   ├── middlewares.js        # تجميع الـ middlewares

@@ -4,4 +4,3 @@
 .git
 scripts/
 public/leaves/*.pdf
-app.js
