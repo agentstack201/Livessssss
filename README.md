@@ -95,7 +95,7 @@ npm run create-admin      # إنشاء حساب مدير أولي
 **الخطوات:**
 1. Render Dashboard → **New +** → **Blueprint** → اختر هذا المستودع → Apply.
    (أو **New Web Service** يدوياً مع: Root Directory = `seha-app-server-main`، Build = `npm install --omit=dev`، Start = `npm start`، Health Check Path = `/api/health`.)
-2. عبّئ متغيّرات البيئة (المعلّمة `sync: false`): `DATABASE_URL` (من Neon → Connect، استخدم سلسلة الـ pooled) و `FRONTEND_URL`. (`JWT_SECRET` يولّده Render تلقائياً.)
+2. عبّئ متغيّرات البيئة **المطلوبة** (المعلّمة `sync: false`): `DATABASE_URL` (من Neon → Connect، استخدم سلسلة الـ pooled) و `FRONTEND_URL`. (`JWT_SECRET` و `ENCRYPTION_KEY` يولّدهما Render تلقائياً.) البقية (`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`، `GEMINI_API_KEY`، `WHATSAPP_*`) **اختيارية** — اتركها فارغة إن لم تستخدم تلك الميزة. القالب الكامل مع شرح كل متغيّر: [`seha-app-server-main/.env.example`](./seha-app-server-main/.env.example).
 3. بعد نجاح النشر، انسخ رابط الخدمة (مثل `https://seha-app-server.onrender.com`).
 4. في مشروع **Vercel** للواجهة: اضبط `VITE_API_BASE_URL` على رابط Render أعلاه، ثم أعِد النشر (Redeploy).
 
