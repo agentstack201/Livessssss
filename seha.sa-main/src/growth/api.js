@@ -91,6 +91,8 @@ export const api = {
   lookupUser: (q) => request(`/credits/lookup${qs({ q })}`),
   reconcile: () => request('/credits/reconcile'),
   adjustCredits: (body) => request('/credits/adjust', { method: 'POST', body }),
+  expireSweep: (dryRun) =>
+    request(`/credits/expire-sweep${dryRun ? '?dry_run=1' : ''}`, { method: 'POST', body: {} }),
   userHistory: (userId) => request(`/credits/${userId}/history`),
 
   // ── كوبونات ─────────────────────────────────────────────────────────────

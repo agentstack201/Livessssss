@@ -350,6 +350,73 @@ const section = (t) => console.log(`\n━━ ${t}`);
   ok('I1 محفوظ بعد الاسترداد', rec3.healthy);
 
   // ══════════════════════════════════════════════════════════════════════
+  section('انتهاء صلاحية أرصدة الاشتراك');
+  await settings.setMany({ 'credits.expire_plan_credits': false }, { actorId: admin.id });
+  const off = await credits.expireStale({ dryRun: true });
+  ok('المسح معطّل ⇒ لا يفعل شيئاً', off.enabled === false);
+
+  await settings.setMany({
+    'credits.expire_plan_credits': true, 'credits.expiry_grace_days': 0,
+  }, { actorId: admin.id });
+
+  // مشترك انقضى اشتراكه: يُمنح 300 باشتراك، ينفق 100، فيبقى 200 قابلة للإنهاء
+  const grace = await User.create({ name: 'Grace', email: 'grace@x.com', password: 'x', role: 'user' });
+  const subProduct = await GrowthProduct.create({
+    name: 'اشتراك شهري', slug: 'sub-m', kind: 'subscription', billing_cycle: 'monthly',
+    price: 100, credits_granted: 300,
+  });
+  const subOrder = await orders.create({ userId: grace.id, productId: subProduct.id, actor });
+  await orders.approve({ orderId: subOrder.id, actor });
+  await credits.debit({ userId: grace.id, amount: 100, sourceType: 'service_usage',
+    sourceId: 'g1', idempotencyKey: 'grace-spend' });
+
+  const packProduct = await GrowthProduct.create({
+    name: 'حزمة 50', slug: 'pack-50', kind: 'credit_pack', price: 30, credits_granted: 50,
+  });
+  const packOrder = await orders.create({ userId: grace.id, productId: packProduct.id, actor });
+  await orders.approve({ orderId: packOrder.id, actor });
+
+  let graceBal = (await credits.getBalance(grace.id)).credit_balance;
+  ok('رصيد Grace = 250 (300 اشتراك − 100 إنفاق + 50 حزمة)', graceBal === 250, `(${graceBal})`);
+
+  const notYet = await credits.expireStale({ dryRun: true });
+  ok('اشتراك فعّال ⇒ لا شيء للإنهاء',
+    !notYet.candidates.some((c) => c.user_id === grace.id));
+
+  // ننقض الاشتراك
+  await GrowthProfile.update(
+    { subscription_status: 'expired', subscription_expires_at: new Date(Date.now() - 86400000) },
+    { where: { user_id: grace.id } }
+  );
+
+  const preview = await credits.expireStale({ dryRun: true });
+  const cand = preview.candidates.find((c) => c.user_id === grace.id);
+  ok('المعاينة تحسب 200 قابلة للإنهاء (منح الاشتراك ناقص المنفق منه)',
+    cand?.expirable === 200, `(${cand?.expirable})`);
+
+  graceBal = (await credits.getBalance(grace.id)).credit_balance;
+  ok('المعاينة لا تكتب شيئاً', graceBal === 250);
+
+  const swept = await credits.expireStale({ actor });
+  graceBal = (await credits.getBalance(grace.id)).credit_balance;
+  ok('التنفيذ أنهى 200 وأبقى 50 (أرصدة الحزمة لا تنتهي)',
+    swept.expired === 1 && graceBal === 50, `(${graceBal})`);
+
+  const again = await credits.expireStale({ actor });
+  graceBal = (await credits.getBalance(grace.id)).credit_balance;
+  ok('إعادة المسح لا تُنهي مرتين', graceBal === 50);
+
+  const expiryTx = await CreditTransaction.findOne({
+    where: { user_id: grace.id, type: 'expiry' } });
+  ok('حركة الانتهاء مسجَّلة في الدفتر بمبلغ سالب',
+    expiryTx?.amount === -200, `(${expiryTx?.amount})`);
+
+  const recExp = await credits.reconcile();
+  ok('I1 محفوظ بعد الإنهاء', recExp.healthy);
+
+  await settings.setMany({ 'credits.expire_plan_credits': false }, { actorId: admin.id });
+
+  // ══════════════════════════════════════════════════════════════════════
   section('التحليلات');
   const ov = await analytics.overview();
   ok('النظرة العامة تُحسب بلا خطأ', typeof ov.north_star.value === 'number');

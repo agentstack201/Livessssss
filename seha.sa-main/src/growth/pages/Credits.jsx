@@ -43,6 +43,8 @@ export default function Credits({ can }) {
   const [adjustFor, setAdjustFor] = useState(null)
   const [adjustForm, setAdjustForm] = useState({ amount: '', direction: 'grant', reason: '' })
   const [reconcile, setReconcile] = useState(null)
+  const [expiry, setExpiry] = useState(null)
+  const [confirmSweep, setConfirmSweep] = useState(false)
 
   // مفتاح ثابت لكل فتح نموذج — يجعل إعادة الإرسال آمنة.
   const clientKey = useMemo(() => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, [adjustFor])
@@ -67,6 +69,17 @@ export default function Credits({ can }) {
     try { setLookupResults(await api.lookupUser(lookupTerm.trim())) }
     catch (e) { toast(e.message, 'error') }
   }
+
+  const [runSweep, sweepBusy] = useAsync(async (dryRun) => {
+    try {
+      const r = await api.expireSweep(dryRun)
+      setExpiry(r)
+      if (!dryRun) {
+        toast(`تم إنهاء أرصدة ${r.expired} مستخدماً`, 'success')
+        if (tab === 'ledger') load()
+      }
+    } catch (e) { toast(e.message, 'error') }
+  })
 
   const [doAdjust, adjustBusy] = useAsync(async () => {
     try {
@@ -119,6 +132,8 @@ export default function Credits({ can }) {
           onClick={() => setTab('lookup')}>بحث وتعديل</button>
         <button type="button" className={`${s.tab} ${tab === 'reconcile' ? s.tabActive : ''}`}
           onClick={() => setTab('reconcile')}>المطابقة</button>
+        <button type="button" className={`${s.tab} ${tab === 'expiry' ? s.tabActive : ''}`}
+          onClick={() => setTab('expiry')}>انتهاء الصلاحية</button>
       </div>
 
       <ErrorBox error={error} onRetry={load} />
@@ -297,6 +312,86 @@ export default function Credits({ can }) {
           )}
         </Panel>
       )}
+
+      {tab === 'expiry' && (
+        <Panel title="إنهاء أرصدة الاشتراكات المنقضية">
+          <div className={s.infoBox}>
+            القاعدة: حين ينقضي اشتراك ويمرّ عليه أيام السماح، تُنهى الأرصدة التي منحتها
+            طلبات <strong>الاشتراك</strong> ولم تُستهلك. أرصدة <strong>حزم الشراء لا تنتهي</strong> —
+            العميل دفع ثمنها مرة واحدة ولم يستأجرها. تُضبط القاعدة وأيام السماح من صفحة الإعدادات.
+          </div>
+
+          {!expiry ? (
+            <div className={s.pageActions}>
+              <button type="button" className={`${s.btn} ${s.btnGhost}`}
+                onClick={() => runSweep(true)} disabled={sweepBusy}>
+                {sweepBusy ? 'جارٍ الحساب…' : 'معاينة الأثر (بلا تنفيذ)'}
+              </button>
+            </div>
+          ) : !expiry.enabled ? (
+            <div className={s.warnBox}>
+              {expiry.message} — فعّله من الإعدادات إن أردت تشغيل هذه السياسة.
+            </div>
+          ) : expiry.candidates.length === 0 ? (
+            <div className={s.emptyOk}>✓ لا أرصدة مستحقّة للإنهاء حالياً</div>
+          ) : (
+            <>
+              <div className={s.warnBox}>
+                {fmtNum(expiry.candidates.length)} مستخدماً مرشّحاً، بمجموع{' '}
+                <strong>{fmtNum(expiry.total ?? expiry.candidates.reduce((a, c) => a + c.expirable, 0))}</strong>{' '}
+                رصيد سيُنهى. العملية تُسجَّل في الدفتر كحركات انتهاء ولا يمكن التراجع عنها
+                إلا بمنح جديد.
+              </div>
+
+              <div className={s.tableWrap} style={{ marginBottom: '1rem' }}>
+                <table className={s.table}>
+                  <thead>
+                    <tr><th>المستخدم</th><th>الرصيد</th><th>مُنح باشتراك</th><th>سبق إنهاؤه</th><th>سيُنهى</th></tr>
+                  </thead>
+                  <tbody>
+                    {expiry.candidates.slice(0, 50).map((c) => (
+                      <tr key={c.user_id}>
+                        <td>
+                          <Link to={`/growth/members/${c.user_id}`} style={{ color: '#2563eb' }}>
+                            #{c.user_id}
+                          </Link>
+                        </td>
+                        <td className={s.num}>{fmtNum(c.credit_balance)}</td>
+                        <td className={s.num}>{fmtNum(c.granted)}</td>
+                        <td className={s.num}>{fmtNum(c.expired)}</td>
+                        <td className={s.num} style={{ color: '#dc2626', fontWeight: 700 }}>
+                          {fmtNum(c.expirable)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {expiry.dryRun !== false && can('credits:adjust') && (
+                <div className={s.pageActions}>
+                  <button type="button" className={`${s.btn} ${s.btnDanger}`}
+                    onClick={() => setConfirmSweep(true)} disabled={sweepBusy}>
+                    تنفيذ الإنهاء
+                  </button>
+                  <button type="button" className={`${s.btn} ${s.btnGhost}`}
+                    onClick={() => setExpiry(null)}>إلغاء</button>
+                </div>
+              )}
+            </>
+          )}
+        </Panel>
+      )}
+
+      <Confirm
+        open={confirmSweep} title="تنفيذ إنهاء الأرصدة"
+        message={expiry
+          ? `سيُنهى ${fmtNum(expiry.total ?? 0)} رصيد لدى ${fmtNum(expiry.candidates?.length || 0)} مستخدماً. تُسجَّل حركات انتهاء في الدفتر ولا تُحذف.`
+          : ''}
+        confirmLabel="تنفيذ" danger busy={sweepBusy}
+        onConfirm={() => { setConfirmSweep(false); runSweep(false) }}
+        onCancel={() => setConfirmSweep(false)}
+      />
 
       <Modal
         open={!!adjustFor} title={`تعديل رصيد: ${adjustFor?.name || ''}`}

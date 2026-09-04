@@ -122,6 +122,23 @@ exports.reconcile = handle(async (req, res) => {
     : `وُجد ${report.discrepancies.length} تباين — يحتاج فحصاً`);
 });
 
+/**
+ * مسح انتهاء صلاحية أرصدة الاشتراك.
+ * dryRun=1 يعرض الأثر قبل تنفيذه — عملية تمسّ أرصدة كثيرين دفعة واحدة
+ * ويجب ألّا تُنفَّذ على العمياء.
+ */
+exports.expireSweep = handle(async (req, res) => {
+  const dryRun = req.query.dry_run === '1' || req.body?.dry_run === true;
+  const result = await credits.expireStale({ dryRun, req, actor: req.user });
+
+  if (!result.enabled) return ok(res, result, result.message);
+  if (dryRun) {
+    return ok(res, result,
+      `${result.candidates.length} مستخدماً مرشّحاً، بمجموع ${result.total} رصيد قابل للإنهاء`);
+  }
+  return ok(res, result, `تم إنهاء أرصدة ${result.expired} مستخدماً`);
+});
+
 /** رصيدي — لواجهة العميل. */
 exports.myBalance = handle(async (req, res) => {
   const balance = await credits.getBalance(req.user.id);

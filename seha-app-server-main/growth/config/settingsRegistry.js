@@ -84,13 +84,15 @@ const REGISTRY = {
   },
   'credits.expire_plan_credits': {
     type: 'boolean', default: false, public: false, group: 'credits',
-    label: 'انتهاء أرصدة الاشتراك عند نهاية الدورة',
-    usedBy: 'خدمة الأرصدة — مسح انتهاء الصلاحية',
+    label: 'إنهاء أرصدة الاشتراك بعد انقضائه',
+    hint: 'أرصدة حزم الشراء لا تنتهي أبداً — العميل دفع ثمنها ولم يستأجرها',
+    usedBy: 'credit.service.expireStale — مسح يُشغَّل من صفحة الأرصدة',
   },
   'credits.expiry_grace_days': {
     type: 'integer', default: 7, public: false, group: 'credits',
     label: 'أيام السماح قبل إنهاء الأرصدة', min: 0, max: 90,
-    usedBy: 'خدمة الأرصدة — مسح انتهاء الصلاحية',
+    hint: 'تُحتسب من تاريخ انقضاء الاشتراك لا من تاريخ المنح',
+    usedBy: 'credit.service.expireStale — مسح يُشغَّل من صفحة الأرصدة',
   },
 
   // ── الإحالة ─────────────────────────────────────────────────────────────

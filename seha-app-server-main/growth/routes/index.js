@@ -73,6 +73,7 @@ router.get('/credits/reconcile', guard('credits:read'), credits.reconcile);
 router.get('/credits/:userId/balance', guard('credits:read'), credits.balance);
 router.get('/credits/:userId/history', guard('credits:read'), credits.history);
 router.post('/credits/adjust', guard('credits:adjust'), credits.adjust);
+router.post('/credits/expire-sweep', guard('credits:adjust'), credits.expireSweep);
 
 // ── الكوبونات ──────────────────────────────────────────────────────────────
 router.get('/coupons', guard('coupons:read'), coupons.list);

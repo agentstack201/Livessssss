@@ -331,6 +331,116 @@ async function reconcile({ userId = null, limit = 500 } = {}) {
   return { healthy: rows.length === 0, discrepancies: rows, checkedAt: new Date().toISOString() };
 }
 
+/**
+ * مسح انتهاء صلاحية أرصدة الاشتراك.
+ *
+ * القاعدة: حين ينقضي اشتراك المستخدم ويمرّ عليه أيام السماح، تُنهى الأرصدة
+ * التي منحتها طلبات الاشتراك ولم تُستهلك بعد. أرصدة حزم الشراء لا تنتهي —
+ * العميل دفع ثمنها مرة واحدة ولم يستأجرها.
+ *
+ * قاعدة الإسناد: **الاستهلاك يُخصم من أرصدة الاشتراك أولاً.** هذا يصبّ في
+ * مصلحة العميل — أرصدته الدائمة (الحزم والمكافآت) تبقى أطول ما يمكن، ولا
+ * يُنهى إلا ما بقي فعلاً من منح الاشتراك.
+ *
+ *   المنتهي = max(0, منح الاشتراك − كل الاستهلاك − ما سبق إنهاؤه)
+ *   ثم يُقصّ عند الرصيد الحالي حفظاً للثابت I2.
+ *
+ * مثال: مُنح 300 باشتراك و50 بحزمة، أنفق 100، فرصيده 250 ⇒ يُنهى 200 ويبقى 50.
+ *
+ * dryRun يحسب ولا يكتب — الأدمن يرى الأثر قبل تنفيذه.
+ */
+async function expireStale({ dryRun = false, limit = 500, req = null, actor = null } = {}) {
+  const settings = require('./settings.service');
+  const cfg = await settings.forRequest(req);
+
+  if (!cfg['credits.expire_plan_credits']) {
+    return { enabled: false, candidates: [], expired: 0, message: 'إنهاء أرصدة الاشتراك معطّل في الإعدادات' };
+  }
+
+  const graceDays = cfg['credits.expiry_grace_days'];
+
+  // المرشّحون: اشتراك منقضٍ تجاوز أيام السماح، ولديهم رصيد قابل للإنهاء.
+  const rows = await sequelize.query(
+    `WITH sub_grants AS (
+       SELECT t.user_id, COALESCE(SUM(t.amount), 0)::int AS granted
+         FROM credit_transactions t
+         JOIN growth_orders o
+           ON o.id::text = t.source_id
+          AND o.product_kind_snapshot = 'subscription'
+        WHERE t.source_type = 'order' AND t.amount > 0
+        GROUP BY t.user_id
+     ),
+     consumed AS (
+       -- كل خصم عدا الانتهاء نفسه: استهلاك خدمة، عكس، استرداد.
+       SELECT user_id, COALESCE(SUM(ABS(amount)), 0)::int AS spent
+         FROM credit_transactions
+        WHERE amount < 0 AND type <> 'expiry'
+        GROUP BY user_id
+     ),
+     already_expired AS (
+       SELECT user_id, COALESCE(SUM(ABS(amount)), 0)::int AS expired
+         FROM credit_transactions
+        WHERE type = 'expiry'
+        GROUP BY user_id
+     )
+     SELECT p.user_id,
+            p.credit_balance,
+            p.subscription_expires_at,
+            g.granted,
+            COALESCE(c.spent, 0)   AS spent,
+            COALESCE(e.expired, 0) AS expired,
+            LEAST(
+              p.credit_balance,
+              GREATEST(g.granted - COALESCE(c.spent, 0) - COALESCE(e.expired, 0), 0)
+            )::int AS expirable
+       FROM growth_profiles p
+       JOIN sub_grants g ON g.user_id = p.user_id
+       LEFT JOIN consumed c ON c.user_id = p.user_id
+       LEFT JOIN already_expired e ON e.user_id = p.user_id
+      WHERE p.subscription_status IN ('expired', 'cancelled')
+        AND p.subscription_expires_at IS NOT NULL
+        AND p.subscription_expires_at < NOW() - INTERVAL '1 day' * :graceDays
+        AND p.credit_balance > 0
+        AND (g.granted - COALESCE(c.spent, 0) - COALESCE(e.expired, 0)) > 0
+      LIMIT :limit`,
+    { replacements: { graceDays, limit }, type: sequelize.QueryTypes.SELECT }
+  );
+
+  const candidates = rows.filter((r) => r.expirable > 0);
+  if (dryRun) {
+    return {
+      enabled: true, dryRun: true, candidates,
+      total: candidates.reduce((s, c) => s + c.expirable, 0),
+    };
+  }
+
+  let expired = 0;
+  const failures = [];
+  for (const c of candidates) {
+    try {
+      // المفتاح يحمل تاريخ انقضاء الاشتراك، فإعادة تشغيل المسح في نفس اليوم
+      // لا تُنهي مرتين، وانقضاء لاحق ينتج مفتاحاً جديداً.
+      const stamp = new Date(c.subscription_expires_at).toISOString().slice(0, 10);
+      const { idempotent } = await apply({
+        userId: c.user_id,
+        type: 'expiry',
+        amount: c.expirable,
+        sourceType: 'expiry',
+        sourceId: stamp,
+        description: `انتهاء أرصدة اشتراك منقضٍ منذ ${stamp}`,
+        idempotencyKey: `expiry:${c.user_id}:${stamp}`,
+        metadata: { granted: c.granted, previously_expired: c.expired },
+        req, actor,
+      });
+      if (!idempotent) expired += 1;
+    } catch (e) {
+      failures.push({ user_id: c.user_id, error: e.message });
+    }
+  }
+
+  return { enabled: true, dryRun: false, candidates, expired, failures };
+}
+
 /** رصيد مستخدم مع ملفه. */
 async function getBalance(userId) {
   const profile = await ensureProfile(userId);
@@ -345,5 +455,5 @@ async function getBalance(userId) {
 
 module.exports = {
   apply, grant, debit, refund, expire, adjust, reverse,
-  reconcile, getBalance, ensureProfile, randomCode,
+  reconcile, expireStale, getBalance, ensureProfile, randomCode,
 };
