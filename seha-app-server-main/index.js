@@ -31,6 +31,11 @@ try {
   console.log("Loading models associations...");
   require("./config/models_associations.js");
   console.log("✅ Models associations loaded");
+
+  // نماذج وحدة النمو — تُحمَّل هنا صراحةً لا اعتماداً على تحميل مساراتها،
+  // وإلا لم يعرفها sequelize.sync() ولم تُنشأ جداولها إن فشل تحميل المسار.
+  require("./growth/models");
+  console.log("✅ Growth models loaded");
 } catch (error) {
   console.error("⚠️ Database not available:", error.message);
   console.log("API will work without database connection");
@@ -248,6 +253,12 @@ if (sequelize) {
       // Move any legacy single-setting Gemini key(s) into the rotation pool.
       const { importLegacyGeminiKeys, recoverInvalidatedKeys } = require("./utils/llm/bootstrap.js");
       return importLegacyGeminiKeys().then(() => recoverInvalidatedKeys());
+    })
+    .then(() => {
+      // وحدة النمو: قيود CHECK والفهارس الجزئية التي لا ينشئها sync، وبذور
+      // الأدوار النظامية. تفشل بهدوء ولا تمنع إقلاع المنصة.
+      const growth = require("./growth/bootstrap.js");
+      return growth.initialize(sequelize);
     })
     .catch((error) => {
       console.error("❌ Database error:", error.message);
