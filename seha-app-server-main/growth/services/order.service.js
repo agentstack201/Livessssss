@@ -63,8 +63,10 @@ async function create({ userId, productId, couponCode = null, campaignId = null,
     let couponCredits = 0;
 
     if (couponCode) {
+      // lock: يقفل صفّ الكوبون فيُسلسل الاستخدامات المتوازية — بدونه يتجاوز
+      // طلبان متزامنان سقفَ «مرة واحدة لكل مستخدم» معاً.
       const check = await coupons.validateForUse({
-        code: couponCode, userId, productId, amount: gross, transaction: t,
+        code: couponCode, userId, productId, amount: gross, transaction: t, lock: true,
       });
       if (!check.valid) throw err.validation(check.reason);
       discount = check.discount;

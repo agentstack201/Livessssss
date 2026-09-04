@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const { GrowthOrder, User, GrowthProduct } = require('../models');
 const orders = require('../services/order.service');
 const settings = require('../services/settings.service');
+const roles = require('../services/role.service');
 const { handle, ok } = require('../middlewares/growthAuth');
 const { err } = require('../errors');
 
@@ -57,12 +58,24 @@ exports.get = handle(async (req, res) => {
 exports.create = handle(async (req, res) => {
   const { user_id: bodyUser, product_id: productId, coupon_code: couponCode, campaign_id: campaignId } = req.body;
 
-  // المشغّل ينشئ لغيره؛ العميل ينشئ لنفسه فقط.
-  const targetUser = bodyUser && req._growthPermissions?.some((p) => p === '*' || p === 'orders:approve')
-    ? bodyUser
-    : req.user.id;
-
   if (!productId) throw err.validation('المنتج مطلوب');
+
+  // المشغّل ينشئ لغيره؛ العميل ينشئ لنفسه فقط.
+  //
+  // الفحص صريح عمداً بدل الاعتماد على req._growthPermissions: ذلك الحقل لا
+  // يملؤه إلا requirePermission، ومسار /me/orders لا يمرّ به — فكان الأمان
+  // ناتجاً عن ترتيب الوسائط لا عن قرار. لو أُضيف فحص صلاحية إلى /me/orders
+  // يوماً لأي سبب، لصار جسم الطلب قادراً على انتحال مستخدم آخر بصمت.
+  //
+  // والرفض هنا صريح لا تراجع صامت إلى المستخدم الحالي: عميل يرسل user_id
+  // لغيره يجب أن يعرف أن العملية رُفضت، لا أن يظنّ أنه أنشأ طلباً لسواه.
+  let targetUser = req.user.id;
+  if (bodyUser !== undefined && bodyUser !== null && Number(bodyUser) !== req.user.id) {
+    if (!(await roles.has(req.user, 'orders:approve'))) {
+      throw err.forbidden('لا تملك صلاحية إنشاء طلب لمستخدم آخر');
+    }
+    targetUser = Number(bodyUser);
+  }
 
   const order = await orders.create({
     userId: targetUser, productId, couponCode, campaignId,

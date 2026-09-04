@@ -37,7 +37,8 @@ const section = (t) => console.log(`\n━━ ${t}`);
   await bootstrap.initialize(sequelize);
 
   const { User, GrowthProduct, CreditTransaction, GrowthProfile, Coupon,
-    ReferralLink, RewardRule, GrowthOrder, GrowthAuditLog, RewardGrant } = models;
+    CouponRedemption, ReferralLink, RewardRule, GrowthOrder, GrowthAuditLog,
+    RewardGrant } = models;
 
   const admin = await User.create({ name: 'Admin', email: 'a@x.com', password: 'x', role: 'admin' });
   const alice = await User.create({ name: 'Alice', email: 'alice@x.com', password: 'x', role: 'user' });
@@ -174,6 +175,57 @@ const section = (t) => console.log(`\n━━ ${t}`);
 
   const v2 = await coupons.validateForUse({ code: 'SAVE20', userId: bob.id, amount: 100 });
   ok('السقف لكل مستخدم يمنع الاستخدام الثاني', !v2.valid, v2.reason);
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('سباق السقف لكل مستخدم (انحدار أمني)');
+
+  const racer = await User.create({ name: 'Racer', email: 'racer@x.com', password: 'x', role: 'user' });
+  const raceProduct = await GrowthProduct.create({
+    name: 'منتج السباق', slug: 'race', kind: 'credit_pack', price: 200, credits_granted: 10,
+  });
+  await Coupon.create({
+    code: 'ONCE', discount_type: 'percentage', discount_value: 50,
+    per_user_limit: 1, usage_limit: 99, valid_from: new Date(), is_active: true,
+  });
+
+  // معاملتان تُقادان يدوياً بدل Promise.all: التوازي العشوائي لا يضمن أن
+  // يقع التنفيذ داخل النافذة الحرجة، فيمرّ الاختبار بالصدفة حتى مع الخلل.
+  // هنا نُجبر الترتيب: T1 يفحص ويحجز، ثم T2 يفحص قبل أن يُثبَّت T1.
+  const t1 = await sequelize.transaction();
+  const check1 = await coupons.validateForUse({
+    code: 'ONCE', userId: racer.id, productId: raceProduct.id,
+    amount: 200, transaction: t1, lock: true,
+  });
+  ok('الفحص الأول يقبل الكوبون', check1.valid === true);
+
+  // T2 يبدأ الفحص بينما T1 ما زال مفتوحاً. مع القفل يتوقّف هنا حتى يُثبَّت
+  // T1؛ بدونه يعود فوراً بقبولٍ ثانٍ — وهو الخلل بعينه.
+  const t2 = await sequelize.transaction();
+  const check2Promise = coupons.validateForUse({
+    code: 'ONCE', userId: racer.id, productId: raceProduct.id,
+    amount: 200, transaction: t2, lock: true,
+  });
+
+  // إن عاد الفحص الثاني قبل تثبيت الأول فالقفل غير فعّال.
+  const raced = await Promise.race([
+    check2Promise.then(() => 'returned-early'),
+    new Promise((r) => { setTimeout(() => r('blocked'), 400); }),
+  ]);
+  ok('الفحص الثاني محجوب حتى يُثبَّت الأول', raced === 'blocked', `(${raced})`);
+
+  await coupons.redeem({
+    coupon: check1.coupon, userId: racer.id, originalAmount: 200,
+    discountApplied: check1.discount, transaction: t1,
+  });
+  await t1.commit();
+
+  const check2 = await check2Promise;
+  ok('بعد تثبيت الأول يرفض الفحص الثاني (السقف لكل مستخدم مُحترَم)',
+    check2.valid === false, `(valid=${check2.valid})`);
+  await t2.rollback();
+
+  const redemptions = await CouponRedemption.count({ where: { user_id: racer.id } });
+  ok('استخدام واحد فقط مسجَّل', redemptions === 1, `(${redemptions})`);
 
   // ══════════════════════════════════════════════════════════════════════
   section('الإحالة: القمع والدفعات الموزّعة');

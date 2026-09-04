@@ -99,10 +99,16 @@ exports.auditExport = handle(async (req, res) => {
     where, order: [['id', 'DESC']], limit: 10000,
   });
 
+  // تحييد حقن الصيغ: Excel و Sheets يفكّان الاقتباس ثم يُقيّمان أي خلية تبدأ
+  // بـ = + - @ أو محرف تحكّم كصيغة لا كنص. أعمدة هذا السجل تحمل محتوى يكتبه
+  // مستخدمون — أسباب التعديلات، وعناوين من ترويسة X-Forwarded-For — فتكفي
+  // ترويسة واحدة خبيثة لتصير صيغة تُنفَّذ على جهاز المشغّل عند فتح الملف.
+  // الاقتباس المفرد البادئ يجعل الخلية نصاً في كل الجداول الشائعة.
   const esc = (v) => {
     if (v === null || v === undefined) return '';
     const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
-    return `"${s.replace(/"/g, '""')}"`;
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return `"${safe.replace(/"/g, '""')}"`;
   };
 
   const header = 'id,timestamp,actor,role,action,resource_type,resource_id,severity,reason,before,after,ip\n';

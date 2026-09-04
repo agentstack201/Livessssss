@@ -10,6 +10,7 @@
 // ومقروءاً بدل أن يكرّر الصفّ كاملاً مرتين.
 // ───────────────────────────────────────────────────────────────────────────
 
+const net = require('net');
 const { GrowthAuditLog } = require('../models');
 
 /** يستخرج قيم `fields` من كائن نموذج أو كائن عادي. */
@@ -79,12 +80,22 @@ async function log({
   );
 }
 
-/** عنوان العميل خلف وسيط أو موازن حمل. */
+/**
+ * عنوان العميل خلف وسيط أو موازن حمل.
+ *
+ * ترويسة X-Forwarded-For يضعها العميل نفسه ولا يمكن الوثوق بمحتواها. تُقبل
+ * هنا فقط إن كانت عنواناً صحيحاً شكلاً (net.isIP)، وإلا تُخزَّن null. بدون
+ * هذا الفحص يستطيع أي عميل حقن نصّ عشوائي في سجل التدقيق — وهو سجل يُصدَّر
+ * إلى CSV ويُقرأ في جداول بيانات.
+ */
 function clientIp(req) {
   if (!req) return null;
-  const fwd = req.headers?.['x-forwarded-for'];
-  if (fwd) return String(fwd).split(',')[0].trim().slice(0, 45);
-  return (req.ip || req.connection?.remoteAddress || '').slice(0, 45) || null;
+  const forwarded = req.headers?.['x-forwarded-for'];
+  const candidate = forwarded
+    ? String(forwarded).split(',')[0].trim()
+    : String(req.ip || req.connection?.remoteAddress || '').trim();
+
+  return net.isIP(candidate) ? candidate.slice(0, 45) : null;
 }
 
 module.exports = { log, diff, snapshot, clientIp };

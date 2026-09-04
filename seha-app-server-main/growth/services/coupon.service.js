@@ -55,12 +55,27 @@ function validateDefinition(payload) {
 /**
  * يتحقّق من صلاحية كوبون لمستخدم ومبلغ محدّدين، ويحسب الخصم.
  * لا يغيّر شيئاً — آمن للاستدعاء عند كل ضغطة مفتاح في الواجهة.
+ *
+ * `lock`: يقفل صفّ الكوبون قبل الفحوص. إلزامي في مسار الاستخدام الفعلي.
+ *
+ * لماذا؟ السقف الكلّي محميّ بزيادة ذرّية في redeem()، لكن السقف لكل مستخدم
+ * وشرط «العملاء الجدد» قراءتان عاديتان. عند READ COMMITTED يقرأ طلبان
+ * متوازيان العدد صفراً معاً فيمرّان معاً — ويحصل العميل على خصمين من كوبون
+ * «مرة واحدة لكل مستخدم». قفل صفّ الكوبون يُسلسل الطلبين فيرى الثاني أثر
+ * الأول. المعاينة في الواجهة تستدعي الدالة بلا قفل: لا تكتب شيئاً ولا يجوز
+ * أن تحجز صفاً عند كل ضغطة مفتاح.
  */
-async function validateForUse({ code, userId, productId = null, amount = 0, transaction = null }) {
+async function validateForUse({
+  code, userId, productId = null, amount = 0, transaction = null, lock = false,
+}) {
   const normalized = normalize(code);
   if (!normalized) return { valid: false, reason: 'أدخل رمز الكوبون' };
 
-  const coupon = await Coupon.findOne({ where: { code: normalized }, transaction });
+  const coupon = await Coupon.findOne({
+    where: { code: normalized },
+    transaction,
+    ...(lock && transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+  });
   if (!coupon) return { valid: false, reason: 'رمز غير صحيح' };
   if (!coupon.is_active) return { valid: false, reason: 'الكوبون غير مفعّل' };
 

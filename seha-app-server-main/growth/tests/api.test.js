@@ -278,6 +278,66 @@ const section = (t) => console.log(`\n━━ ${t}`);
     csv.status === 200 && csvText.includes('id,timestamp,actor'));
 
   // ══════════════════════════════════════════════════════════════════════
+  section('حقن الصيغ في تصدير CSV (انحدار أمني)');
+
+  // مستخدم مخصّص لاختبارات الأمان: لا يلمس أرصدة ولا طلبات من تعتمد عليهم
+  // تأكيدات لاحقة، فيبقى كل اختبار مستقلاً عن ترتيب التنفيذ.
+  const probe = await User.create({ name: 'Probe', email: 'probe@x.com', password: 'x', role: 'user' });
+  const probeT = tok(probe);
+
+  // ترويسة يضعها العميل بنفسه — لا يجوز أن تصل إلى ملف يُفتح في Excel.
+  await fetch(`${B}/me/orders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${probeT}`,
+      'X-Forwarded-For': "=cmd|' /C calc'!A0",
+    },
+    body: JSON.stringify({ product_id: productId }),
+  });
+
+  const injectedLog = await models.GrowthAuditLog.findOne({
+    where: { action: 'order.create' }, order: [['id', 'DESC']],
+  });
+  ok('ترويسة X-Forwarded-For غير الصالحة لا تُخزَّن أصلاً',
+    injectedLog?.ip_address === null, `(${injectedLog?.ip_address})`);
+
+  // نزرع صيغة عبر حقل يكتبه مستخدم فعلاً ويصل التصدير: السبب.
+  await call('POST', '/credits/adjust', {
+    token: adminT,
+    body: {
+      user_id: probe.id, amount: 1, direction: 'grant',
+      reason: '=HYPERLINK("http://evil","انقر")', client_key: 'csv-probe',
+    },
+  });
+
+  const csvRes = await fetch(`${B}/audit/export`, { headers: { Authorization: `Bearer ${adminT}` } });
+  const csvBody = await csvRes.text();
+  ok('الخلية التي تبدأ بـ = تُحيَّد باقتباس مفرد',
+    csvBody.includes(`"'=HYPERLINK`), 'لم يُحيَّد');
+  ok('لا خلية في الملف كلّه تبدأ بمحرف صيغة',
+    !/(^|,)"[=+@]/.test(csvBody), 'وُجدت خلية غير محيَّدة');
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('انتحال مستخدم آخر عند إنشاء طلب (انحدار أمني)');
+
+  const impersonate = await call('POST', '/me/orders', {
+    token: probeT, body: { product_id: productId, user_id: admin.id },
+  });
+  ok('عميل يمرّر user_id لغيره ⇒ 403 لا تراجع صامت',
+    impersonate.status === 403, `(${impersonate.status})`);
+
+  const ownOrder = await call('POST', '/me/orders', {
+    token: probeT, body: { product_id: productId, user_id: probe.id },
+  });
+  ok('تمرير معرّفه هو مقبول', ownOrder.status === 201, `(${ownOrder.status})`);
+
+  const adminForOther = await call('POST', '/orders', {
+    token: adminT, body: { product_id: productId, user_id: probe.id },
+  });
+  ok('صاحب orders:approve ما زال ينشئ لغيره', adminForOther.status === 201);
+
+  // ══════════════════════════════════════════════════════════════════════
   section('مسارات المستخدم الحالي');
   const me = await call('GET', '/me', { token: custT });
   ok('العميل يقرأ ملفه ⇒ 200 مع رصيده', me.status === 200 && me.body.data.credit_balance === 350);
