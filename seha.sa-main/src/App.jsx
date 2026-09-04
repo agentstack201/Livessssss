@@ -19,11 +19,15 @@ import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
 import KeysManagement from './pages/KeysManagement'
 import BatchSickLeave from './pages/BatchSickLeave'
+import GrowthConsole from './growth/GrowthConsole'
 import './App.css'
 
 function App() {
   const location = useLocation()
+  // كونسول النمو يحمل هيكله الخاص (شريط جانبي وشريط علوي)، فلا يُغلَّف
+  // بترويسة المنصة وتذييلها كما لا تُغلَّف لوحة التحكّم.
   const isDashboard = location.pathname === '/dashboard'
+    || location.pathname.startsWith('/growth')
 
   return (
     <div className="app">
@@ -138,6 +142,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <KeysManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* كونسول النمو — يدير مساراته الفرعية داخلياً */}
+          <Route
+            path="/growth/*"
+            element={
+              <ProtectedRoute>
+                <GrowthConsole />
               </ProtectedRoute>
             }
           />
