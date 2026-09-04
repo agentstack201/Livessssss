@@ -363,6 +363,23 @@ function UserManagement() {
                 </select>
               </div>
 
+              {/* رمز الإحالة — يُسنَد مرة واحدة عند الإنشاء ولا يتغيّر بعدها،
+                  فلا يظهر عند التعديل. بدونه تبقى الإحالة بلا مُحيل. */}
+              {!editingUser && (
+                <div className={styles.formGroup}>
+                  <label>رمز الإحالة (اختياري)</label>
+                  <input
+                    type="text"
+                    value={formData.referral_code || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      referral_code: e.target.value.trim().toUpperCase(),
+                    })}
+                    placeholder="إن وصل هذا العميل عبر زميل، أدخل رمزه هنا"
+                  />
+                </div>
+              )}
+
               {/* Permissions Section */}
               <div className={styles.permissionsSection}>
                 <h3>الصلاحيات التفصيلية</h3>

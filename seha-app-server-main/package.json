@@ -12,7 +12,8 @@
     "postinstall": "npm list pg || npm install pg@8.13.1",
     "test:growth": "node growth/tests/invariants.test.js",
     "test:growth:api": "node growth/tests/api.test.js",
-    "test:growth:all": "npm run test:growth && npm run test:growth:api"
+    "test:growth:all": "npm run test:growth && npm run test:growth:api && npm run test:growth:flow",
+    "test:growth:flow": "node growth/tests/customer.test.js"
   },
   "repository": {
     "type": "git",

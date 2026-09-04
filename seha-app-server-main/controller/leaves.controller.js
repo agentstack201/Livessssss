@@ -151,6 +151,21 @@ module.exports.addNewLeaves = async (req, res, next) => {
       user_id: req.user?.id || null,
     });
 
+    // وحدة النمو: تسجيل الاستخدام وتقدّم قمع التفعيل. تفشل بصمت داخلياً —
+    // عطل في النمو يجب ألّا يمنع طبيباً من إصدار إجازة. الخصم لا يُفرض
+    // (enforce: false) حتى يقرّر صاحب المنتج تشغيل الاقتصاد من الإعدادات.
+    if (req.user?.id) {
+      try {
+        // بلا await: تسجيل النمو لا يؤخّر رد المستخدم. الخطّاف يلتقط أخطاءه
+        // داخلياً، و.catch حارس أخير ضد رفض غير معالَج يُسقط العملية.
+        require('../growth/hooks')
+          .onDocumentCreated({ userId: req.user.id, documentId: new_leave.id, req })
+          .catch((e) => console.warn('[growth] تعذّر تسجيل المستند:', e.message));
+      } catch (hookError) {
+        console.warn('[growth] تعذّر تسجيل المستند:', hookError.message);
+      }
+    }
+
     // Debug: طباعة البيانات المستلمة والمخزنة
     console.log('📥 Backend received:', {
       report_time,

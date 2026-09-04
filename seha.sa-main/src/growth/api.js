@@ -156,6 +156,18 @@ export const api = {
   // ── تدقيق ───────────────────────────────────────────────────────────────
   auditLog: (params) => request(`/audit${qs(params)}`),
   auditExportUrl: (params) => `${BASE}/audit/export${qs(params)}`,
+
+  // ── واجهة العميل ────────────────────────────────────────────────────────
+  storefront: () => request('/public/products', { auth: false }),
+  validateCoupon: (body) => request('/public/coupons/validate', { method: 'POST', body, auth: false }),
+  myProfile: () => request('/me'),
+  myCredits: () => request('/me/credits'),
+  myOrders: () => request('/me/orders'),
+  myReferral: () => request('/me/referral'),
+  placeOrder: (body) => request('/me/orders', { method: 'POST', body }),
+  submitPaymentProof: (orderId, body) =>
+    request(`/me/orders/${orderId}/payment`, { method: 'POST', body }),
+  trackReferral: (code) => request(`/r/${encodeURIComponent(code)}`, { auth: false }),
 }
 
 /** تنزيل ملف محمي: الرابط المباشر لا يحمل رمز الدخول، فنجلبه ثم نحفظه. */

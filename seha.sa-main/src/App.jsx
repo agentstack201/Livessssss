@@ -20,6 +20,9 @@ import Settings from './pages/Settings'
 import KeysManagement from './pages/KeysManagement'
 import BatchSickLeave from './pages/BatchSickLeave'
 import GrowthConsole from './growth/GrowthConsole'
+import Packages from './growth/customer/Packages'
+import MyAccount from './growth/customer/MyAccount'
+import ReferralLanding from './growth/customer/ReferralLanding'
 import './App.css'
 
 function App() {
@@ -39,6 +42,18 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/inquiries/slenquiry" element={<SickLeaveInquiry />} />
           <Route path="/inquiries/sick-leave-inquiry" element={<SickLeaveInquiry />} />
+
+          {/* واجهة العميل — الباقات عامة، والحساب يحتاج تسجيل دخول */}
+          <Route path="/packages" element={<Packages />} />
+          <Route path="/r/:code" element={<ReferralLanding />} />
+          <Route
+            path="/my-account"
+            element={
+              <ProtectedRoute>
+                <MyAccount />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Routes - تحتاج تسجيل دخول */}
           <Route

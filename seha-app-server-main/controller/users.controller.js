@@ -104,6 +104,18 @@ module.exports.createUser = async (req, res) => {
 
     await Permission.create(defaultPermissions);
 
+    // وحدة النمو: إنشاء الملف التجاري ومنح الرصيد الترحيبي وإسناد الإحالة إن
+    // حمل الطلب رمزاً. تفشل بصمت — إنشاء المستخدم لا يجوز أن يتوقّف على النمو.
+    try {
+      await require('../growth/hooks').onUserRegistered({
+        userId: user.id,
+        referralCode: req.body?.referral_code || null,
+        req,
+      });
+    } catch (hookError) {
+      console.warn('[growth] تعذّر تهيئة الملف التجاري:', hookError.message);
+    }
+
     // Fetch user with permissions
     const userWithPermissions = await User.findByPk(user.id, {
       include: [{
