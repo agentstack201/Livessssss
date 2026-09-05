@@ -63,6 +63,13 @@ exports.createLink = handle(async (req, res) => {
 
   const validated = referrals.validatePayoutSchedule(schedule || []);
 
+  // النوع قائمة مغلقة في المخطّط — نوع مجهول يرتدّ 500 مبهماً من INSERT.
+  const linkType = req.body.type || 'personal';
+  const allowedTypes = ReferralLink.rawAttributes.type.values;
+  if (!allowedTypes.includes(linkType)) {
+    throw err.validation(`نوع رابط غير مدعوم «${linkType}». المدعوم: ${allowedTypes.join(', ')}`);
+  }
+
   const finalCode = String(code || '').trim() || credits.randomCode(8);
   const exists = await ReferralLink.findOne({ where: { code: finalCode } });
   if (exists) throw err.conflict('هذا الرمز مستخدم بالفعل');
@@ -70,7 +77,7 @@ exports.createLink = handle(async (req, res) => {
   const link = await ReferralLink.create({
     owner_id: target,
     code: finalCode,
-    type: req.body.type || 'personal',
+    type: linkType,
     campaign_id: req.body.campaign_id || null,
     label: req.body.label || null,
     payout_schedule: validated,

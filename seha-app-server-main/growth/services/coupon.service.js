@@ -34,10 +34,27 @@ function validateDefinition(payload) {
     }
   }
 
+  // النوع قائمة مغلقة في المخطّط. بلا هذا الفحص يمرّ نوع مجهول إلى INSERT
+  // فيرتدّ خطأ Postgres خاماً كـ 500 مبهم، ولا يمرّ بأي سقف من السقوف أدناه.
+  if (out.discount_type !== undefined) {
+    const allowed = Coupon.rawAttributes.discount_type.values;
+    if (!allowed.includes(out.discount_type)) {
+      throw err.validation(
+        `نوع خصم غير مدعوم «${out.discount_type}». المدعوم: ${allowed.join(', ')}`
+      );
+    }
+  }
+
   if (out.discount_type === 'percentage') {
     const v = parseFloat(out.discount_value);
     if (!Number.isFinite(v) || v <= 0) throw err.validation('نسبة الخصم غير صالحة');
     out.discount_value = INV.clamp(v, INV.HARD_MAX_DISCOUNT_PERCENT);
+  }
+
+  if (out.discount_type === 'fixed_amount') {
+    const v = parseFloat(out.discount_value);
+    if (!Number.isFinite(v) || v <= 0) throw err.validation('قيمة الخصم غير صالحة');
+    out.discount_value = v;
   }
 
   if (out.discount_type === 'credit_grant') {
