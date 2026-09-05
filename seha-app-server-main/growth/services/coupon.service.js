@@ -11,6 +11,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 const { Op } = require('sequelize');
+const sequelize = require('../../config/database');
 const { Coupon, CouponRedemption, GrowthProfile } = require('../models');
 const INV = require('../config/invariants');
 const { err } = require('../errors');
@@ -161,14 +162,18 @@ async function redeem({
   coupon, userId, orderId = null, originalAmount = 0,
   discountApplied = 0, creditsGranted = 0, transaction,
 }) {
-  // زيادة ذرّية تحت شرط السقف: تُرجع 0 صفوف إن سبقنا أحدٌ إلى آخر استخدام.
+  // زيادة ذرّية تحت شرط السقف: تُصيب صفر صفوف إن سبقنا أحدٌ إلى آخر استخدام.
+  //
+  // تُستعمل Model.update لا Model.increment: الأخيرة تُعيد في Sequelize 6
+  // `[[[], 0]]` فلا يصل عدد الصفوف المتأثّرة إلى المستدعي — فيبقى الحارس
+  // مكتوباً ولا يرمي أبداً، ويُسجَّل استخدام فوق السقف بصمت. `update` تُعيد
+  // `[affectedCount]` فعلياً، وهو ما يجعل الفحص حقيقياً.
   if (coupon.usage_limit !== null) {
-    const [, affected] = await Coupon.increment(
-      { times_used: 1 },
+    const [affectedCount] = await Coupon.update(
+      { times_used: sequelize.literal('times_used + 1') },
       { where: { id: coupon.id, times_used: { [Op.lt]: coupon.usage_limit } }, transaction }
     );
-    const changed = Array.isArray(affected) ? affected : affected?.rowCount;
-    if (changed === 0) throw err.limitExceeded('بلغ الكوبون سقف الاستخدام');
+    if (!affectedCount) throw err.limitExceeded('بلغ الكوبون سقف الاستخدام');
   } else {
     await Coupon.increment({ times_used: 1 }, { where: { id: coupon.id }, transaction });
   }

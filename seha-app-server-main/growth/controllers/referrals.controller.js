@@ -153,6 +153,20 @@ exports.events = handle(async (req, res) => {
   });
 });
 
+/**
+ * إفراج جماعي عن الدفعات متوسطة المخاطر التي انقضت مدّة تعليقها.
+ *
+ * كانت الدالة مُعرَّفة بلا مستدعٍ، فكان `fraud.auto_release_days` إعداداً
+ * شبحاً: يُعدَّل من اللوحة ولا يفعل شيئاً، وتبقى المكافآت معلّقة إلى الأبد.
+ * لا مُجدوِل في هذا النشر، فالإفراج فعل صريح يشغّله المشغّل من طابور المراجعة.
+ */
+exports.releaseExpired = handle(async (req, res) => {
+  const result = await referrals.autoReleaseExpiredHolds({ req });
+  return ok(res, result, result.released
+    ? `أُفرج عن ${result.released} مكافأة انقضت مدّة تعليقها`
+    : 'لا مكافآت انقضت مدّة تعليقها بعد');
+});
+
 exports.releaseGrant = handle(async (req, res) => {
   const result = await referrals.releaseHeldGrant({
     grantId: req.params.grantId, actor: req.user, req,

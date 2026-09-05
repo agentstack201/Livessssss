@@ -65,7 +65,10 @@ export default function MyAccount() {
     } catch (e) { toast(e.message, 'error') } finally { setSubmitting(false) }
   }
 
-  const referralUrl = referral?.code
+  // الشرط على وجود رابط فعلي لا على وجود رمز: الخادم يُرجع الرمز الشخصي حتى
+  // حين لا يكون البرنامج مفعّلاً، فكان التبويب يعرض رابطاً يردّ «غير صالح».
+  const hasProgram = Boolean(referral?.payout_schedule)
+  const referralUrl = hasProgram
     ? `${window.location.origin}/r/${referral.code}`
     : null
 
@@ -131,7 +134,7 @@ export default function MyAccount() {
           onClick={() => setTab('overview')}>الطلبات</button>
         <button type="button" className={tab === 'credits' ? s.tabActive : s.tab}
           onClick={() => setTab('credits')}>سجل الرصيد</button>
-        {referral?.code && (
+        {hasProgram && (
           <button type="button" className={tab === 'referral' ? s.tabActive : s.tab}
             onClick={() => setTab('referral')}>ادعُ زملاءك</button>
         )}
@@ -245,7 +248,7 @@ export default function MyAccount() {
         )
       )}
 
-      {tab === 'referral' && referral?.code && (
+      {tab === 'referral' && hasProgram && (
         <div className={s.referralBox}>
           <h2 className={s.sectionTitle}>ادعُ زملاءك</h2>
           <p className={s.sectionSub}>

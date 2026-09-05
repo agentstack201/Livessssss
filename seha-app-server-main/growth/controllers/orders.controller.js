@@ -79,6 +79,8 @@ exports.create = handle(async (req, res) => {
 
   const order = await orders.create({
     userId: targetUser, productId, couponCode, campaignId,
+    // شراء ذاتي حين ينشئ العميل لنفسه: عندها لا تُباع المنتجات المخفيّة.
+    selfService: targetUser === req.user.id,
     req, actor: req.user,
   });
 

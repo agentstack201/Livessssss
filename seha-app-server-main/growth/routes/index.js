@@ -89,6 +89,7 @@ router.post('/referrals/links', guard('referrals:write'), referrals.createLink);
 router.put('/referrals/links/:id', guard('referrals:write'), referrals.updateLink);
 router.get('/referrals/funnel', guard('referrals:read'), referrals.funnel);
 router.get('/referrals/events', guard('referrals:read'), referrals.events);
+router.post('/referrals/release-expired', guard('referrals:moderate'), referrals.releaseExpired);
 router.post('/referrals/grants/:grantId/release', guard('referrals:moderate'), referrals.releaseGrant);
 router.post('/referrals/grants/:grantId/revoke', guard('referrals:moderate'), referrals.revokeGrant);
 

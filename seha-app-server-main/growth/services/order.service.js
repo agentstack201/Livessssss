@@ -14,7 +14,7 @@
 const { Op } = require('sequelize');
 const sequelize = require('../../config/database');
 const {
-  GrowthOrder, GrowthProduct, GrowthProfile, Campaign, ReferralLink,
+  GrowthOrder, GrowthProduct, GrowthProfile, Campaign, ReferralLink, CouponRedemption,
 } = require('../models');
 const credits = require('./credit.service');
 const coupons = require('./coupon.service');
@@ -47,12 +47,21 @@ function periodEnd(start, cycle) {
  * ينشئ طلباً بلقطة ثابتة من المنتج وقت الشراء.
  * لا يمنح أرصدة — المنح يقع عند اعتماد الدفع فقط.
  */
-async function create({ userId, productId, couponCode = null, campaignId = null, req = null, actor = null }) {
+async function create({
+  userId, productId, couponCode = null, campaignId = null,
+  selfService = false, req = null, actor = null,
+}) {
   const cfg = await settings.forRequest(req);
 
   const product = await GrowthProduct.findByPk(productId);
   if (!product) throw err.notFound('المنتج');
   if (!product.is_active) throw err.validation('هذا المنتج غير متاح للشراء حالياً');
+
+  // منتج مخفيّ يظل قابلاً للبيع يدوياً من اللوحة — هذا معنى «فعّال وغير
+  // مرئي». لكن العميل لا يشتريه بنفسه بتمرير معرّفه، وإلا صار الإخفاء زينة.
+  if (!product.is_visible && selfService) {
+    throw err.notFound('المنتج');
+  }
 
   return sequelize.transaction(async (t) => {
     const gross = Number(product.price);
@@ -172,6 +181,28 @@ async function approve({ orderId, paymentReference = null, actor, req = null, au
         req,
       });
       tx = applied.transaction;
+    }
+
+    // ── أرصدة كوبون credit_grant ────────────────────────────────────────
+    // كانت تُسجَّل في صفّ الاستخدام ولا تُمنح قط: الواجهة تَعِد العميل
+    // بالرصيد والدفتر لا يعرف عنه شيئاً. تُمنح هنا لا عند إنشاء الطلب،
+    // لأن أي رصيد قبل اعتماد الدفع هو منح بلا مقابل.
+    const redemption = await CouponRedemption.findOne({
+      where: { order_id: order.id }, transaction: t,
+    });
+    if (redemption && redemption.credits_granted > 0) {
+      await credits.apply({
+        userId: order.user_id,
+        type: 'grant',
+        amount: redemption.credits_granted,
+        sourceType: 'coupon',
+        sourceId: String(redemption.coupon_id),
+        description: `رصيد كوبون ${redemption.code_snapshot} (${order.reference})`,
+        idempotencyKey: `coupon_grant:${redemption.id}`,
+        metadata: { order_reference: order.reference, coupon: redemption.code_snapshot },
+        transaction: t,
+        req,
+      });
     }
 
     // ── تفعيل الاشتراك ──────────────────────────────────────────────────

@@ -87,16 +87,39 @@ async function scoreEvent(event, { req = null } = {}) {
   ]);
 
   // ── الشبكة والتوقيت ─────────────────────────────────────────────────────
+  //
+  // الإشارة كانت تبحث عن حدث يكون فيه المُحيل نفسه «مُحالاً إليه» — وهو حدث
+  // لا وجود له إطلاقاً لمن سجّل عضوياً، أي لأغلب المُحيلين. فكانت ميتة عملياً
+  // حيث يُفترض أن تعمل.
+  //
+  // البديل يقيس ما نريد قياسه فعلاً: هل جاء هذا المُحال إليه من الشبكة نفسها
+  // التي جاء منها مُحالون آخرون للمُحيل ذاته؟ تكرار عنوان واحد عبر عدّة
+  // حسابات جلبها شخص واحد هو نمط المزرعة، ويعمل سواء أكان المُحيل عضوياً أم
+  // مُحالاً. ويُستبعد الحدث الحالي من العدّ حتى لا يطابق نفسه.
   if (referee && event.ip_address) {
-    const referrerEvents = await ReferralEvent.findOne({
-      where: { referee_id: event.referrer_id },
-      attributes: ['ip_address'],
-      order: [['id', 'DESC']],
-    });
-    const sharedIp = referrerEvents?.ip_address && referrerEvents.ip_address === event.ip_address;
+    const [sameNetwork, referrerOwnEvent] = await Promise.all([
+      ReferralEvent.count({
+        where: {
+          referrer_id: event.referrer_id,
+          ip_address: event.ip_address,
+          referee_id: { [Op.ne]: null },
+          id: { [Op.ne]: event.id },
+        },
+      }),
+      // إن كان المُحيل نفسه قد وصل عبر إحالة، فعنوانه المسجَّل مقارنة مباشرة.
+      ReferralEvent.findOne({
+        where: { referee_id: event.referrer_id },
+        attributes: ['ip_address'],
+        order: [['id', 'DESC']],
+      }),
+    ]);
 
-    if (sharedIp) {
+    const sharedWithReferrer = referrerOwnEvent?.ip_address
+      && referrerOwnEvent.ip_address === event.ip_address;
+
+    if (sameNetwork > 0 || sharedWithReferrer) {
       const gapMs = Math.abs(new Date(referee.createdAt) - new Date(referrer.createdAt));
+      // المشاركة وحدها ضوضاء في بيئة مستشفى؛ التوقيت القصير هو ما يجعلها مريبة.
       if (gapMs < 10 * 60 * 1000) add('same_ip_fast');
       else add('same_ip');
     }

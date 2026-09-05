@@ -153,8 +153,9 @@ const REGISTRY = {
   },
   'fraud.auto_release_days': {
     type: 'integer', default: 7, public: false, group: 'fraud',
-    label: 'أيام الإفراج التلقائي عن دفعة متوسطة المخاطر', min: 0, max: 90,
-    usedBy: 'خدمة الإحالة — الإفراج عن المعلّق',
+    label: 'أيام الإفراج عن دفعة متوسطة المخاطر', min: 0, max: 90,
+    hint: 'يُشغَّل الإفراج من طابور المراجعة في صفحة الإحالات',
+    usedBy: 'referral.service.autoReleaseExpiredHolds — زر في طابور المراجعة',
   },
 
   // ── التشغيل ─────────────────────────────────────────────────────────────

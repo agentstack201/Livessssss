@@ -248,14 +248,23 @@ async function reverse({
   const idempotencyKey = `reversal:${originalTransactionId}`;
 
   const run = async (t) => {
+    // المبلغ المعكوس يُشتقّ من الحركة الأصلية لا من قيمة اسمية يمرّرها
+    // المستدعي. الفرق ليس نظرياً: منحة 300 يبتلع منها دينٌ سابق 90 تُضيف 210
+    // فقط إلى الرصيد. عكس 300 يخصم 210 ويسجّل 90 ديناً جديداً — فيُحاسَب
+    // المستفيد على 300 مقابل 210 قبضها. الدفتر هو المرجع، لا الوعد.
+    const original = originalTransactionId
+      ? await CreditTransaction.findByPk(originalTransactionId, { transaction: t })
+      : null;
+    const target = original ? Math.abs(original.amount) : Math.abs(amount);
+
     const profile = await ensureProfile(userId, { transaction: t });
     const locked = await GrowthProfile.findOne({
       where: { id: profile.id }, lock: t.LOCK.UPDATE, transaction: t,
     });
 
     const balanceBefore = locked.credit_balance;
-    const recoverable = Math.min(Math.abs(amount), balanceBefore);
-    const shortfall = Math.abs(amount) - recoverable;
+    const recoverable = Math.min(target, balanceBefore);
+    const shortfall = target - recoverable;
     const balanceAfter = balanceBefore - recoverable;
 
     const tx = await CreditTransaction.create(
@@ -271,7 +280,12 @@ async function reverse({
         reason,
         performed_by: performedBy,
         idempotency_key: idempotencyKey,
-        metadata: { original_transaction_id: originalTransactionId, requested: Math.abs(amount), shortfall },
+        metadata: {
+          original_transaction_id: originalTransactionId,
+          ledger_amount: target,
+          nominal_amount: Math.abs(amount),
+          shortfall,
+        },
       },
       { transaction: t }
     );

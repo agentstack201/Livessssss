@@ -95,6 +95,16 @@ async function attributeRegistration({ userId, code, req = null }) {
     return { attributed: false, reason: 'لا يمكن إحالة النفس' };
   }
 
+  // الانتهاء والسقف يُفحصان هنا أيضاً لا في trackClick وحدها. النقرة لا
+  // تكلّف شيئاً، أمّا الإسناد فهو ما يفتح باب الدفع — فترك المسار الدافع
+  // بلا حارس بينما المسار المجاني محروس هو عكس الترتيب الصحيح تماماً.
+  if (link.expires_at && new Date(link.expires_at) < new Date()) {
+    return { attributed: false, reason: 'انتهت صلاحية الرابط' };
+  }
+  if (link.max_uses !== null && link.times_used >= link.max_uses) {
+    return { attributed: false, reason: 'بلغ الرابط سقف الاستخدام' };
+  }
+
   return sequelize.transaction(async (t) => {
     const profile = await credits.ensureProfile(userId, { transaction: t });
     if (profile.referred_by_link_id) {

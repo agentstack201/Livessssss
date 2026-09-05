@@ -100,6 +100,16 @@ export default function Referrals({ can }) {
     } catch (e) { toast(e.message, 'error') }
   })
 
+  // إفراج جماعي عمّا انقضت مدّة تعليقه — الإعداد fraud.auto_release_days كان
+  // بلا أي مستدعٍ، فتبقى المكافآت معلّقة أبداً مهما ضُبط.
+  const [releaseExpired, releasingExpired] = useAsync(async () => {
+    try {
+      const r = await api.releaseExpiredHolds()
+      toast(r.released ? `أُفرج عن ${r.released} مكافأة` : 'لا مكافآت انقضت مدّتها بعد', 'success')
+      loadEvents(); load()
+    } catch (e) { toast(e.message, 'error') }
+  })
+
   const [release, releasing] = useAsync(async (grantId) => {
     try {
       await api.releaseGrant(grantId)
@@ -285,6 +295,12 @@ export default function Referrals({ can }) {
         <Panel
           title={tab === 'review' ? 'مكافآت بانتظار المراجعة' : 'كل أحداث الإحالة'}
           flush
+          actions={tab === 'review' && canModerate ? (
+            <button type="button" className={`${s.btn} ${s.btnGhost} ${s.btnSm}`}
+              onClick={releaseExpired} disabled={releasingExpired}>
+              {releasingExpired ? 'جارٍ الإفراج…' : 'إفراج عمّا انقضت مدّته'}
+            </button>
+          ) : null}
         >
           {tab === 'events' && (
             <div className={s.filters} style={{ padding: '0.9rem 1.1rem 0' }}>

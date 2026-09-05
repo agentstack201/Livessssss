@@ -110,6 +110,7 @@ export const api = {
   referralFunnel: (params) => request(`/referrals/funnel${qs(params)}`),
   referralEvents: (params) => request(`/referrals/events${qs(params)}`),
   releaseGrant: (grantId) => request(`/referrals/grants/${grantId}/release`, { method: 'POST' }),
+  releaseExpiredHolds: () => request('/referrals/release-expired', { method: 'POST' }),
   revokeReferralGrant: (grantId, reason) =>
     request(`/referrals/grants/${grantId}/revoke`, { method: 'POST', body: { reason } }),
 

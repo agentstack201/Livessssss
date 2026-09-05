@@ -44,6 +44,16 @@ const NAV = [
   { to: '/growth/audit', icon: '📋', label: 'سجل التدقيق', perm: 'audit:read' },
 ]
 
+/** صلاحيات لا تفتح أي صفحة — نقول ذلك بدل إعادة توجيه تدور على نفسها. */
+function NoLanding() {
+  return (
+    <div className={s.errorBox}>
+      صلاحياتك لا تفتح أي صفحة في هذا الكونسول. استعمل البحث أعلاه للوصول إلى
+      ملف مستخدم، أو اطلب من مدير النظام إسناد دور أوسع.
+    </div>
+  )
+}
+
 function GlobalSearch() {
   const navigate = useNavigate()
   const [term, setTerm] = useState('')
@@ -161,7 +171,9 @@ export default function GrowthConsole() {
   const nav = visible.filter((item, i) =>
     !item.divider || visible.slice(i + 1).some((n) => !n.divider))
 
-  const first = nav.find((n) => !n.divider)?.to || '/growth'
+  // دور بصلاحيات لا يقابلها أي عنصر تنقّل (مثل members:read وحده) كان يُعيد
+  // '/growth' فيوجّه مسار الفهرس إلى نفسه في حلقة لا تنتهي.
+  const firstNav = nav.find((n) => !n.divider)?.to || null
 
   return (
     <div className={s.shell}>
@@ -199,7 +211,11 @@ export default function GrowthConsole() {
 
         <main className={s.content}>
           <Routes>
-            <Route index element={can('analytics:read') ? <Overview can={can} /> : <Navigate to={first} replace />} />
+            <Route index element={
+              can('analytics:read') ? <Overview can={can} />
+                : firstNav ? <Navigate to={firstNav} replace />
+                  : <NoLanding />
+            } />
             <Route path="products" element={<Products can={can} />} />
             <Route path="orders" element={<Orders can={can} />} />
             <Route path="credits" element={<Credits can={can} />} />
@@ -211,7 +227,7 @@ export default function GrowthConsole() {
             <Route path="settings" element={<SettingsPage can={can} />} />
             <Route path="audit" element={<Audit can={can} />} />
             <Route path="members/:userId" element={<MemberProfile can={can} />} />
-            <Route path="*" element={<Navigate to={first} replace />} />
+            <Route path="*" element={firstNav ? <Navigate to={firstNav} replace /> : <NoLanding />} />
           </Routes>
         </main>
       </div>

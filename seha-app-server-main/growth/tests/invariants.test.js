@@ -402,6 +402,125 @@ const section = (t) => console.log(`\n━━ ${t}`);
   ok('I1 محفوظ بعد الاسترداد', rec3.healthy);
 
   // ══════════════════════════════════════════════════════════════════════
+  section('الاسترداد يعكس ما مُنح فعلاً لا القيمة الاسمية (انحدار)');
+
+  const rev1 = await User.create({ name: 'Rev', email: 'rev@x.com', password: 'x', role: 'user' });
+  const revProfile = await credits.ensureProfile(rev1.id);
+  await revProfile.update({ reward_debt: 90 });   // دين سابق يبتلع جزءاً من المنحة
+
+  const revProduct = await GrowthProduct.create({
+    name: 'منتج الاسترداد', slug: 'refundable', kind: 'credit_pack',
+    price: 100, credits_granted: 300,
+  });
+  const revOrder = await orders.create({ userId: rev1.id, productId: revProduct.id, actor });
+  await orders.approve({ orderId: revOrder.id, actor });
+
+  const grantTx = await CreditTransaction.findOne({
+    where: { user_id: rev1.id, source_type: 'order' },
+  });
+  ok('الدين ابتلع 90 فأضاف الدفتر 210 لا 300', grantTx.amount === 210, `(${grantTx.amount})`);
+
+  await orders.refund({ orderId: revOrder.id, reason: 'اختبار الانحدار', actor });
+  const revAfter = await credits.getBalance(rev1.id);
+  const reversalRow = await CreditTransaction.findOne({
+    where: { user_id: rev1.id, type: 'reversal' },
+  });
+
+  ok('الاسترداد عكس 210 (ما أضافه الدفتر) لا 300',
+    Math.abs(reversalRow.amount) === 210, `(${Math.abs(reversalRow.amount)})`);
+  ok('لا دين جديد — لم يُحاسَب على ما لم يقبضه',
+    revAfter.reward_debt === 0, `(دين ${revAfter.reward_debt})`);
+  ok('الرصيد عاد إلى صفر بالضبط', revAfter.credit_balance === 0, `(${revAfter.credit_balance})`);
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('حارس السقف الكلّي للكوبون يعمل فعلاً (انحدار)');
+
+  const capUser = await User.create({ name: 'Cap', email: 'cap@x.com', password: 'x', role: 'user' });
+  const capCoupon = await Coupon.create({
+    code: 'CAPPED', discount_type: 'percentage', discount_value: 10,
+    usage_limit: 1, per_user_limit: 5, valid_from: new Date(), is_active: true,
+  });
+  const capProduct = await GrowthProduct.create({
+    name: 'منتج السقف', slug: 'capped', kind: 'credit_pack', price: 100, credits_granted: 5,
+  });
+
+  await orders.create({ userId: capUser.id, productId: capProduct.id, couponCode: 'CAPPED', actor });
+  let capErr = null;
+  try {
+    await orders.create({ userId: capUser.id, productId: capProduct.id, couponCode: 'CAPPED', actor });
+  } catch (e) { capErr = e; }
+
+  await capCoupon.reload();
+  const capRedemptions = await CouponRedemption.count({ where: { coupon_id: capCoupon.id } });
+  ok('الاستخدام الثاني فوق السقف الكلّي يُرفض', !!capErr, 'لم يُرفض');
+  ok('استخدام واحد فقط مسجَّل رغم محاولتين', capRedemptions === 1, `(${capRedemptions})`);
+  ok('العدّاد لم يتجاوز السقف', capCoupon.times_used === 1, `(${capCoupon.times_used})`);
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('كوبون credit_grant يمنح رصيداً فعلاً (انحدار)');
+
+  const giftUser = await User.create({ name: 'Gift', email: 'gift@x.com', password: 'x', role: 'user' });
+  await Coupon.create({
+    code: 'GIFT100', discount_type: 'credit_grant', discount_value: 100,
+    per_user_limit: 1, valid_from: new Date(), is_active: true,
+  });
+  const giftOrder = await orders.create({
+    userId: giftUser.id, productId: capProduct.id, couponCode: 'GIFT100', actor,
+  });
+  const giftBefore = (await credits.getBalance(giftUser.id)).credit_balance;
+  ok('لا رصيد قبل اعتماد الدفع', giftBefore === 0, `(${giftBefore})`);
+
+  await orders.approve({ orderId: giftOrder.id, actor });
+  const giftAfter = (await credits.getBalance(giftUser.id)).credit_balance;
+  const giftTx = await CreditTransaction.count({
+    where: { user_id: giftUser.id, source_type: 'coupon' },
+  });
+  ok('الكوبون منح 100 فوق أرصدة المنتج (5 + 100)',
+    giftAfter === 105, `(${giftAfter})`);
+  ok('حركة مصدرها coupon مسجَّلة في الدفتر', giftTx === 1, `(${giftTx})`);
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('المنتج المخفي لا يُشترى ذاتياً (انحدار)');
+
+  const hiddenProduct = await GrowthProduct.create({
+    name: 'مخفي', slug: 'hidden-p', kind: 'credit_pack',
+    price: 10, credits_granted: 10, is_active: true, is_visible: false,
+  });
+  let hiddenErr = null;
+  try {
+    await orders.create({
+      userId: giftUser.id, productId: hiddenProduct.id, selfService: true, actor,
+    });
+  } catch (e) { hiddenErr = e; }
+  ok('العميل لا يشتري منتجاً مخفياً بتمرير معرّفه', hiddenErr?.code === 'NOT_FOUND', `(${hiddenErr?.code})`);
+
+  const opOrder = await orders.create({
+    userId: giftUser.id, productId: hiddenProduct.id, selfService: false, actor,
+  });
+  ok('المشغّل ما زال يبيعه يدوياً من اللوحة', !!opOrder?.id);
+
+  // ══════════════════════════════════════════════════════════════════════
+  section('حدود رابط الإحالة تُفحص عند الإسناد لا عند النقرة فقط (انحدار)');
+
+  const expOwner = await User.create({ name: 'Exp', email: 'exp@x.com', password: 'x', role: 'user' });
+  const expiredLink = await ReferralLink.create({
+    owner_id: expOwner.id, code: 'EXPIRED', is_active: true,
+    expires_at: new Date(Date.now() - 86400000),
+    payout_schedule: [{ milestone: 'activated', party: 'referrer', amount: 50 }],
+  });
+  const expReferee = await User.create({ name: 'ExpR', email: 'expr@x.com', password: 'x', role: 'user' });
+  const expAttr = await referrals.attributeRegistration({ userId: expReferee.id, code: 'EXPIRED' });
+  ok('رابط منتهٍ لا يُسنِد عند التسجيل', expAttr.attributed === false, expAttr.reason);
+
+  const fullLink = await ReferralLink.create({
+    owner_id: expOwner.id, code: 'FULL', is_active: true, max_uses: 1, times_used: 1,
+    payout_schedule: [{ milestone: 'activated', party: 'referrer', amount: 50 }],
+  });
+  const fullReferee = await User.create({ name: 'FullR', email: 'fullr@x.com', password: 'x', role: 'user' });
+  const fullAttr = await referrals.attributeRegistration({ userId: fullReferee.id, code: 'FULL' });
+  ok('رابط بلغ سقفه لا يُسنِد عند التسجيل', fullAttr.attributed === false, fullAttr.reason);
+
+  // ══════════════════════════════════════════════════════════════════════
   section('انتهاء صلاحية أرصدة الاشتراك');
   await settings.setMany({ 'credits.expire_plan_credits': false }, { actorId: admin.id });
   const off = await credits.expireStale({ dryRun: true });

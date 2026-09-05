@@ -93,12 +93,16 @@ async function onDocumentCreated({ userId, documentId, enforce = false, req = nu
     }
 
     // عدّادات القمع: التفعيل يُسجَّل مرة واحدة عند أول مستند ناجح.
-    const patch = {
-      documents_created: profile.documents_created + 1,
-      last_active_at: new Date(),
-    };
+    //
+    // الزيادة ذرّية في القاعدة لا قراءة-فتعديل-فكتابة: مستندان متزامنان
+    // يقرآن العدّاد نفسه فيضيع أحدهما، وإعادة تشغيل الخطّاف بعد انقطاع
+    // تعدّه مرتين — بينما الخصم نفسه محميّ بمفتاح منع التكرار.
+    await profile.increment('documents_created', { by: 1 });
+    const patch = { last_active_at: new Date() };
     if (firstEver) patch.activated_at = new Date();
     await profile.update(patch);
+    await profile.reload();
+    const documentsCreated = profile.documents_created;
 
     if (firstEver) {
       await referrals.advanceStage({
@@ -107,8 +111,12 @@ async function onDocumentCreated({ userId, documentId, enforce = false, req = nu
     }
 
     // الفعل الجوهري: دليل عادة لا مجرد تجربة.
+    //
+    // المقارنة >= لا ===: عدّاد يقفز فوق العتبة (تزامن، أو خفض العتبة من
+    // الإعدادات بعد أن تجاوزها المستخدم) كان يُسقط المرحلة إلى الأبد.
+    // advanceStage لا تتراجع للخلف فالاستدعاء المتكرّر بلا أثر.
     const threshold = cfg['referral.meaningful_action_count'];
-    if (patch.documents_created === threshold) {
+    if (documentsCreated >= threshold) {
       await referrals.advanceStage({
         userId, stage: 'meaningful_action', reference: `document:${documentId}`, req,
       });
@@ -116,10 +124,10 @@ async function onDocumentCreated({ userId, documentId, enforce = false, req = nu
 
     await rewards.evaluate({
       userId, eventType: 'nth_usage',
-      data: { documentId, count: patch.documents_created }, req,
+      data: { documentId, count: documentsCreated }, req,
     });
 
-    return { ok: true, charged: cost, documents: patch.documents_created };
+    return { ok: true, charged: cost, documents: documentsCreated };
   } catch (error) {
     if (enforce) throw error;
     console.error('[growth] onDocumentCreated:', error.message);
