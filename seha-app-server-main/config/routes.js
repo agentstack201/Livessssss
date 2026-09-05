@@ -155,6 +155,20 @@ try {
   }));
 }
 
+let growthRoute;
+try {
+  growthRoute = require("../growth/routes");
+  console.log("✅ Growth route loaded");
+} catch (error) {
+  console.error("❌ Growth route failed:", error.message);
+  const express = require("express");
+  growthRoute = express.Router();
+  growthRoute.all("*", (req, res) => res.status(503).json({
+    success: false,
+    message: "وحدة النمو غير متاحة حالياً",
+  }));
+}
+
 module.exports = {
   loginRoute,
   documentsRoute,
@@ -168,4 +182,5 @@ module.exports = {
   keysRoute,
   setupRoute,
   whatsappRoute,
+  growthRoute,
 };

@@ -19,11 +19,18 @@ import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
 import KeysManagement from './pages/KeysManagement'
 import BatchSickLeave from './pages/BatchSickLeave'
+import GrowthConsole from './growth/GrowthConsole'
+import Packages from './growth/customer/Packages'
+import MyAccount from './growth/customer/MyAccount'
+import ReferralLanding from './growth/customer/ReferralLanding'
 import './App.css'
 
 function App() {
   const location = useLocation()
+  // كونسول النمو يحمل هيكله الخاص (شريط جانبي وشريط علوي)، فلا يُغلَّف
+  // بترويسة المنصة وتذييلها كما لا تُغلَّف لوحة التحكّم.
   const isDashboard = location.pathname === '/dashboard'
+    || location.pathname.startsWith('/growth')
 
   return (
     <div className="app">
@@ -35,6 +42,18 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/inquiries/slenquiry" element={<SickLeaveInquiry />} />
           <Route path="/inquiries/sick-leave-inquiry" element={<SickLeaveInquiry />} />
+
+          {/* واجهة العميل — الباقات عامة، والحساب يحتاج تسجيل دخول */}
+          <Route path="/packages" element={<Packages />} />
+          <Route path="/r/:code" element={<ReferralLanding />} />
+          <Route
+            path="/my-account"
+            element={
+              <ProtectedRoute>
+                <MyAccount />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Routes - تحتاج تسجيل دخول */}
           <Route
@@ -138,6 +157,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <KeysManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* كونسول النمو — يدير مساراته الفرعية داخلياً */}
+          <Route
+            path="/growth/*"
+            element={
+              <ProtectedRoute>
+                <GrowthConsole />
               </ProtectedRoute>
             }
           />

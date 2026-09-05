@@ -25,6 +25,7 @@ const MOUNTS = [
   { name: 'usersRoute',     at: '/users' },
   { name: 'mediaRoute',     at: '/media' },
   { name: 'settingsRoute',  at: '/settings' },
+  { name: 'growthRoute',    at: '/growth' },
 ];
 
 /**

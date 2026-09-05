@@ -20,6 +20,9 @@ function Dashboard() {
   const [sharingId, setSharingId] = useState(null) // id السجل الجاري مشاركة ملفه
   const [whatsappSendingId, setWhatsappSendingId] = useState(null) // id السجل الجاري إرساله عبر واتساب
   const [whatsappReady, setWhatsappReady] = useState(false) // خدمة الإرسال مفعّلة ومتصلة على الخادم؟
+  // هل يملك المستخدم دوراً في وحدة النمو؟ تُسأل الواجهة الخلفية لأن صلاحيات
+  // النمو نظام مستقل عن أعمدة permissions المخزّنة في localStorage.
+  const [growthAccess, setGrowthAccess] = useState(false)
   const [stats, setStats] = useState({
     total: 0,
     thisMonth: 0,
@@ -74,6 +77,11 @@ function Dashboard() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setWhatsappReady(Boolean(d?.data?.enabled && d?.data?.connected)))
       .catch(() => setWhatsappReady(false))
+
+    fetch(`${API_BASE_URL}/growth/me/permissions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setGrowthAccess(Boolean(d?.data?.has_growth_access)))
+      .catch(() => setGrowthAccess(false))
   }, [navigate])
 
   // Fetch leaves when search or page changes
@@ -553,6 +561,19 @@ function Dashboard() {
               <span className={styles.newBadge}>AI</span>
             </div>
             <span>مفاتيح الذكاء الاصطناعي</span>
+          </Link>
+        )}
+        {growthAccess && (
+          <Link to="/growth" className={styles.actionBtn}>
+            <div className={styles.btnIconWrapper}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 3v18h18" />
+                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+                <path d="M14 8h4.7V12.7" />
+              </svg>
+              <span className={styles.newBadge}>جديد</span>
+            </div>
+            <span>كونسول النمو</span>
           </Link>
         )}
       </div>

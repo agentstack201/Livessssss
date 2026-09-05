@@ -1,0 +1,557 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   وحدة النمو — ورقة أنماط واحدة لكل الكونسول.
+   كثافة أعلى من صفحات المنصة: هذه شاشة تشغيل يقضي فيها المشغّل ساعات، لا
+   صفحة يزورها الزائر مرة. الجداول أضيق، والأزرار أصغر، والمعلومة أكثف.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f6f8fb;
+  font-family: 'Cairo', sans-serif;
+  direction: rtl;
+}
+
+/* ── الشريط الجانبي ─────────────────────────────────────────────────────── */
+.sidebar {
+  width: 248px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #14306b 0%, #1e40af 100%);
+  color: #fff;
+  padding: 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  padding: 0 1.25rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 0.75rem;
+}
+
+.brandTitle { font-size: 1.15rem; font-weight: 700; margin: 0; }
+.brandSub { font-size: 0.75rem; opacity: 0.65; margin: 0.2rem 0 0; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.6rem; flex: 1; }
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: right;
+  font-family: inherit;
+}
+
+.navItem:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.navItemActive { background: rgba(255, 255, 255, 0.18); color: #fff; font-weight: 600; }
+.navIcon { font-size: 1rem; width: 1.2rem; text-align: center; }
+
+.navDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0.6rem 0.8rem;
+}
+
+.navGroupLabel {
+  font-size: 0.68rem;
+  opacity: 0.5;
+  padding: 0.5rem 0.8rem 0.25rem;
+  letter-spacing: 0.03em;
+}
+
+.backLink {
+  margin: 0.6rem 0.6rem 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 0.82rem;
+  display: block;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 0.8rem;
+}
+.backLink:hover { color: #fff; }
+
+/* ── المحتوى ────────────────────────────────────────────────────────────── */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #e4e9f2;
+  padding: 0.7rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.searchWrap { position: relative; flex: 1; max-width: 460px; }
+
+.searchInput {
+  width: 100%;
+  padding: 0.55rem 2.2rem 0.55rem 0.9rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: #f8fafc;
+}
+.searchInput:focus { outline: none; border-color: #3b82f6; background: #fff; }
+
+.searchIcon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+  font-size: 0.85rem;
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  background: #fff;
+  border: 1px solid #e4e9f2;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 30, 60, 0.12);
+  max-height: 340px;
+  overflow-y: auto;
+  z-index: 40;
+}
+
+.searchRow {
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+.searchRow:last-child { border-bottom: none; }
+.searchRow:hover { background: #f1f6ff; }
+.searchName { font-size: 0.88rem; font-weight: 600; color: #1e293b; }
+.searchMeta { font-size: 0.75rem; color: #64748b; }
+
+.topbarUser { margin-inline-start: auto; font-size: 0.82rem; color: #475569; }
+
+.content { padding: 1.5rem; flex: 1; }
+
+/* ── ترويسة الصفحة ──────────────────────────────────────────────────────── */
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.pageTitle { font-size: 1.4rem; font-weight: 700; color: #0f2454; margin: 0; }
+.pageSub { font-size: 0.85rem; color: #64748b; margin: 0.25rem 0 0; }
+.pageActions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── الأزرار ────────────────────────────────────────────────────────────── */
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btnPrimary { background: #2563eb; color: #fff; }
+.btnPrimary:hover:not(:disabled) { background: #1d4ed8; }
+
+.btnGhost { background: #fff; color: #334155; border-color: #d9e0ec; }
+.btnGhost:hover:not(:disabled) { background: #f1f5f9; }
+
+.btnDanger { background: #fff; color: #b91c1c; border-color: #fecaca; }
+.btnDanger:hover:not(:disabled) { background: #fef2f2; }
+
+.btnSuccess { background: #059669; color: #fff; }
+.btnSuccess:hover:not(:disabled) { background: #047857; }
+
+.btnSm { padding: 0.32rem 0.65rem; font-size: 0.78rem; }
+
+/* ── بطاقات المؤشرات ────────────────────────────────────────────────────── */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat {
+  background: #fff;
+  border: 1px solid #e8edf5;
+  border-radius: 14px;
+  padding: 0.95rem 1.1rem;
+}
+.statLabel { font-size: 0.78rem; color: #64748b; margin-bottom: 0.35rem; }
+.statValue { font-size: 1.55rem; font-weight: 700; color: #0f2454; line-height: 1.15; }
+.statFoot { font-size: 0.75rem; color: #94a3b8; margin-top: 0.3rem; }
+.statUp { color: #059669; font-weight: 600; }
+.statDown { color: #dc2626; font-weight: 600; }
+
+.northStar {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  color: #fff;
+  border: none;
+}
+.northStar .statLabel { color: rgba(255, 255, 255, 0.8); }
+.northStar .statValue { color: #fff; font-size: 2.1rem; }
+.northStar .statFoot { color: rgba(255, 255, 255, 0.75); }
+.northStar .statUp { color: #86efac; }
+.northStar .statDown { color: #fca5a5; }
+
+/* ── لوح ────────────────────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e8edf5;
+  border-radius: 14px;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+}
+.panelHead {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #eef2f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.panelTitle { font-size: 0.98rem; font-weight: 700; color: #0f2454; margin: 0; }
+.panelBody { padding: 1.1rem; }
+.panelBodyFlush { padding: 0; }
+
+/* ── التنبيهات ──────────────────────────────────────────────────────────── */
+.alertList { display: flex; flex-direction: column; }
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.alert:last-child { border-bottom: none; }
+.alertDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.alertCritical { background: #dc2626; }
+.alertWarning { background: #f59e0b; }
+.alertInfo { background: #3b82f6; }
+.alertText { flex: 1; font-size: 0.88rem; color: #1e293b; }
+
+.emptyOk {
+  padding: 1.6rem 1.1rem;
+  text-align: center;
+  color: #059669;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ── الجداول ────────────────────────────────────────────────────────────── */
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  text-align: right;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #e8edf5;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.table tbody td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: #f8fbff; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: 'SF Mono', 'Consolas', monospace; font-size: 0.8rem; }
+.rowActions { display: flex; gap: 0.35rem; justify-content: flex-start; }
+
+/* ── الشارات ────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badgeGreen { background: #dcfce7; color: #166534; }
+.badgeRed { background: #fee2e2; color: #991b1b; }
+.badgeAmber { background: #fef3c7; color: #92400e; }
+.badgeBlue { background: #dbeafe; color: #1e40af; }
+.badgeGray { background: #f1f5f9; color: #475569; }
+
+/* ── الفلاتر ────────────────────────────────────────────────────────────── */
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+.input, .select, .textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  color: #1e293b;
+}
+.input:focus, .select:focus, .textarea:focus { outline: none; border-color: #3b82f6; }
+.textarea { width: 100%; min-height: 78px; resize: vertical; }
+.inputGrow { flex: 1; min-width: 180px; }
+
+/* ── النماذج ────────────────────────────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.fieldFull { grid-column: 1 / -1; }
+.label { font-size: 0.82rem; font-weight: 600; color: #334155; }
+.hint { font-size: 0.74rem; color: #94a3b8; }
+.required { color: #dc2626; }
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+/* ── النافذة المنبثقة ───────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 20, 44, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3vh 1rem;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 24px 60px rgba(9, 20, 44, 0.28);
+  margin: auto 0;
+}
+.modalWide { max-width: 920px; }
+
+.modalHead {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eef2f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modalTitle { font-size: 1.05rem; font-weight: 700; color: #0f2454; margin: 0; }
+.modalClose {
+  background: none; border: none; font-size: 1.35rem; cursor: pointer;
+  color: #94a3b8; line-height: 1; padding: 0 0.25rem;
+}
+.modalClose:hover { color: #475569; }
+.modalBody { padding: 1.25rem; }
+.modalFoot {
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid #eef2f8;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+/* ── الحالة الفارغة ─────────────────────────────────────────────────────── */
+.empty { padding: 2.5rem 1.25rem; text-align: center; }
+.emptyIcon { font-size: 2.2rem; margin-bottom: 0.5rem; opacity: 0.5; }
+.emptyTitle { font-size: 0.98rem; font-weight: 600; color: #334155; margin-bottom: 0.3rem; }
+.emptyText { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem; }
+
+.loading { padding: 2.5rem; text-align: center; color: #64748b; font-size: 0.9rem; }
+.errorBox {
+  padding: 0.85rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.warnBox {
+  padding: 0.8rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  color: #92400e;
+  font-size: 0.83rem;
+  margin-bottom: 0.9rem;
+}
+.infoBox {
+  padding: 0.8rem 1rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1e40af;
+  font-size: 0.83rem;
+  margin-bottom: 0.9rem;
+}
+
+/* ── القمع ──────────────────────────────────────────────────────────────── */
+.funnel { display: flex; flex-direction: column; gap: 0.45rem; }
+.funnelRow { display: flex; align-items: center; gap: 0.75rem; }
+.funnelLabel { width: 128px; font-size: 0.82rem; color: #475569; flex-shrink: 0; }
+.funnelBarWrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 26px; overflow: hidden; }
+.funnelBar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 6px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+.funnelValue { width: 92px; font-size: 0.82rem; color: #0f2454; font-weight: 600; text-align: left; }
+
+/* ── الرسم البياني ──────────────────────────────────────────────────────── */
+.chart { display: flex; align-items: flex-end; gap: 3px; height: 130px; padding-top: 0.5rem; }
+.chartBar {
+  flex: 1;
+  background: linear-gradient(180deg, #60a5fa, #2563eb);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  position: relative;
+}
+.chartBar:hover { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
+.chartAxis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 0.4rem;
+}
+
+/* ── الترتيب بالسحب ─────────────────────────────────────────────────────── */
+.dragRow { cursor: grab; }
+.dragRow:active { cursor: grabbing; }
+.dragOver { background: #dbeafe !important; }
+.dragHandle { color: #cbd5e1; cursor: grab; user-select: none; }
+
+/* ── التبويبات ──────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #e8edf5; margin-bottom: 1.1rem; }
+.tab {
+  padding: 0.55rem 0.95rem;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.87rem;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover { color: #1e40af; }
+.tabActive { color: #1e40af; font-weight: 700; border-bottom-color: #2563eb; }
+
+/* ── الترقيم ────────────────────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.1rem;
+  border-top: 1px solid #eef2f8;
+  font-size: 0.82rem;
+  color: #64748b;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.pageBtns { display: flex; gap: 0.35rem; }
+
+/* ── تعمّق المستخدم ─────────────────────────────────────────────────────── */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+.profileStat { background: #f8fafc; border-radius: 10px; padding: 0.7rem 0.85rem; }
+.profileStatLabel { font-size: 0.74rem; color: #64748b; }
+.profileStatValue { font-size: 1.05rem; font-weight: 700; color: #0f2454; margin-top: 0.15rem; }
+
+/* ── مُنتقي الصلاحيات ───────────────────────────────────────────────────── */
+.permGroups { display: flex; flex-direction: column; gap: 0.9rem; }
+.permGroup { border: 1px solid #e8edf5; border-radius: 10px; padding: 0.75rem 0.9rem; }
+.permGroupTitle {
+  font-size: 0.84rem; font-weight: 700; color: #1e40af; margin-bottom: 0.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.permList { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.4rem; }
+
+/* ── جدول الدفعات ───────────────────────────────────────────────────────── */
+.payoutRow {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.8fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* ── الاستجابة ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .shell { flex-direction: column; }
+  .sidebar {
+    width: 100%; height: auto; position: relative;
+    padding: 0.75rem 0;
+  }
+  .nav { flex-direction: row; overflow-x: auto; gap: 0.25rem; padding: 0 0.6rem; }
+  .navItem { white-space: nowrap; padding: 0.45rem 0.7rem; font-size: 0.82rem; }
+  .navDivider, .navGroupLabel, .backLink { display: none; }
+  .brand { padding-bottom: 0.75rem; margin-bottom: 0.5rem; }
+  .content { padding: 1rem; }
+  .topbar { padding: 0.6rem 1rem; }
+  .searchWrap { max-width: none; }
+  .topbarUser { display: none; }
+  .funnelLabel { width: 92px; font-size: 0.75rem; }
+  .funnelValue { width: 70px; font-size: 0.75rem; }
+  .payoutRow { grid-template-columns: 1fr 1fr; }
+}
