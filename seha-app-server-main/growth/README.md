@@ -181,8 +181,9 @@ TEST_DATABASE_URL=postgresql://user@host:5432/growth_test npm run test:growth:ap
 منفصلة.
 
 ```bash
-TEST_DATABASE_URL=... npm run test:growth:flow   # الحلقة كاملة
-TEST_DATABASE_URL=... npm run test:growth:all    # الثلاثة معاً
+TEST_DATABASE_URL=... npm run test:growth:flow     # الحلقة كاملة
+TEST_DATABASE_URL=... npm run test:growth:upgrade  # مسار النشر
+TEST_DATABASE_URL=... npm run test:growth:all      # الأربعة معاً
 ```
 
 - `invariants.test.js` — 83 تأكيداً: الثوابت، التزامن، اللقطة التاريخية،
@@ -192,6 +193,10 @@ TEST_DATABASE_URL=... npm run test:growth:all    # الثلاثة معاً
 - `customer.test.js` — 41 تأكيداً للحلقة كاملة عبر **متحكّمات المنصة
   الحقيقية**: إنشاء حساب ← ملف تجاري ← إسناد إحالة ← إصدار مستند ← تفعيل ←
   دفعة المُحيل ← شراء ← بقية الدفعة، وعزل بيانات العملاء عن بعضهم.
+- `upgrade.test.js` — 16 تأكيداً لمسار النشر: تركيب الوحدة على قاعدة عامرة
+  بـ `sync({ alter: false })` كما يفعل الإنتاج فعلاً، دون مساس ببياناتها؛
+  وإقلاع ثانٍ idempotent؛ ومستخدمون سبقوا الوحدة يعملون بلا ملف سابق؛
+  والقيود فعّالة على قاعدة مرقّاة لا منشأة من الصفر.
 
 ## المسارات العامة
 
