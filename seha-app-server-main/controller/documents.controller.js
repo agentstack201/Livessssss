@@ -16,6 +16,9 @@ const {
   sanitizeHospitalName,
   sanitizePersonName,
   sanitizeNationalId,
+  sanitizeVisitTypeArabic,
+  sanitizeVisitTypeEnglish,
+  sanitizeTime,
 } = require('../utils/extractionClean');
 
 // Field-specific cleanup applied AFTER the LLM returns. Even with a strict
@@ -30,6 +33,10 @@ const CORE_SANITIZERS = {
   name_ar: sanitizePersonName,
   name_en: sanitizePersonName,
   national_id: sanitizeNationalId,
+  admission_time: sanitizeTime,
+  discharge_time: sanitizeTime,
+  visit_type_ar: sanitizeVisitTypeArabic,
+  visit_type_en: sanitizeVisitTypeEnglish,
 };
 
 // وصف القوالب الورقية + خيارات الخطوط.
@@ -126,6 +133,8 @@ const CORE_FIELDS = {
   name_en: 'اسم المريض بالإنجليزية',
   admission_date_en: 'تاريخ الدخول ميلادي YYYY-MM-DD',
   discharge_date_en: 'تاريخ الخروج ميلادي YYYY-MM-DD',
+  admission_time: 'وقت الدخول بصيغة 12 ساعة (مشهد مراجعة)',
+  discharge_time: 'وقت الخروج بصيغة 12 ساعة (مشهد مراجعة)',
   issue_date: 'تاريخ إصدار التقرير ميلادي YYYY-MM-DD',
   employer_ar: 'جهة العمل بالعربية',
   employer_en: 'جهة العمل بالإنجليزية',
@@ -133,6 +142,8 @@ const CORE_FIELDS = {
   physician_name_en: 'اسم الطبيب بالإنجليزية',
   position_ar: 'المسمى الوظيفي بالعربية',
   position_en: 'المسمى الوظيفي بالإنجليزية',
+  visit_type_ar: 'نوع الزيارة بالعربية (عيادات / منومين / طوارئ) — مشهد مراجعة فقط',
+  visit_type_en: 'نوع الزيارة بالإنجليزية (OutPatient / InPatient / Emergency) — مشهد مراجعة فقط',
   nationality: 'الجنسية',
   hospital_name_ar: 'اسم المنشأة بالعربية',
   hospital_name_en: 'اسم المنشأة بالإنجليزية',
@@ -181,6 +192,8 @@ module.exports.aiExtractDocument = async (req, res) => {
       '- physician_name_ar / physician_name_en: الاسم فقط. أزل ألقاب «د.»، «الدكتور»، «الأستاذ الدكتور»، «Dr.»، «Prof.»؛ ولا تُلحق التخصص ولا رقم الرخصة ولا الشارة. «Practitioner Name» و«Physician Name» كلاهما يشير إلى نفس الحقل (الطبيب).',
       '- في تقارير «صحة» يصادف أن الاسم الإنجليزي معكوس الترتيب بسبب الـ OCR (مثال "SHAMMARI AL. MARJI ABDULMAJEED" من العربي «عبد المجيد مرجي الشمري»). عند وجود الاسم بالعربية اعتمده مرجعاً واستخرج الإنجليزية بنفس الترتيب ("Abdulmajeed Marji Al-Shammari")، ولا تنسخ الترتيب المعكوس كما هو.',
       '- position_ar / position_en: التخصص فقط (مثل «طبيب عام» / "General Practitioner")، ليس اسم الطبيب ولا القسم. في «صحة» قد يظهر "Position" مقتطعاً كـ "General" فقط — تعامل معه على أنه "General Practitioner" / «طبيب عام».',
+      '- admission_time / discharge_time: للـ«مشهد مراجعة» يظهر الوقت ملتصقاً بالتاريخ بشرطة "13-08-2026-10:03 AM". افصلهما: التاريخ في admission_date_en/discharge_date_en، والوقت في admission_time/discharge_time بصيغة 12 ساعة "HH:MM AM/PM". لا تُخرج أبداً القيمة الملتصقة في أي حقل. لا تحسب فترة الانتظار — يحسبها النظام آلياً.',
+      '- visit_type_ar / visit_type_en: نوع الزيارة، فقط لمستند «مشهد مراجعة». القيم الشائعة: «عيادات» / "OutPatient"، «منومين» / "InPatient"، «طوارئ» / "Emergency". خطأ OCR شائع: «عبادات» بدل «عيادات» — أعِد القيمة الصحيحة «عيادات» + "OutPatient" لا حروف OCR.',
       '- name_ar / name_en: اسم المريض فقط، بدون ألقاب «المريض»، «السيد»، «Mr.» ونحوه.',
       '- national_id: أرقام فقط.',
       '- employer_ar / employer_en: اسم جهة العمل فقط، ليس العنوان ولا رقم الهاتف.',
