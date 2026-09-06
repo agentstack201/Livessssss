@@ -2,6 +2,12 @@ const leaves = require("../models/leaves.model");
 const config = require("../config/middlewares");
 const { normalizeDocumentType, rendererNameFor } = require("../config/documentTypes");
 const { normalizeNationality } = require("../utils/nationality");
+const {
+  sanitizeHospitalName,
+  sanitizePersonName,
+  sanitizeNationalId,
+  sanitizePhone,
+} = require("../utils/extractionClean");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
 const { Sequelize, Op } = require("sequelize");
@@ -535,15 +541,15 @@ module.exports.aiExtract = async (req, res, next) => {
       - licenseNumber: (medical license number) or ""
 
       Bilingual fields — ALWAYS provide BOTH Arabic AND English:
-      - name: (Patient name in ENGLISH)
+      - name: (Patient name in ENGLISH — the patient ONLY, no titles like "المريض", "Mr.")
       - nameArabic: (Patient name in ARABIC)
-      - doctorName: (Doctor name in ENGLISH)
-      - doctorNameArabic: (Doctor name in ARABIC)
-      - hospitalNameEnglish: (Hospital name in ENGLISH)
-      - hospitalNameArabic: (Hospital name in ARABIC)
-      - physicianPosition: (Doctor specialty/position in ENGLISH)
-      - physicianPositionArabic: (Doctor specialty/position in ARABIC)
-      - employer: (Employer name — favor Arabic if available)
+      - doctorName: (Doctor name in ENGLISH — NAME ONLY, drop titles ("د.", "الدكتور", "Dr.", "Prof.") and never include specialty, badge or license)
+      - doctorNameArabic: (Doctor name in ARABIC — same rule)
+      - hospitalNameEnglish: (Hospital / medical facility name ONLY, in ENGLISH — the official facility name and nothing else; NEVER include department ("قسم", "Department", "Ward"), reception, cashier ("الكاشير"), staff names, badge numbers, phone/fax, PO box, VAT, floor, or address lines. If the source shows "مستشفى الملك فهد التخصصي — الكاشير: أحمد" the value is "King Fahad Specialist Hospital".)
+      - hospitalNameArabic: (Same rule, in ARABIC — the facility name only)
+      - physicianPosition: (Doctor specialty/position in ENGLISH — SPECIALTY ONLY, e.g. "General Practitioner"; not the doctor's name and not the department)
+      - physicianPositionArabic: (Doctor specialty/position in ARABIC — same rule)
+      - employer: (Employer / place of work — favor Arabic if available; the employer name only, not their address or phone)
       - nationality: (Patient nationality in ARABIC — e.g. 'السعودية', 'مصري')
 
       ── BILINGUAL RULES ──
@@ -750,6 +756,22 @@ module.exports.translate = async (req, res) => {
 // and stamp the report time — all server-side where the converters already live.
 async function enrichExtracted(data) {
   const out = { ...data };
+
+  // Post-extraction cleanup: even a strict prompt occasionally lets adjacent
+  // header noise (الكاشير, الاستقبال, department, badge, Dr. prefix …) leak
+  // into a name value. Fix it here so what reaches the form is only what the
+  // field is meant to hold. Only mutates strings that need it.
+  const applyIfString = (key, fn) => {
+    if (typeof out[key] === "string" && out[key]) out[key] = fn(out[key]);
+  };
+  applyIfString("hospitalNameArabic", sanitizeHospitalName);
+  applyIfString("hospitalNameEnglish", sanitizeHospitalName);
+  applyIfString("doctorName", sanitizePersonName);
+  applyIfString("doctorNameArabic", sanitizePersonName);
+  applyIfString("name", sanitizePersonName);
+  applyIfString("nameArabic", sanitizePersonName);
+  if (out.nationalID) out.nationalID = sanitizeNationalId(out.nationalID);
+  if (out.phone) out.phone = sanitizePhone(out.phone);
 
   // Identifiers: keep a valid extracted service number, else generate one.
   // leave_id is kept identical to service_num (same rule as addNewLeaves).

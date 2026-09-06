@@ -12,6 +12,25 @@ const { FONT_OPTIONS, DEFAULT_FONT } = require('../config/documentFonts');
 const { renderPaperHtml } = require('../middlewares/generatePaperPdf');
 const config = require('../config/middlewares');
 const { toModelPart } = require('../utils/fileExtract');
+const {
+  sanitizeHospitalName,
+  sanitizePersonName,
+  sanitizeNationalId,
+} = require('../utils/extractionClean');
+
+// Field-specific cleanup applied AFTER the LLM returns. Even with a strict
+// prompt, header noise (الكاشير, department, badges, "Dr." prefix) occasionally
+// leaks into name fields. Sanitizing here keeps the extracted record clean
+// without a repair round-trip.
+const CORE_SANITIZERS = {
+  hospital_name_ar: sanitizeHospitalName,
+  hospital_name_en: sanitizeHospitalName,
+  physician_name_ar: sanitizePersonName,
+  physician_name_en: sanitizePersonName,
+  name_ar: sanitizePersonName,
+  name_en: sanitizePersonName,
+  national_id: sanitizeNationalId,
+};
 
 // وصف القوالب الورقية + خيارات الخطوط.
 module.exports.listTemplates = async (req, res) => {
@@ -155,6 +174,14 @@ module.exports.aiExtractDocument = async (req, res) => {
       '4. التواريخ الميلادية في الحقول الأساسية بصيغة YYYY-MM-DD إن أمكن، وإلا اتركها كما وردت.',
       '5. حقول نوعها checkbox تكون true فقط إذا كانت الخانة مؤشَّرة فعلاً في المستند.',
       '',
+      'قواعد نظافة الحقول (المستندات الورقية عادةً تكتظّ فيها الترويسة بأشياء مجاورة — لا تخلطها):',
+      '- hospital_name_ar / hospital_name_en: اسم المنشأة الطبية فقط. لا تُدرج معه أبداً: الكاشير، الاستقبال، الاستعلامات، المحاسبة، اسم موظف، رقم شارة، القسم، الجناح، الطابق، رقم هاتف/فاكس/ص.ب، الرمز البريدي، الرقم الضريبي، ولا سطر العنوان. مثال: لو الترويسة تحتوي «مستشفى الملك فهد التخصصي — الكاشير: أحمد — 011...» تكون القيمة «مستشفى الملك فهد التخصصي» فقط.',
+      '- physician_name_ar / physician_name_en: الاسم فقط. أزل ألقاب «د.»، «الدكتور»، «الأستاذ الدكتور»، «Dr.»، «Prof.»؛ ولا تُلحق التخصص ولا رقم الرخصة ولا الشارة.',
+      '- position_ar / position_en: التخصص فقط (مثل «طبيب عام» / "General Practitioner")، ليس اسم الطبيب ولا القسم.',
+      '- name_ar / name_en: اسم المريض فقط، بدون ألقاب «المريض»، «السيد»، «Mr.» ونحوه.',
+      '- national_id: أرقام فقط.',
+      '- employer_ar / employer_en: اسم جهة العمل فقط، ليس العنوان ولا رقم الهاتف.',
+      '',
       'حدّد أي قالب يطابق المستند من القائمة، واملأ حقوله.',
       'إن لم يطابق أي قالب، اجعل document_type = "" واملأ الحقول الأساسية فقط.',
       '',
@@ -208,7 +235,9 @@ module.exports.aiExtractDocument = async (req, res) => {
     const core = {};
     for (const key of Object.keys(CORE_FIELDS)) {
       const v = parsed.core?.[key];
-      if (typeof v === 'string' && v.trim()) core[key] = v.trim();
+      if (typeof v !== 'string' || !v.trim()) continue;
+      const cleaned = CORE_SANITIZERS[key] ? CORE_SANITIZERS[key](v) : v.trim();
+      if (cleaned) core[key] = cleaned;
     }
 
     const templateData = {};
