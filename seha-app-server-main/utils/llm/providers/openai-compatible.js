@@ -39,8 +39,14 @@ async function chat({ apiKey, baseUrl, model, messages, json = false, timeoutMs 
   );
 
   if (!res.ok) {
-    const err = (res.body && res.body.error) || {};
-    const providerMessage = err.message || (res.body && res.body.raw) || `HTTP ${res.status}`;
+    const body = res.body || {};
+    // OpenAI-style bodies nest the error under `.error`. Mistral (and some
+    // others) return it flat: {object:"error", message, type, code}. Without
+    // this fallback, err.message is always undefined for Mistral and every
+    // failure — 429 included — collapses to the uninformative `HTTP ${status}`,
+    // hiding the actual reason (rate limit vs quota vs plan/billing issue).
+    const err = body.error || body;
+    const providerMessage = err.message || body.raw || `HTTP ${res.status}`;
     const hay = (providerMessage || "").toLowerCase();
 
     // Classify the error granularly so the pool can make intelligent decisions.
@@ -103,8 +109,9 @@ async function test({ apiKey, baseUrl, timeoutMs = 20000 }) {
     headers: { Authorization: `Bearer ${apiKey}` },
   }, timeoutMs);
   if (!res.ok) {
-    const err = (res.body && res.body.error) || {};
-    return { ok: false, httpStatus: res.status, message: err.message || `HTTP ${res.status}` };
+    const body = res.body || {};
+    const err = body.error || body; // see comment in chat() re: flat-shaped provider errors
+    return { ok: false, httpStatus: res.status, message: err.message || body.raw || `HTTP ${res.status}` };
   }
   const data = (res.body && (res.body.data || res.body.models)) || [];
   return { ok: true, modelsAvailable: Array.isArray(data) ? data.length : undefined };
