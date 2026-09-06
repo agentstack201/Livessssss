@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom'
 import s from '../console.module.css'
 import { api, toast } from '../api'
 import {
-  Panel, Loading, ErrorBox, Empty, Badge, Modal, Field, Pagination,
+  Panel, Loading, ErrorBox, Empty, Badge, Modal, Confirm, Field, Pagination,
   useAsync, fmtNum, fmtDateTime, Stat,
 } from '../components/ui'
 

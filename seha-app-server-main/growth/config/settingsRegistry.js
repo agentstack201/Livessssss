@@ -77,6 +77,13 @@ const REGISTRY = {
     min: INV.RANGES.creditCostPerDocument.min, max: INV.RANGES.creditCostPerDocument.max,
     usedBy: 'خدمة الأرصدة — الخصم عند إصدار مستند',
   },
+  'credits.enforce_balance': {
+    type: 'boolean', default: false, public: false, group: 'credits',
+    label: 'منع الإصدار عند نفاد الرصيد',
+    hint: 'معطّل = يُخصم الرصيد ويُسجَّل الاستخدام لكن النفاد لا يمنع الإصدار. '
+        + 'فعّله حين تصير الأرصدة شرطاً فعلياً للخدمة لا مجرد عدّاد.',
+    usedBy: 'hooks.canCreateDocument — فحص قبل إنشاء المستند في leaves.controller',
+  },
   'credits.signup_bonus': {
     type: 'integer', default: 0, public: false, group: 'credits',
     label: 'رصيد ترحيبي عند التسجيل', min: 0, max: 10000,

@@ -36,6 +36,11 @@ const ok=(n,c,x='')=>{if(c){pass++;console.log('  ✅ '+n)}else{fail++;console.l
   require(`${ROOT}/models/permission.model`);
   require(`${ROOT}/config/models_associations.js`);
 
+  // نبدأ من قاعدة عارية فعلاً. sync({force:true}) لا يُسقط إلا ما سُجِّل من
+  // النماذج، وجداول النمو لم تُسجَّل بعد — فلو سبقتنا مجموعة أخرى على نفس
+  // القاعدة بقيت جداولها وسقط فرض هذا الاختبار كله.
+  await sequelize.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+
   // نُنشئ جداول المنصة فقط (بلا نماذج النمو بعد)
   await sequelize.sync({ force: true });
   const legacy = await User.create({name:'قديم',email:'old@x.com',password:'x',role:'admin'});

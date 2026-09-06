@@ -13,12 +13,27 @@ const EDITABLE = [
   'budget', 'target_audience', 'target_product_id',
 ];
 
+// قوائم مغلقة على مستوى قاعدة البيانات (ENUM). بدون فحصها هنا يمرّ المدخل
+// الخاطئ إلى INSERT فيرتدّ خطأ Postgres خاماً كـ 500 مبهم بدل رسالة تقول
+// للمشغّل ما المسموح.
+// تُقرأ من النموذج لا تُكتب يدوياً، وإلا افترقت القائمتان عند أول تعديل.
+const ENUMS = Object.fromEntries(
+  ['type', 'status', 'target_audience'].map((f) => [f, Campaign.rawAttributes[f].values])
+);
+
 const slugify = (s) =>
   String(s || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 120);
 
 function pick(body) {
   const out = {};
   for (const f of EDITABLE) if (Object.hasOwn(body, f)) out[f] = body[f];
+
+  for (const [field, allowed] of Object.entries(ENUMS)) {
+    if (out[field] !== undefined && !allowed.includes(out[field])) {
+      throw err.validation(`قيمة «${field}» غير مسموحة. المسموح: ${allowed.join(', ')}`);
+    }
+  }
+
   if (out.budget !== undefined && out.budget !== null && out.budget !== '') {
     const b = parseFloat(out.budget);
     if (!Number.isFinite(b) || b < 0) throw err.validation('الميزانية غير صالحة');
