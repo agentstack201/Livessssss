@@ -12,7 +12,7 @@
 // Words that mean the line is NOT part of the facility's name — anything from
 // one of them onward is dropped.
 const HOSPITAL_NOISE = [
-  // Arabic
+  // Arabic — front-desk / logistics
   "الكاشير", "كاشير", "الاستقبال", "استقبال", "الاستعلامات", "استعلامات",
   "المحاسبة", "محاسبة", "الحسابات", "أمين الصندوق", "امين الصندوق",
   "أمينة الصندوق", "امينة الصندوق", "الخزنة", "خزنة",
@@ -20,12 +20,23 @@ const HOSPITAL_NOISE = [
   "المدخل", "مدخل", "العيادة", "عيادة", "الجناح", "جناح",
   "رقم الهاتف", "رقم الجوال", "رقم الفاكس", "هاتف", "جوال", "تليفون", "فاكس",
   "ص.ب", "ص ب", "الرمز البريدي", "الرقم الضريبي",
-  // English
+  // Arabic — Seha / ministry banners (specific phrases only, to avoid
+  // false-positives on legitimate facility names that contain "صحة")
+  "وزارة الصحة", "المركز الوطني للمعلومات", "المركز الوطني للمعلوميات",
+  "منصة صحة", "للتحقق من", "الموقع الرسمي",
+  // English — front-desk / logistics
   "cashier", "reception", "receptionist", "accounting", "accounts",
   "department", "dept", "floor", "unit", "ward", "clinic",
   "phone", "tel", "telephone", "fax", "mobile", "ext", "extension",
   "p\\.o\\. box", "p\\.o box", "po box", "postal code", "vat",
+  // English — Seha / ministry banners (specific phrases)
+  "ministry of health", "national health information", "alihealth",
 ];
+
+// URLs are stripped in a separate pre-pass because the noise-word regex uses
+// (?![A-Za-z]) to protect against eating longer ASCII words, and that guard
+// blocks a URL match (the char after "www." is a letter).
+const URL_RE = /\s*(?:https?:\/\/|www\.)\S*/gi;
 
 // Titles/prefixes that should never appear inside a person-name value.
 const NAME_TITLES = [
@@ -82,13 +93,16 @@ function sanitizeHospitalName(raw) {
   const firstLine = s.split(/\r?\n/).find((l) => l.trim());
   s = (firstLine || s).trim();
 
-  // 2. Cut at the first noise word (with a boundary so it doesn't eat the name).
+  // 2. Strip any URLs first (see comment on URL_RE).
+  s = s.replace(URL_RE, "").trim();
+
+  // 3. Cut at the first noise word (with a boundary so it doesn't eat the name).
   s = s.replace(HOSPITAL_NOISE_RE, "").trim();
 
-  // 3. Strip trailing bare digits / separators left over from truncated info.
+  // 4. Strip trailing bare digits / separators left over from truncated info.
   s = s.replace(/[\s\d:،,.\-–—|/(\[]+$/g, "").trim();
 
-  // 4. Collapse internal whitespace.
+  // 5. Collapse internal whitespace.
   s = s.replace(/\s{2,}/g, " ");
   return s;
 }
