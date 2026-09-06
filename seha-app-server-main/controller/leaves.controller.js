@@ -524,32 +524,96 @@ module.exports.aiExtract = async (req, res, next) => {
     const { llmGenerate } = require("../utils/llm");
 
     const prompt = `
-      You are an expert medical data extractor for Saudi sick-leave forms.
-      Extract data from the text below and return a single valid JSON object.
+      You are an expert medical-data extractor for Saudi sick-leave workflows.
+      The text below is ONE of two common shapes; identify which, then extract.
+
+      ── INPUT SHAPES ──
+
+      SHAPE A — SECRETARY MESSAGE (WhatsApp / plain notes)
+      Recognisable by short "label: value" lines in Arabic; no bilingual
+      headers, no Hijri dates, no "Leave ID". Common labels (may include
+      typos/extra spaces):
+        الاسم | رقم الهوية | تاريخ الميلاد | رقم الجوال | جهة العمل |
+        الجنسية | المنطقة | اسم المهنة | تاريخ الاجازه/الاجازة
+      Rules for shape A:
+      - "اسم المهنة" is the PATIENT's occupation (كاشير، موظف استقبال، طالب …).
+        It is NEVER the doctor's specialty. DO NOT put it in
+        physicianPosition / physicianPositionArabic. There is no output
+        field for the patient's occupation — ignore it.
+      - "تاريخ الميلاد" and "المنطقة" have no output field either — ignore
+        them, do not stuff them elsewhere.
+      - "تاريخ الاجازه" is the sick-leave date → admissionDate; also copy the
+        same value to dischargeDate. If the value is a bare day ("17") or
+        contains only a month name without a year ("2 Sep"), leave both dates
+        empty ("") — never invent the missing parts.
+      - The doctor / hospital fields are usually absent in this shape; leave
+        them "".
+
+      SHAPE B — SEHA / OFFICIAL SICK-LEAVE REPORT (PDF / screenshot OCR)
+      Recognisable by bilingual headers ("Sick Leave Report / تقرير إجازة
+      مرضية" or "Statement of Visit / مشهد مراجعة"), a "Leave ID" token,
+      Hijri and Gregorian dates side-by-side, and a hospital line usually
+      near the BOTTOM in both Arabic and English.
+      Rules for shape B:
+      - serviceNum AND leaveId = the value on the "Leave ID" line (uppercase,
+        no separators). Common prefixes: GSL, PSL, CSL.
+      - Hospital name is the facility line near the end (Arabic "مستشفى …" or
+        English "… Hospital"). IGNORE these lines entirely — they are NOT
+        the hospital: "وزارة الصحة", "Ministry of Health", "المركز الوطني
+        للمعلومات الصحية", "National Health Information Center", any URL
+        (www.seha.sa/…), "ALIHEALTH", "Seha", "صحة", any Hijri/Gregorian
+        timestamp line (e.g. "Sunday, 02 August 2026", "11:14 PM").
+      - "Practitioner Name" and "Physician Name" both label the doctor —
+        same field (doctorName / doctorNameArabic).
+      - "Position" / "المسمى الوظيفي" is the DOCTOR's specialty. Seha often
+        prints it truncated as "General" — treat it as "General
+        Practitioner" / "طبيب عام".
+      - Dates are DD-MM-YYYY in the Gregorian column and DD-MM-YYYY Hijri
+        alongside. Take the GREGORIAN value and output as YYYY-MM-DD.
+      - License: numeric string after "رقم الترخيص" / "License".
+      - Employer: the Arabic line under "Employer / جهة العمل" — the
+        organisation name only.
+      - OCR often REVERSES English names ("SHAMMARI AL. MARJI ABDULMAJEED"
+        from Arabic "عبد المجيد مرجي الشمري"). When Arabic is present, treat
+        it as the source of truth for word order and derive a natural
+        English transliteration in the SAME order ("Abdulmajeed Marji
+        Al-Shammari"). Do NOT copy the reversed English verbatim.
 
       ── FIELDS TO EXTRACT ──
-      (use these exact keys)
+      (use these exact keys; unknown fields → "")
 
       Single-value fields (extract as-is, never translate):
-      - serviceNum: (Format: GSL261... or PSL261...) or ""
-      - nationalID: (10-digit Saudi ID/Iqama) or ""
-      - phone: (phone number) or ""
-      - leaveId: (Leave ID / CSL number) or ""
+      - serviceNum: (Leave ID uppercase, e.g. GSL261..., PSL261..., CSL...) or ""
+      - nationalID: (10-digit Saudi ID/Iqama, digits only) or ""
+      - phone: (phone number, Saudi mobiles usually start with 05...) or ""
+      - leaveId: (same value as serviceNum in shape B; else "")
       - admissionDate: (YYYY-MM-DD) or ""
       - dischargeDate: (YYYY-MM-DD) or ""
       - issueDate: (YYYY-MM-DD) or ""
       - licenseNumber: (medical license number) or ""
 
       Bilingual fields — ALWAYS provide BOTH Arabic AND English:
-      - name: (Patient name in ENGLISH — the patient ONLY, no titles like "المريض", "Mr.")
+      - name: (Patient name in ENGLISH — patient only, no titles like
+        "المريض", "Mr.")
       - nameArabic: (Patient name in ARABIC)
-      - doctorName: (Doctor name in ENGLISH — NAME ONLY, drop titles ("د.", "الدكتور", "Dr.", "Prof.") and never include specialty, badge or license)
+      - doctorName: (Doctor name in ENGLISH — NAME ONLY; drop titles
+        "د.", "الدكتور", "Dr.", "Prof."; never include specialty, badge or
+        license)
       - doctorNameArabic: (Doctor name in ARABIC — same rule)
-      - hospitalNameEnglish: (Hospital / medical facility name ONLY, in ENGLISH — the official facility name and nothing else; NEVER include department ("قسم", "Department", "Ward"), reception, cashier ("الكاشير"), staff names, badge numbers, phone/fax, PO box, VAT, floor, or address lines. If the source shows "مستشفى الملك فهد التخصصي — الكاشير: أحمد" the value is "King Fahad Specialist Hospital".)
+      - hospitalNameEnglish: (Facility name ONLY, in ENGLISH — the official
+        facility line and nothing else. NEVER include: department ("قسم",
+        "Department", "Ward"), reception, cashier ("الكاشير"), staff names,
+        badge numbers, phone/fax, PO box, VAT, floor, address lines,
+        vendor/ministry banners, URLs, or timestamps. If the source shows
+        "مستشفى الملك فهد التخصصي — الكاشير: أحمد" the value is "King Fahad
+        Specialist Hospital".)
       - hospitalNameArabic: (Same rule, in ARABIC — the facility name only)
-      - physicianPosition: (Doctor specialty/position in ENGLISH — SPECIALTY ONLY, e.g. "General Practitioner"; not the doctor's name and not the department)
-      - physicianPositionArabic: (Doctor specialty/position in ARABIC — same rule)
-      - employer: (Employer / place of work — favor Arabic if available; the employer name only, not their address or phone)
+      - physicianPosition: (Doctor specialty in ENGLISH — SPECIALTY ONLY,
+        e.g. "General Practitioner"; not the doctor's name, not the
+        department, and NOT the PATIENT's occupation from "اسم المهنة")
+      - physicianPositionArabic: (Doctor specialty in ARABIC — same rule)
+      - employer: (Employer / place of work — favour Arabic if present; the
+        employer name only, not the address or phone)
       - nationality: (Patient nationality in ARABIC — e.g. 'السعودية', 'مصري')
 
       ── BILINGUAL RULES ──
@@ -568,21 +632,25 @@ module.exports.aiExtract = async (req, res, next) => {
          - Generate the Arabic equivalent
 
       3. If BOTH Arabic and English exist in the source:
-         - Preserve both exactly as written
+         - Preserve both exactly as written — EXCEPT for names in shape B
+           where the English side is OCR-reversed (see shape B rules).
 
       4. If NEITHER exists → return "" for both
 
       ── NAME RULES ──
-      - Preserve the original word order. NEVER rearrange family names.
+      - Preserve the original word order. NEVER rearrange family names
+        (except to fix an OCR reversal in shape B, using the Arabic order).
       - For "عبدالمجيد ... الشمري", output English as "Abdulmajeed ... Al-Shammari"
-        NOT "Al-Shammari ... Abdulmajeed"
-      - If the user already provides an English spelling, preserve it exactly.
+        NOT "Al-Shammari ... Abdulmajeed".
+      - If the user already provides an English spelling AND it matches the
+        Arabic word order, preserve it exactly.
 
       ── DATA INTEGRITY ──
       - NEVER invent missing information
       - NEVER fabricate ID numbers, phone numbers, or dates
       - If a field is missing from the text, return ""
-      - Do NOT complete partial dates (year-only stays year-only)
+      - Do NOT complete partial dates (year-only stays year-only; a bare
+        day number stays absent — return "")
 
       Return ONLY the raw JSON object. No markdown, no code blocks, no explanation.
 
