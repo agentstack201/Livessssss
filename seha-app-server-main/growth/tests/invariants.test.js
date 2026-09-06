@@ -347,6 +347,43 @@ const section = (t) => console.log(`\n━━ ${t}`);
     frankProfile.credit_balance === 136, `(${frankProfile.credit_balance})`);
 
   // ══════════════════════════════════════════════════════════════════════
+  section('بوّابة الرصيد — الإعداد هو ما يفتحها');
+  // البوّابة تسبق إنشاء المستند. لو فُرض المنع في الخطّاف (وهو يقع بعد
+  // الإنشاء) لبقي المستند موجوداً بلا خصم — وهذا ما يحرسه القسم.
+  const gina = await User.create({ name: 'Gina', email: 'gina@x.com', password: 'x', role: 'user' });
+  await credits.grant({ userId: gina.id, amount: 1, sourceType: 'signup_bonus',
+    sourceId: 'g', idempotencyKey: 'gina-init' });
+
+  await settings.setMany({ 'credits.enforce_balance': false }, { actorId: admin.id });
+  const openGate = await hooks.canCreateDocument({ userId: gina.id });
+  ok('التشديد معطّل ⇒ البوّابة مفتوحة دائماً', openGate.allowed === true);
+
+  await settings.setMany({ 'credits.enforce_balance': true }, { actorId: admin.id });
+  const richGate = await hooks.canCreateDocument({ userId: gina.id });
+  ok('رصيد كافٍ ⇒ يمرّ', richGate.allowed === true, JSON.stringify(richGate));
+
+  await hooks.onDocumentCreated({ userId: gina.id, documentId: 'gina-doc1' });
+  const poorGate = await hooks.canCreateDocument({ userId: gina.id });
+  ok('نفد الرصيد ⇒ البوّابة تُغلق', poorGate.allowed === false, JSON.stringify(poorGate));
+  ok('البوّابة تُبلّغ العجز', poorGate.shortfall === 1, `(${poorGate.shortfall})`);
+
+  // التشديد يعني نقص الرصيد وحده: الخطّاف يرمي عند فشل الخصم…
+  let blocked = null;
+  try { await hooks.onDocumentCreated({ userId: gina.id, documentId: 'gina-doc2' }); }
+  catch (e) { blocked = e; }
+  ok('التشديد يرمي عند نقص الرصيد', blocked !== null && blocked.blocksIssuance === true);
+
+  const ginaProfile = await GrowthProfile.findOne({ where: { user_id: gina.id } });
+  ok('المستند المرفوض لم يُغيّر الرصيد', ginaProfile.credit_balance === 0,
+    `(${ginaProfile.credit_balance})`);
+
+  // …ولا يرمي لعطل آخر: مستخدم غير موجود يفشل بعد الخصم لا فيه.
+  const orphan = await hooks.onDocumentCreated({ userId: 999999, documentId: 'orphan-doc' });
+  ok('عطل غير الرصيد لا يمنع الإصدار ولو مع التشديد', orphan.ok === false && !!orphan.error);
+
+  await settings.setMany({ 'credits.enforce_balance': false }, { actorId: admin.id });
+
+  // ══════════════════════════════════════════════════════════════════════
   section('الأدوار والصلاحيات');
   await roles.seedSystemRoles();
   const roleList = await roles.list();

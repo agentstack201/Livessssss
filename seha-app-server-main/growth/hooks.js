@@ -65,13 +65,19 @@ async function onUserVerified({ userId, req = null }) {
  * الترتيب مقصود: يُخصم الرصيد أولاً، وإن فشل الخصم لا يقع شيء بعده. أما
  * تقدّم القمع وتقييم المكافآت فبعد نجاح الخصم، لأنهما يعتمدان عليه.
  *
- * `enforce` تحدّد ما إذا كان نقص الرصيد يمنع الإصدار. تُترك false افتراضياً
- * حتى لا يتغيّر سلوك المنصة القائمة بمجرد تركيب الوحدة؛ تُفعَّل حين يقرّر
- * صاحب المنتج تشغيل الاقتصاد فعلياً.
+ * التشديد يقرّره الإعداد `credits.enforce_balance` لا ثابت في الكود، فصاحب
+ * المنتج يشغّل الاقتصاد من اللوحة بلا نشر. يُترك معطّلاً افتراضياً حتى لا
+ * يتغيّر سلوك المنصة القائمة بمجرد تركيب الوحدة. تمرير `enforce` صراحةً
+ * يتجاوز الإعداد — للاختبارات ولمسارات تقرّر بنفسها.
+ *
+ * وهو يعني نقص الرصيد وحده. أي عطل آخر في الوحدة يبقى صامتاً مهما كان
+ * التشديد: خلل في المكافآت أو القمع لا يجوز أن يمنع طبيباً من إصدار إجازة.
  */
-async function onDocumentCreated({ userId, documentId, enforce = false, req = null }) {
+async function onDocumentCreated({ userId, documentId, enforce = null, req = null }) {
+  let enforcing = enforce;
   try {
     const cfg = await settings.forRequest(req);
+    if (enforcing === null) enforcing = cfg['credits.enforce_balance'];
     const cost = cfg['credits.cost_per_document'];
 
     const profile = await credits.ensureProfile(userId);
@@ -87,7 +93,8 @@ async function onDocumentCreated({ userId, documentId, enforce = false, req = nu
           req,
         });
       } catch (error) {
-        if (enforce) throw error;
+        // العلامة تميّز فشل الخصم عن أي عطل آخر، فيمرّ وحده عبر الحارس أدناه.
+        if (enforcing) { error.blocksIssuance = true; throw error; }
         console.warn(`[growth] تعذّر خصم رصيد المستند ${documentId}: ${error.message}`);
       }
     }
@@ -129,16 +136,27 @@ async function onDocumentCreated({ userId, documentId, enforce = false, req = nu
 
     return { ok: true, charged: cost, documents: documentsCreated };
   } catch (error) {
-    if (enforce) throw error;
+    // نقص الرصيد وحده يمنع. غيره يُسجَّل ويُبتلع مهما كان التشديد.
+    if (error.blocksIssuance) throw error;
     console.error('[growth] onDocumentCreated:', error.message);
     return { ok: false, error: error.message };
   }
 }
 
-/** فحص مسبق: هل يملك المستخدم رصيداً كافياً لإصدار مستند؟ */
+/**
+ * فحص مسبق: هل يملك المستخدم رصيداً كافياً لإصدار مستند؟
+ *
+ * يُستدعى قبل إنشاء المستند لا بعده. الخطّاف onDocumentCreated يقع بعد
+ * الإنشاء، فرفضه هناك يترك مستنداً موجوداً بلا خصم — المنع يجب أن يسبق.
+ *
+ * ويحترم `credits.enforce_balance`: وهو معطّل يعود allowed دائماً، فيبقى
+ * الرصيد عدّاداً لا بوّابة، ولا يتغيّر سلوك المنصة بمجرد تركيب الوحدة.
+ */
 async function canCreateDocument({ userId, req = null }) {
   try {
     const cfg = await settings.forRequest(req);
+    if (!cfg['credits.enforce_balance']) return { allowed: true, cost: 0, enforced: false };
+
     const cost = cfg['credits.cost_per_document'];
     if (cost <= 0) return { allowed: true, cost: 0 };
 

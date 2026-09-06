@@ -100,6 +100,21 @@ module.exports.addNewLeaves = async (req, res, next) => {
       leave_id = service_num;
     }
 
+    // وحدة النمو: بوّابة الرصيد. تسبق الإنشاء عمداً — المنع بعد إنشاء
+    // المستند يترك مستنداً موجوداً بلا خصم. وهي صامتة ما دام إعداد
+    // «منع الإصدار عند نفاد الرصيد» معطّلاً، وهو الافتراضي.
+    if (req.user?.id) {
+      const gate = await require('../growth/hooks')
+        .canCreateDocument({ userId: req.user.id, req });
+      if (!gate.allowed) {
+        return res.status(402).json({
+          status_code: 402,
+          data: { balance: gate.balance, cost: gate.cost, shortfall: gate.shortfall },
+          message: `لا يوجد رصيد كافٍ لإصدار المستند. الرصيد ${gate.balance} والتكلفة ${gate.cost}.`,
+        });
+      }
+    }
+
     let path;
     const DateObj = getFormattedDateTime();
     let admission_date_ar = config.convertDates(admission_date_en);
@@ -151,9 +166,9 @@ module.exports.addNewLeaves = async (req, res, next) => {
       user_id: req.user?.id || null,
     });
 
-    // وحدة النمو: تسجيل الاستخدام وتقدّم قمع التفعيل. تفشل بصمت داخلياً —
-    // عطل في النمو يجب ألّا يمنع طبيباً من إصدار إجازة. الخصم لا يُفرض
-    // (enforce: false) حتى يقرّر صاحب المنتج تشغيل الاقتصاد من الإعدادات.
+    // وحدة النمو: الخصم وتسجيل الاستخدام وتقدّم قمع التفعيل. المنع وقع في
+    // البوّابة أعلاه، فما يبقى هنا محاسبة تفشل بصمت — عطل في النمو يجب
+    // ألّا يمنع طبيباً من إصدار إجازة.
     if (req.user?.id) {
       try {
         // بلا await: تسجيل النمو لا يؤخّر رد المستخدم. الخطّاف يلتقط أخطاءه
