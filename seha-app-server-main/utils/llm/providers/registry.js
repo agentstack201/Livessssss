@@ -47,9 +47,9 @@ const PROVIDERS = {
     adapter: "openai",
     baseUrl: "https://openrouter.ai/api/v1",
     // Paid slug first (uses account credits). Free variants kept as fallbacks.
-    defaultModel: "google/gemini-1.5-flash",
+    defaultModel: "google/gemini-2.0-flash-001",
     models: [
-      "google/gemini-1.5-flash",
+      "google/gemini-2.0-flash-001",
       "google/gemini-2.0-flash-exp:free",
       "deepseek/deepseek-chat-v3.1:free",
       "qwen/qwen3-235b-a22b:free",
