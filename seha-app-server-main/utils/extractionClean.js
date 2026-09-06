@@ -143,6 +143,69 @@ function sanitizePersonName(raw) {
   return s;
 }
 
+// Common Seha visit types — Arabic and English canonical values. Keys are
+// lower-cased trimmed inputs (Arabic strings are kept literal). If the LLM
+// returns an OCR-mangled variant we still map it to the clean value.
+const VISIT_TYPE_AR = new Map([
+  ["عيادات", "عيادات"],
+  ["عبادات", "عيادات"],            // OCR mis-read of عيادات (ب vs ي)
+  ["العيادات", "عيادات"],
+  ["عيادات خارجية", "عيادات"],
+  ["منومين", "منومين"],
+  ["منوّم", "منومين"],
+  ["منوم", "منومين"],
+  ["طوارئ", "طوارئ"],
+  ["طواريء", "طوارئ"],
+]);
+
+const VISIT_TYPE_EN = new Map([
+  ["outpatient", "OutPatient"],
+  ["out patient", "OutPatient"],
+  ["out-patient", "OutPatient"],
+  ["inpatient", "InPatient"],
+  ["in patient", "InPatient"],
+  ["in-patient", "InPatient"],
+  ["emergency", "Emergency"],
+  ["er", "Emergency"],
+]);
+
+// Normalise a visit-type value to its canonical spelling. Returns "" if the
+// value is neither a known variant nor a plausible free-form label (so we
+// don't fabricate a category on a stray token).
+function sanitizeVisitTypeArabic(raw) {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  return VISIT_TYPE_AR.get(s) || s;
+}
+
+function sanitizeVisitTypeEnglish(raw) {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  return VISIT_TYPE_EN.get(s.toLowerCase()) || s;
+}
+
+// Time normaliser: accepts "10:03 AM", "10:03", "10:03am", "10:3 AM",
+// "13-08-2026-10:03 AM" (Seha joined form), returns "H:MM AM/PM".
+// Returns "" if no plausible time is present.
+function sanitizeTime(raw) {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+  // Match a time anywhere in the string (Seha sometimes glues date-time).
+  const m = s.match(/(\d{1,2})[:.](\d{1,2})\s*(AM|PM|am|pm|صباحا|صباحاً|مساءا|مساءً)?/i);
+  if (!m) return "";
+  let hours = parseInt(m[1], 10);
+  const mins = parseInt(m[2], 10);
+  if (isNaN(hours) || isNaN(mins) || hours > 23 || mins > 59) return "";
+  let ampm = (m[3] || "").toUpperCase();
+  if (ampm === "صباحا" || ampm === "صباحاً") ampm = "AM";
+  else if (ampm === "مساءا" || ampm === "مساءً") ampm = "PM";
+  else if (!ampm) ampm = hours < 12 ? "AM" : "PM";
+  if (hours === 0) hours = 12;
+  else if (hours > 12) hours -= 12;
+  return `${hours}:${String(mins).padStart(2, "0")} ${ampm}`;
+}
+
 /**
  * IDs are digits only. Any prefix ("رقم الهوية:") or separators get stripped.
  * Returns "" for anything that is not a plausible ID (< 6 digits).
@@ -170,4 +233,7 @@ module.exports = {
   sanitizePersonName,
   sanitizeNationalId,
   sanitizePhone,
+  sanitizeVisitTypeArabic,
+  sanitizeVisitTypeEnglish,
+  sanitizeTime,
 };

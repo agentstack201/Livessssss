@@ -7,6 +7,9 @@ const {
   sanitizePersonName,
   sanitizeNationalId,
   sanitizePhone,
+  sanitizeVisitTypeArabic,
+  sanitizeVisitTypeEnglish,
+  sanitizeTime,
 } = require("../utils/extractionClean");
 const Country = require("../models/countries.model");
 const User = require("../models/user.model");
@@ -570,6 +573,17 @@ module.exports.aiExtract = async (req, res, next) => {
         Practitioner" / "طبيب عام".
       - Dates are DD-MM-YYYY in the Gregorian column and DD-MM-YYYY Hijri
         alongside. Take the GREGORIAN value and output as YYYY-MM-DD.
+      - In a Statement-of-Visit (مشهد مراجعة), the admission and discharge
+        rows glue the TIME after the date with a dash:
+        "13-08-2026-10:03 AM". Split them: date → admissionDate/dischargeDate
+        (YYYY-MM-DD), time → admissionTime/dischargeTime (12-hour
+        "HH:MM AM/PM"). Never output the joined string in either field.
+        Do NOT try to output a waiting period — the app derives it from
+        the two times.
+      - Visit type ("Visit Type" / "نوع الزيارة"; OCR variant "Visitn Type"):
+        map to the clean value. Common OCR error: "عبادات" is a
+        mis-recognition of "عيادات" (OutPatient) — output "عيادات" +
+        "OutPatient", NOT the OCR letters.
       - License: numeric string after "رقم الترخيص" / "License".
       - Employer: the Arabic line under "Employer / جهة العمل" — the
         organisation name only.
@@ -589,6 +603,8 @@ module.exports.aiExtract = async (req, res, next) => {
       - leaveId: (same value as serviceNum in shape B; else "")
       - admissionDate: (YYYY-MM-DD) or ""
       - dischargeDate: (YYYY-MM-DD) or ""
+      - admissionTime: (12-hour, e.g. "10:03 AM") or "" — see shape B rules
+      - dischargeTime: (12-hour, e.g. "11:07 AM") or "" — see shape B rules
       - issueDate: (YYYY-MM-DD) or ""
       - licenseNumber: (medical license number) or ""
 
@@ -615,6 +631,12 @@ module.exports.aiExtract = async (req, res, next) => {
       - employer: (Employer / place of work — favour Arabic if present; the
         employer name only, not the address or phone)
       - nationality: (Patient nationality in ARABIC — e.g. 'السعودية', 'مصري')
+      - visitTypeEnglish: (Visit type in ENGLISH — e.g. "OutPatient",
+        "InPatient", "Emergency"; only for a Statement-of-Visit document;
+        otherwise "")
+      - visitTypeArabic: (Visit type in ARABIC — e.g. "عيادات" for
+        outpatient, "منومين" for inpatient, "طوارئ" for emergency; only for
+        a Statement-of-Visit document; otherwise "")
 
       ── BILINGUAL RULES ──
       For every bilingual field pair (Arabic + English):
@@ -838,6 +860,10 @@ async function enrichExtracted(data) {
   applyIfString("doctorNameArabic", sanitizePersonName);
   applyIfString("name", sanitizePersonName);
   applyIfString("nameArabic", sanitizePersonName);
+  applyIfString("admissionTime", sanitizeTime);
+  applyIfString("dischargeTime", sanitizeTime);
+  applyIfString("visitTypeArabic", sanitizeVisitTypeArabic);
+  applyIfString("visitTypeEnglish", sanitizeVisitTypeEnglish);
   if (out.nationalID) out.nationalID = sanitizeNationalId(out.nationalID);
   if (out.phone) out.phone = sanitizePhone(out.phone);
 
