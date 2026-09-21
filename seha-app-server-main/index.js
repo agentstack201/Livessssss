@@ -246,8 +246,8 @@ if (sequelize) {
     .then(() => {
       // Seed the nationality list so a freshly-created database still renders a
       // populated dropdown. Idempotent: only inserts entries that are missing.
-      const { seedCountries } = require("./config/seed.js");
-      return seedCountries();
+      const { seedCountries, seedAdmin } = require("./config/seed.js");
+      return seedCountries().then(() => seedAdmin());
     })
     .then(() => {
       // Move any legacy single-setting Gemini key(s) into the rotation pool.

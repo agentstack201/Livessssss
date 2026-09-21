@@ -9,6 +9,8 @@
 // in sync. On an empty table the first row (السعودية) naturally receives id = 1,
 // which is the fallback countryId used elsewhere in the app.
 const Country = require("../models/countries.model");
+const User = require("../models/user.model");
+const bcrypt = require("bcrypt");
 
 // Country names, then nationality adjectives and residency statuses, so the user
 // can pick "السعودية" or "سعودي" or "مقيم نازح" without having to add them first.
@@ -132,4 +134,21 @@ async function seedCountries() {
   }
 }
 
-module.exports = { seedCountries, DEFAULT_COUNTRIES };
+async function seedAdmin() {
+  try {
+    const count = await User.count();
+    if (count > 0) return;
+
+    const hashedPassword = await bcrypt.hash('ahmed123456#@', 10);
+    await User.create({
+      name: 'ahmed',
+      email: 'ahmed@seha.sa',
+      password: hashedPassword,
+    });
+    console.log('✅ Admin user created (ahmed@seha.sa)');
+  } catch (error) {
+    console.error('⚠️ Admin seeding skipped:', error.message);
+  }
+}
+
+module.exports = { seedCountries, seedAdmin, DEFAULT_COUNTRIES };
