@@ -106,7 +106,7 @@ const CompanionVisitPDFOriginal = ({ data, onClose }) => {
 
   // رابط واحد لرمز الـ QR وللرابط الظاهر أسفله، يحمل رمز الخدمة ورقم الهوية.
   const frontendUrl = window.location.origin;
-  const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
+  const verificationUrl = `https://slenglushuiry-seha-sa.vercel.app/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
 
   const admissionTimeEn = formatTime12(data.admission_time);
   const dischargeTimeEn = formatTime12(data.discharge_time);
