@@ -63,9 +63,8 @@ const CROWN_SPARKLES = [
 ]
 
 const HAYBA_LINES = [
-  '😂 العدّاد خرب… ما تحمّل كل هالزين',
+  '💍 تجهّز… العرس بالعيد الكبيرررر 🎉',
   '😎 مستوى الكشخة: فوق المقاييس',
-  '🤍 الوفاء: ما له حدود',
   '🌹 حيّاك الله يا ذخرنا',
 ]
 
@@ -481,6 +480,7 @@ function RoyalTribute() {
               </span>
             </span>
             <span className={styles.vignette} aria-hidden="true" />
+            <span className={styles.sheen} aria-hidden="true" />
           </button>
 
           {zoomed && <span className={styles.kashkha}>😎 الكشخة رسمية</span>}

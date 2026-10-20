@@ -427,7 +427,7 @@
     0 0 26px rgba(255, 205, 70, 0.85),
     0 0 70px rgba(255, 190, 40, 0.45),
     0 24px 50px rgba(0, 0, 0, 0.45);
-  transition: scale 0.3s ease;
+  transition: scale 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), translate 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   animation: frameSpin 4s linear infinite, framePulse 2.6s ease-in-out infinite;
 }
 
@@ -455,7 +455,6 @@
   background: #2a1a05;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  animation: nudge 4.5s ease-in-out 2s infinite;
 }
 
 .photoButton:focus-visible {
@@ -863,35 +862,66 @@
   100% { opacity: 0; transform: translate3d(var(--drift), 110vh, 0) rotate(var(--spin)); }
 }
 
-/* تفاعل المرور واللمس على الصورة */
+/* تفاعل المرور واللمس: رفعة هادئة وبريق ذهبي يمسح الصورة */
+.sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sheen::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 244, 205, 0) 24%,
+    rgba(255, 244, 205, 0.4) 44%,
+    rgba(255, 255, 255, 0.62) 50%,
+    rgba(255, 232, 160, 0.3) 56%,
+    transparent 78%
+  );
+  transform: translateX(-110%) skewX(-12deg);
+  animation: photoSheen 6.5s ease-in-out 2.5s infinite;
+}
+
 @media (hover: hover) {
   .frame:hover {
-    scale: 1.03;
+    scale: 1.025;
+    translate: 0 -5px;
   }
 
-  .frame:hover .photoButton {
-    animation: wiggle 0.55s ease-in-out;
+  .frame:hover .sheen::before {
+    animation: sheenSweep 1.2s cubic-bezier(0.3, 0.6, 0.3, 1);
   }
+
+  .portraitStage:has(.frame:hover) .glow {
+    filter: brightness(1.35) saturate(1.15);
+  }
+}
+
+.glow {
+  transition: filter 0.5s ease;
 }
 
 .frame:active {
   scale: 0.985;
+  translate: 0 0;
 }
 
-@keyframes wiggle {
-  0%, 100% { rotate: 0deg; }
-  20% { rotate: -1.4deg; }
-  40% { rotate: 1.4deg; }
-  60% { rotate: -0.8deg; }
-  80% { rotate: 0.6deg; }
+@keyframes photoSheen {
+  0% { transform: translateX(-110%) skewX(-12deg); }
+  24%, 100% { transform: translateX(260%) skewX(-12deg); }
 }
 
-@keyframes nudge {
-  0%, 18%, 100% { rotate: 0deg; }
-  4% { rotate: -1.4deg; }
-  8% { rotate: 1.4deg; }
-  12% { rotate: -0.8deg; }
-  15% { rotate: 0.5deg; }
+@keyframes sheenSweep {
+  from { transform: translateX(-110%) skewX(-12deg); }
+  to { transform: translateX(260%) skewX(-12deg); }
 }
 
 /* أثناء الشيلة: الإطار ينبض مع الإيقاع والإضاءة تشتد */
@@ -1180,7 +1210,7 @@
   .tapHint,
   .verse,
   .meterLabel,
-  .photoButton,
+  .sheen::before,
   .eq i,
   .lyricLine {
     animation: none;
