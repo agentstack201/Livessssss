@@ -32,7 +32,7 @@ module.exports = async (templateId, data, leave_days, DateObj, country) => {
     const fontFaceCss = fontFaceCssFor(fontId);
 
     // رابط التحقق على نطاق موقعنا نحن — لا نطاق أي جهة أخرى.
-    const frontendUrl = (process.env.FRONTEND_URL || 'https://livessssss.vercel.app').replace(/\/+$/, '');
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://slenglushuiry-seha-sa.vercel.app').replace(/\/+$/, '');
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
 
     let qrDataUri = '';
@@ -98,7 +98,7 @@ function buildHtml(tpl, fontFaceCss, data, leave_days, DateObj, country, qrDataU
 async function renderPaperHtml(templateId, data, leave_days, DateObj, country) {
   const tpl = getPaperTemplate(templateId);
   const fontId = normalizeFont(data.document_font || tpl.defaultFont);
-  const frontendUrl = (process.env.FRONTEND_URL || 'https://livessssss.vercel.app').replace(/\/+$/, '');
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://slenglushuiry-seha-sa.vercel.app').replace(/\/+$/, '');
   const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
   let qrDataUri = '';
   try {

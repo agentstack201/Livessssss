@@ -2,7 +2,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
   let browser;
 
   try {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://slenglushuiry-seha-sa.vercel.app';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${data.service_num}&national_id=${data.national_id}`;
     const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
