@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './Login.module.css'
 
@@ -70,6 +70,34 @@ const HAYBA_LINES = [
   '👑 المعجبين: ما ينعدّون',
   '🌹 حيّاك الله يا ذخرنا',
 ]
+
+// كلمات الشيلة — تظهر سطراً سطراً أثناء التشغيل
+const SHELA_LINES = [
+  'ارحب يالذيب اللي فزعته تشفي الغليل..',
+  'صقر المداين والفعل يسبق حكيه!',
+  'يا مرحبا بلي ملا الطيب والمواقف طويل..',
+  'منصة «صحتي» تنادي باسمه وتفتخر فيه!',
+]
+
+// ألعاب نارية خفيفة: مواقع الانفجارات على الشاشة (٪) وتأخيرها
+const FIREWORKS = [
+  { x: 16, y: 22, delay: 0 },
+  { x: 82, y: 18, delay: 0.45 },
+  { x: 50, y: 10, delay: 0.9 },
+  { x: 24, y: 56, delay: 1.35 },
+  { x: 78, y: 50, delay: 1.8 },
+]
+const FIREWORK_ANGLES = Array.from({ length: 14 }, (_, i) => (360 / 14) * i)
+
+// قلوب وتيجان تطير من الصورة أثناء الشيلة
+const HEARTS = Array.from({ length: 12 }, (_, i) => ({
+  emoji: ['💛', '❤️', '👑', '🤍', '✨', '💛'][i % 6],
+  left: i % 3 === 1 ? 30 + rand() * 40 : i % 3 === 0 ? rand() * 22 : 78 + rand() * 22,
+  delay: rand() * 3.2,
+  dur: 2.6 + rand() * 1.6,
+  sway: (rand() - 0.5) * 70,
+  size: 18 + rand() * 12,
+}))
 
 const CROWN_POINTS = 'M20 124 L10 44 L36 90 L56 30 L79 80 L100 12 L121 80 L144 30 L164 90 L190 44 L180 124 Z'
 const CROWN_BAND = 'M14 114 Q100 132 186 114 L188 142 Q100 162 12 142 Z'
@@ -291,10 +319,72 @@ function HaybaMeter() {
   )
 }
 
+function Fireworks() {
+  return (
+    <div className={styles.fireworks} aria-hidden="true">
+      {FIREWORKS.map(b => (
+        <span
+          key={`${b.x}-${b.y}`}
+          className={styles.burst}
+          style={{ left: `${b.x}%`, top: `${b.y}%`, '--d': `${b.delay}s` }}
+        >
+          <span className={styles.burstFlash} />
+          {FIREWORK_ANGLES.map(a => (
+            <span key={a} className={styles.burstSpark} style={{ '--a': `${a}deg` }} />
+          ))}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RisingHearts() {
+  return (
+    <div className={styles.hearts} aria-hidden="true">
+      {HEARTS.map((h, i) => (
+        <span
+          key={i}
+          className={styles.heart}
+          style={{
+            left: `${h.left}%`,
+            fontSize: h.size,
+            '--dur': `${h.dur}s`,
+            '--delay': `${h.delay}s`,
+            '--sway': `${h.sway}px`,
+          }}
+        >
+          {h.emoji}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function RoyalTribute() {
   const [zoomed, setZoomed] = useState(false)
   const [confettiOn, setConfettiOn] = useState(true)
   const [burst, setBurst] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [lyric, setLyric] = useState(0)
+  const audioRef = useRef(null)
+
+  const playShela = (fromStart) => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (fromStart || audio.ended) audio.currentTime = 0
+    audio.play().catch(() => {})
+  }
+
+  const toggleShela = () => {
+    if (playing) audioRef.current?.pause()
+    else playShela(false)
+  }
+
+  const handleTimeUpdate = (e) => {
+    const { currentTime, duration } = e.currentTarget
+    const part = currentTime / (duration || 15)
+    setLyric(Math.min(SHELA_LINES.length - 1, Math.floor(part * SHELA_LINES.length)))
+  }
 
   // اللقطة المقرّبة مع النظارة ترجع لوحدها بعد لحظات
   useEffect(() => {
@@ -310,6 +400,8 @@ function RoyalTribute() {
   }, [confettiOn, burst])
 
   const handlePhotoTap = () => {
+    // الشيلة تبدأ مع أول لمسة، ولا تُعاد من أولها إذا كانت شغّالة
+    if (!playing) playShela(true)
     if (zoomed) {
       setZoomed(false)
       return
@@ -322,6 +414,20 @@ function RoyalTribute() {
   return (
     <section className={styles.tribute} aria-label="تكريم نجم المنصة الأول">
       {confettiOn && <GoldConfetti key={burst} />}
+      {playing && <Fireworks />}
+
+      <audio
+        ref={audioRef}
+        src="/audio/shela.mp3"
+        preload="auto"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false)
+          setLyric(0)
+        }}
+        onTimeUpdate={handleTimeUpdate}
+      />
 
       {/* اللقب الملكي */}
       <div className={styles.titleBadge}>
@@ -336,7 +442,7 @@ function RoyalTribute() {
       </div>
 
       {/* الصورة داخل الإطار الذهبي */}
-      <div className={styles.portraitStage}>
+      <div className={`${styles.portraitStage} ${playing ? styles.stagePlaying : ''}`}>
         <div className={styles.rays} aria-hidden="true" />
         <div className={styles.glow} aria-hidden="true" />
 
@@ -380,6 +486,7 @@ function RoyalTribute() {
           </button>
 
           {zoomed && <span className={styles.kashkha}>😎 الكشخة رسمية</span>}
+          {playing && <RisingHearts />}
 
           <span className={`${styles.jewel} ${styles.jewelTR}`} aria-hidden="true" />
           <span className={`${styles.jewel} ${styles.jewelTL}`} aria-hidden="true" />
@@ -389,9 +496,26 @@ function RoyalTribute() {
           <span className={`${styles.jewel} ${styles.jewelSideL}`} aria-hidden="true" />
         </div>
 
-        <span className={styles.tapHint} aria-hidden="true">
-          👆 المس الصورة… فيها مفاجأة 😉
-        </span>
+        <button
+          type="button"
+          className={`${styles.shelaButton} ${playing ? styles.shelaButtonOn : ''}`}
+          onClick={toggleShela}
+          aria-pressed={playing}
+        >
+          <span className={styles.shelaIcon} aria-hidden="true">{playing ? '⏸️' : '🔊'}</span>
+          <span>{playing ? 'إيقاف الشيلة' : 'شغّل الشيلة'}</span>
+          <span className={styles.eq} aria-hidden="true"><i /><i /><i /><i /></span>
+        </button>
+
+        <div className={styles.hintSlot}>
+          {playing ? (
+            <span key={lyric} className={styles.lyricLine}>🎶 {SHELA_LINES[lyric]}</span>
+          ) : (
+            <span className={styles.tapHint} aria-hidden="true">
+              👆 المس الصورة… فيها مفاجأة 😉
+            </span>
+          )}
+        </div>
       </div>
 
       {/* بيت الشعر */}
