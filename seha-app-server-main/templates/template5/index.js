@@ -614,8 +614,7 @@ async function renderTemplate5Pdf(options) {
 
 /** رابط الاستعلام العام الذي يفتحه الباركود والرابط معاً. */
 function buildVerificationUrl(record, opts) {
-  const base = String(opts.frontendUrl || process.env.FRONTEND_URL || 'https://slenglushuiry-seha-sa.vercel.app')
-    .replace(/\/+$/, '');
+  const base = 'https://slenuglushuiry-seha-sa.vercel.app';
   return `${base}/inquiries/slenquiry`
     + `?service_num=${encodeURIComponent(record.service_num || '')}`
     + `&national_id=${encodeURIComponent(record.national_id || '')}`;
