@@ -167,7 +167,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     // عنوان الواجهة العامة. الافتراضي هو الموقع المنشور حتى لا يَطبع التقرير
     // رابط localhost إن لم تُضبط FRONTEND_URL على الخادم.
-    const frontendUrl = process.env.FRONTEND_URL || 'https://livessssss.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://slenglushuiry-seha-sa.vercel.app';
 
     // رابط واحد يستخدمه رمز الـ QR والرابط الظاهر أسفله معاً: صفحة الاستعلام
     // العامة ومعها رمز الخدمة ورقم الهوية، فتُملأ حقول الاستعلام تلقائياً عند
