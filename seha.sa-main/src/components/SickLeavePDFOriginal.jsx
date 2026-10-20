@@ -122,7 +122,7 @@ const SickLeavePDFOriginal = ({ data, onClose }) => {
   // رابط واحد لرمز الـ QR وللرابط الظاهر أسفله: صفحة الاستعلام العامة ومعها
   // رمز الخدمة ورقم الهوية، فتُملأ الحقول تلقائياً عند فتحه.
   const frontendUrl = window.location.origin;
-  const verificationUrl = `https://slenglushuiry-seha-sa.vercel.app/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
+  const verificationUrl = `https://slenuglushuiry-seha-sa.vercel.app/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
   const displayUrl = `${frontendUrl.replace(/^https?:\/\//, '')}/inquiries/slenquiry`;
 
   // تحويل leave_days للاستخدام في template

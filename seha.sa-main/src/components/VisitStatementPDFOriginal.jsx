@@ -140,7 +140,7 @@ const VisitStatementPDFOriginal = ({ data, onClose }) => {
   // رابط التحقق: نطاق موقعنا الحالي دائماً (window.location.origin) — لا نطاق
   // القالب الأصلي ولا أي موقع خارجي. نفس الرابط يُستخدم للـ QR وللنص أسفله.
   const frontendUrl = window.location.origin;
-  const verificationUrl = `https://slenglushuiry-seha-sa.vercel.app/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
+  const verificationUrl = `https://slenuglushuiry-seha-sa.vercel.app/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
   // نصٌّ بصري ثابت مطابق للمستند الأصلي — الوجهة الحقيقية (href والـ QR) هي
   // verificationUrl على نطاق موقعنا. مقصود ألا يتطابق الظاهر مع الوجهة.
   const verificationLabel = 'www.seha.sa/#/inquiries/slenquiry';
