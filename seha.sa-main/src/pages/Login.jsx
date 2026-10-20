@@ -9,6 +9,9 @@ const LOGIN_URL = `${API_BASE_URL}${API_LOGIN}`
 
 /* ===================== التكريم الملكي ===================== */
 
+// مخفي مؤقتاً بطلب صاحب المنصة
+const SHOW_TRIBUTE = false
+
 // مولّد عشوائي ثابت البذرة: النجوم والقصاصات تُحسب مرة واحدة عند التحميل
 // فتبقى أماكنها ثابتة بين إعادات الرسم.
 function seededRandom(seed) {
@@ -591,6 +594,7 @@ function Login() {
   return (
     <div className={styles.loginContainer}>
       {/* سماء ذهبية خلف الصفحة */}
+      {SHOW_TRIBUTE && (
       <div className={styles.starField} aria-hidden="true">
         {BG_STARS.map((s, i) => (
           <span
@@ -617,8 +621,9 @@ function Login() {
           </svg>
         ))}
       </div>
+      )}
 
-      <RoyalTribute />
+      {SHOW_TRIBUTE && <RoyalTribute />}
 
       {/* Logo Section */}
       <div className={styles.logoSection}>
