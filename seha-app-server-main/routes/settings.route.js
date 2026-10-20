@@ -19,6 +19,19 @@ router.get("/ai/diagnose", config.auth, async (req, res) => {
   }
 });
 
+// ── التكريم الملكي في صفحة الدخول ──
+// مُعلنة قبل "/:key" حتى لا يبتلعها المسار العام.
+// قراءة عامة بلا مصادقة (صفحة الدخول) — الإعداد ثم الصورة/الصوت المحفوظان فيه.
+router.get("/public/login-tribute", settingsController.getLoginTribute);
+router.get("/public/login-tribute/:kind", settingsController.getLoginTributeMedia);
+// الحفظ لمن يملك صلاحية إدارة الإعدادات (المشرف يتجاوز الفحص).
+router.put(
+  "/login-tribute",
+  config.auth,
+  config.permission("can_manage_settings"),
+  settingsController.saveLoginTribute
+);
+
 // Get specific setting
 router.get("/:key", config.auth, settingsController.getSettingByKey);
 

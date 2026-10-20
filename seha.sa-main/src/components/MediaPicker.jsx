@@ -1,8 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useId } from 'react'
 import styles from './MediaPicker.module.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 const API_MEDIA = `${API_BASE_URL}/media`
+
+// فلتر النوع المرسل للخادم (mime_type LIKE '<type>%') ونوع حقل الرفع لكل قيمة accept
+const LIST_TYPE = { image: 'image', pdf: 'application/pdf', audio: 'audio' }
+const UPLOAD_ACCEPT = {
+  image: 'image/*',
+  pdf: 'application/pdf',
+  audio: 'audio/*',
+  all: 'image/*,application/pdf',
+}
+const UPLOAD_HINT = {
+  audio: 'MP3, M4A, AAC, OGG, WAV (حتى 10MB)',
+  all: 'JPG, PNG, GIF, WebP, PDF (حتى 10MB)',
+}
 
 /**
  * مكون اختيار الوسائط - قابل لإعادة الاستخدام
@@ -11,7 +24,7 @@ const API_MEDIA = `${API_BASE_URL}/media`
  * @param {function} props.onClose - دالة إغلاق النافذة
  * @param {function} props.onSelect - دالة الاختيار (تمرر الملف المختار)
  * @param {boolean} props.multiple - السماح باختيار أكثر من ملف
- * @param {string} props.accept - أنواع الملفات المقبولة (image, pdf, all)
+ * @param {string} props.accept - أنواع الملفات المقبولة (image, pdf, audio, all)
  * @param {string} props.category - تصنيف الوسائط للفلترة
  */
 function MediaPicker({ 
@@ -29,38 +42,53 @@ function MediaPicker({
   const [selectedItems, setSelectedItems] = useState([])
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('library') // 'library' or 'upload'
+  const [wasOpen, setWasOpen] = useState(false)
+  const uploadInputId = useId()
 
-  // جلب الوسائط
-  const fetchMedia = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        limit: 50,
-        ...(category !== 'all' && { category }),
-        ...(accept === 'image' && { type: 'image' }),
-        ...(accept === 'pdf' && { type: 'application/pdf' }),
-        ...(search && { search })
+  // عند فتح النافذة: تصفير الاختيار وإظهار التحميل (أثناء الرسم بدل التأثير)
+  if (Boolean(isOpen) !== wasOpen) {
+    setWasOpen(Boolean(isOpen))
+    if (isOpen) {
+      setSelectedItems([])
+      setLoading(true)
+      setError('')
+    }
+  }
+
+  // جلب الوسائط — الرد المتأخر لبحث قديم يُتجاهل
+  useEffect(() => {
+    if (!isOpen) return
+    let alive = true
+    const listType = LIST_TYPE[accept]
+    const params = new URLSearchParams({
+      limit: 50,
+      ...(category !== 'all' && { category }),
+      ...(listType && { type: listType }),
+      ...(search && { search })
+    })
+
+    fetch(`${API_MEDIA}?${params}`)
+      .then(response => response.json())
+      .then(data => {
+        if (alive && data.success) setMedia(data.data)
+      })
+      .catch(() => {
+        if (alive) setError('فشل في تحميل الوسائط')
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
       })
 
-      const response = await fetch(`${API_MEDIA}?${params}`)
-      const data = await response.json()
-
-      if (data.success) {
-        setMedia(data.data)
-      }
-    } catch (err) {
-      setError('فشل في تحميل الوسائط')
-    } finally {
-      setLoading(false)
+    return () => {
+      alive = false
     }
-  }, [category, accept, search])
+  }, [isOpen, category, accept, search])
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchMedia()
-      setSelectedItems([])
-    }
-  }, [isOpen, fetchMedia])
+  const handleSearch = (value) => {
+    setSearch(value)
+    setLoading(true)
+    setSelectedItems([])
+  }
 
   // رفع ملف جديد
   const handleUpload = async (files) => {
@@ -93,7 +121,7 @@ function MediaPicker({
       } else {
         setError(data.message || 'فشل في رفع الملف')
       }
-    } catch (err) {
+    } catch {
       setError('حدث خطأ أثناء رفع الملف')
     } finally {
       setUploading(false)
@@ -169,7 +197,7 @@ function MediaPicker({
                   type="text"
                   placeholder="بحث في الوسائط..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                 />
               </div>
 
@@ -201,13 +229,20 @@ function MediaPicker({
                     >
                       {item.mime_type.startsWith('image/') ? (
                         <img src={item.url.startsWith('http') || item.url.startsWith('data:') ? item.url : `${API_BASE_URL}${item.url}`} alt={item.alt_text} />
+                      ) : item.mime_type.startsWith('audio/') ? (
+                        <div className={`${styles.fileIcon} ${styles.audioIcon}`}>
+                          <span aria-hidden="true">🎵</span>
+                          <span className={styles.audioName} title={item.original_name}>{item.original_name}</span>
+                        </div>
                       ) : (
                         <div className={styles.fileIcon}>📄</div>
                       )}
                       {selectedItems.includes(item.id) && (
                         <div className={styles.checkmark}>✓</div>
                       )}
-                      <div className={styles.itemName}>{item.original_name}</div>
+                      {!item.mime_type.startsWith('audio/') && (
+                        <div className={styles.itemName}>{item.original_name}</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -226,12 +261,12 @@ function MediaPicker({
               >
                 <input
                   type="file"
-                  accept={accept === 'image' ? 'image/*' : accept === 'pdf' ? 'application/pdf' : 'image/*,application/pdf'}
+                  accept={UPLOAD_ACCEPT[accept] || UPLOAD_ACCEPT.all}
                   onChange={(e) => handleUpload(e.target.files)}
-                  id="mediaPickerUpload"
+                  id={uploadInputId}
                   style={{ display: 'none' }}
                 />
-                <label htmlFor="mediaPickerUpload">
+                <label htmlFor={uploadInputId}>
                   {uploading ? (
                     <>
                       <div className={styles.spinner}></div>
@@ -241,7 +276,7 @@ function MediaPicker({
                     <>
                       <span className={styles.uploadIcon}>📤</span>
                       <p>اسحب الملف هنا أو انقر للاختيار</p>
-                      <small>JPG, PNG, GIF, WebP, PDF (حتى 10MB)</small>
+                      <small>{UPLOAD_HINT[accept] || UPLOAD_HINT.all}</small>
                     </>
                   )}
                 </label>

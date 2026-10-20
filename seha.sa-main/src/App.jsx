@@ -17,6 +17,7 @@ import CountryManagement from './pages/CountryManagement'
 import DoctorManagement from './pages/DoctorManagement'
 import HospitalManagement from './pages/HospitalManagement'
 import Settings from './pages/Settings'
+import TributeSettings from './pages/TributeSettings'
 import KeysManagement from './pages/KeysManagement'
 import BatchSickLeave from './pages/BatchSickLeave'
 import GrowthConsole from './growth/GrowthConsole'
@@ -149,6 +150,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tribute"
+            element={
+              <ProtectedRoute>
+                <TributeSettings />
               </ProtectedRoute>
             }
           />

@@ -552,6 +552,18 @@ function Dashboard() {
             <span>إعدادات النظام</span>
           </Link>
         )}
+        {(userPermissions?.can_manage_settings || user?.role === 'admin') && (
+          <Link to="/tribute" className={styles.actionBtn} style={{ border: '2px solid #d4940e', background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', color: '#7a4a00' }}>
+            <div className={styles.btnIconWrapper}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#d4940e' }}>
+                <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5L3 8z" />
+                <path d="M5 21h14" />
+              </svg>
+              <span className={styles.newBadge}>جديد</span>
+            </div>
+            <span>التكريم الملكي</span>
+          </Link>
+        )}
         {user?.role === 'admin' && (
           <Link to="/keys" className={styles.actionBtn}>
             <div className={styles.btnIconWrapper}>

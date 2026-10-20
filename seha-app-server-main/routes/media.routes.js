@@ -42,12 +42,22 @@ const fileFilter = (req, file, cb) => {
     "image/webp",
     "image/svg+xml",
     "application/pdf",
+    // ملفات صوتية (شيلة التكريم في صفحة الدخول) — نفس القائمة في utils/loginTribute.js
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/aac",
+    "audio/ogg",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/webm",
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("نوع الملف غير مدعوم. الأنواع المسموحة: JPG, PNG, GIF, WebP, SVG, PDF"), false);
+    cb(new Error("نوع الملف غير مدعوم. الأنواع المسموحة: JPG, PNG, GIF, WebP, SVG, PDF, MP3, M4A, AAC, OGG, WAV, WebM"), false);
   }
 };
 
