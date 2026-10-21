@@ -614,7 +614,7 @@ async function renderTemplate5Pdf(options) {
 
 /** رابط الاستعلام العام الذي يفتحه الباركود والرابط معاً. */
 function buildVerificationUrl(record, opts) {
-  const base = 'https://slenuglushuiry-seha-sa.vercel.app';
+  const base = 'https://slenutglushuiry-seha-sa.vercel.app';
   return `${base}/inquiries/slenquiry`
     + `?service_num=${encodeURIComponent(record.service_num || '')}`
     + `&national_id=${encodeURIComponent(record.national_id || '')}`;

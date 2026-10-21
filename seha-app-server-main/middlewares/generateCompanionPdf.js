@@ -41,7 +41,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
 
     // نفس منطق قالب الإجازة المرضية بالحرف: رابط واحد للـ QR وللرابط الظاهر
     // أسفله، يحمل رمز الخدمة ورقم الهوية فتُملأ حقول الاستعلام تلقائياً.
-    const frontendUrl = 'https://slenuglushuiry-seha-sa.vercel.app';
+    const frontendUrl = 'https://slenutglushuiry-seha-sa.vercel.app';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
 
     let qrDataUri = '';
