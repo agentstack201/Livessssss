@@ -116,9 +116,14 @@ async function importEnvOpenRouterKey() {
     if (!raw) return;
     if (!isConfigured()) return;
 
-    // Reactivate any previously cooled-down or invalidated OpenRouter keys first.
+    // OpenRouter is the sole official provider: pause every other key so the
+    // pool never routes to them (pickBest sorts priority descending).
     await ApiKey.update(
-      { status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null },
+      { status: "paused" },
+      { where: { provider: { [require("sequelize").Op.ne]: "openrouter" } } }
+    );
+    await ApiKey.update(
+      { status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null, priority: 1000, weight: 10, models: getProvider("openrouter").models },
       { where: { provider: "openrouter" } }
     );
 
@@ -131,7 +136,7 @@ async function importEnvOpenRouterKey() {
       label: "OpenRouter — Primary",
       key_encrypted: encrypt(raw),
       models: or.models,
-      priority: 1,
+      priority: 1000,
       weight: 10,
       status: "active",
       rpm: 0,
