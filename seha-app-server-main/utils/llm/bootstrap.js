@@ -8,7 +8,7 @@
 const ApiKey = require("../../models/apiKey.model");
 const { getSettingValue } = require("../../controller/settings.controller");
 const { getProvider } = require("./providers/registry");
-const { encrypt, isConfigured } = require("./crypto");
+const { encrypt, decrypt, isConfigured } = require("./crypto");
 const { parseKeys } = require("../gemini");
 
 async function importLegacyGeminiKeys() {
@@ -107,8 +107,7 @@ async function recoverInvalidatedKeys() {
 }
 
 /**
- * Seeds an OpenRouter key from the OPENROUTER_API_KEY env var on first boot.
- * Idempotent: skipped once the pool already contains an active openrouter key.
+ * Syncs the pool's OpenRouter key with the OPENROUTER_API_KEY env var on boot.
  */
 async function importEnvOpenRouterKey() {
   try {
@@ -122,15 +121,25 @@ async function importEnvOpenRouterKey() {
       { status: "paused" },
       { where: { provider: { [require("sequelize").Op.ne]: "openrouter" } } }
     );
-    await ApiKey.update(
-      { status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null, priority: 1000, weight: 10, models: getProvider("openrouter").models },
-      { where: { provider: "openrouter" } }
-    );
-
-    const existing = await ApiKey.count({ where: { provider: "openrouter" } });
-    if (existing > 0) return; // key already in pool (now reactivated above)
-
+    // The env var is the source of truth: drop any stored OpenRouter key that
+    // differs (a rotated/revoked one, or one encrypted under an old ENCRYPTION_KEY).
     const or = getProvider("openrouter");
+    let current = null;
+    for (const k of await ApiKey.findAll({ where: { provider: "openrouter" } })) {
+      let plain = null;
+      try { plain = decrypt(k.key_encrypted); } catch { /* undecryptable → stale */ }
+      if (plain === raw && !current) current = k;
+      else await k.destroy();
+    }
+
+    if (current) {
+      await current.update({
+        status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null,
+        priority: 1000, weight: 10, models: or.models,
+      });
+      return;
+    }
+
     await ApiKey.create({
       provider: "openrouter",
       label: "OpenRouter — Primary",
