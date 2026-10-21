@@ -251,8 +251,8 @@ if (sequelize) {
     })
     .then(() => {
       // Move any legacy single-setting Gemini key(s) into the rotation pool.
-      const { importLegacyGeminiKeys, recoverInvalidatedKeys } = require("./utils/llm/bootstrap.js");
-      return importLegacyGeminiKeys().then(() => recoverInvalidatedKeys());
+      const { importLegacyGeminiKeys, recoverInvalidatedKeys, importEnvOpenRouterKey } = require("./utils/llm/bootstrap.js");
+      return importLegacyGeminiKeys().then(() => recoverInvalidatedKeys()).then(() => importEnvOpenRouterKey());
     })
     .then(() => {
       // وحدة النمو: قيود CHECK والفهارس الجزئية التي لا ينشئها sync، وبذور
