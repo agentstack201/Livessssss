@@ -116,8 +116,19 @@ async function importEnvOpenRouterKey() {
     if (!raw) return;
     if (!isConfigured()) return;
 
-    const existing = await ApiKey.count({ where: { provider: "openrouter", status: "active" } });
-    if (existing > 0) return;
+    // OpenRouter is the sole official provider: pause every other key so the
+    // pool never routes to them (pickBest sorts priority descending).
+    await ApiKey.update(
+      { status: "paused" },
+      { where: { provider: { [require("sequelize").Op.ne]: "openrouter" } } }
+    );
+    await ApiKey.update(
+      { status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null, priority: 1000, weight: 10, models: getProvider("openrouter").models },
+      { where: { provider: "openrouter" } }
+    );
+
+    const existing = await ApiKey.count({ where: { provider: "openrouter" } });
+    if (existing > 0) return; // key already in pool (now reactivated above)
 
     const or = getProvider("openrouter");
     await ApiKey.create({
@@ -125,7 +136,7 @@ async function importEnvOpenRouterKey() {
       label: "OpenRouter — Primary",
       key_encrypted: encrypt(raw),
       models: or.models,
-      priority: 1,
+      priority: 1000,
       weight: 10,
       status: "active",
       rpm: 0,

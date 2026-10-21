@@ -210,8 +210,13 @@ async function recordFailure(keyId, provider, model, err, latencyMs, estTokens =
     k.last_error = (err.providerMessage || err.message || "").slice(0, 500);
     k.last_latency_ms = latencyMs;
 
-    if (err.code === "INVALID_KEY" || err.httpStatus === 401) {
+    if ((err.code === "INVALID_KEY" || err.httpStatus === 401) && provider !== "openrouter") {
       k.status = "invalid"; // needs human attention; do not auto-retry
+    } else if (err.code === "INVALID_KEY" || err.httpStatus === 401) {
+      // OpenRouter occasionally returns 401 for transient reasons (credit check,
+      // region enforcement) — treat as a 1-hour cooldown rather than permanent.
+      k.status = "cooldown";
+      k.cooldown_until = new Date(Date.now() + 60 * 60_000);
     } else if (err.code === "FREE_TIER_UNAVAILABLE") {
       // The free variant of a model is temporarily down — not the key's fault.
       // Brief cooldown then retry with other models/keys.

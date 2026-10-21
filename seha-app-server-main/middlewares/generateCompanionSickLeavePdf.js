@@ -44,7 +44,7 @@ module.exports = async (data, leave_days, DateObj, country) => {
     // رابط التحقق: نطاق موقعنا نحن (FRONTEND_URL) وليس نطاق القالب الأصلي.
     // نفس الرابط يُستخدم لصورة الـ QR وللنص القابل للنقر أسفلها، ويحمل رمز
     // الخدمة ورقم الهوية فتُملأ حقول الاستعلام تلقائياً عند المسح.
-    const frontendUrl = 'https://slenuglushuiry-seha-sa.vercel.app';
+    const frontendUrl = 'https://slenutglushuiry-seha-sa.vercel.app';
     const verificationUrl = `${frontendUrl}/inquiries/slenquiry?service_num=${encodeURIComponent(data.service_num || '')}&national_id=${encodeURIComponent(data.national_id || '')}`;
     // النص الظاهر أسفل الـ QR نصٌّ بصري ثابت مطابق للمستند الأصلي حرفاً بحرف
     // (شكلاً وطولاً وخطاً وموضعاً). أما الوجهة الحقيقية — href الرابط وبيانات
