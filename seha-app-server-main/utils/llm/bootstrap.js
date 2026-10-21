@@ -106,5 +106,39 @@ async function recoverInvalidatedKeys() {
   }
 }
 
-module.exports = { importLegacyGeminiKeys, recoverInvalidatedKeys };
+/**
+ * Seeds an OpenRouter key from the OPENROUTER_API_KEY env var on first boot.
+ * Idempotent: skipped once the pool already contains an active openrouter key.
+ */
+async function importEnvOpenRouterKey() {
+  try {
+    const raw = (process.env.OPENROUTER_API_KEY || "").trim();
+    if (!raw) return;
+    if (!isConfigured()) return;
+
+    const existing = await ApiKey.count({ where: { provider: "openrouter", status: "active" } });
+    if (existing > 0) return;
+
+    const or = getProvider("openrouter");
+    await ApiKey.create({
+      provider: "openrouter",
+      label: "OpenRouter — Primary",
+      key_encrypted: encrypt(raw),
+      models: or.models,
+      priority: 1,
+      weight: 10,
+      status: "active",
+      rpm: 0,
+      rpd: 0,
+      tpm: 0,
+      tpd: 0,
+      monthly_tokens: 0,
+    });
+    console.log("✅ OpenRouter key imported from OPENROUTER_API_KEY env var.");
+  } catch (err) {
+    console.error("⚠️ OpenRouter key import failed (non-fatal):", err.message);
+  }
+}
+
+module.exports = { importLegacyGeminiKeys, recoverInvalidatedKeys, importEnvOpenRouterKey };
 
