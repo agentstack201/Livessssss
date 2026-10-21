@@ -18,6 +18,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 const fs = require('fs');
 const path = require('path');
+const { readPublicFile } = require('../../utils/publicFile');
 const QRCode = require('qrcode');
 
 const { loadTemplate, writeIncremental, streamObject } = require('./pdfTemplate');
@@ -407,8 +408,7 @@ async function loadLogoBytes(source) {
     }
   }
 
-  const clean = value.replace(/^\/?public\//i, '').replace(/^\//, '');
-  return fs.readFileSync(path.join(__dirname, '..', '..', 'public', clean));
+  return readPublicFile(value);
 }
 
 /**

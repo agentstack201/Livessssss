@@ -3,6 +3,7 @@ const { wrapName, wrapText } = require('./nameWrap');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
+const { resolvePublicPath } = require('../utils/publicFile');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -22,8 +23,7 @@ function dataUriFromPublic(relPath) {
   const key = String(relPath).toLowerCase();
   if (_fileCache.has(key)) return _fileCache.get(key);
   try {
-    const clean = String(relPath).replace(/^\/?public\//i, '').replace(/^\//, '');
-    const abs = path.join(PUBLIC_DIR, clean);
+    const abs = resolvePublicPath(relPath);
     const buf = fs.readFileSync(abs);
     const mime = MIME_BY_EXT[path.extname(abs).toLowerCase()] || 'application/octet-stream';
     const uri = `data:${mime};base64,${buf.toString('base64')}`;
