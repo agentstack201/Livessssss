@@ -116,8 +116,14 @@ async function importEnvOpenRouterKey() {
     if (!raw) return;
     if (!isConfigured()) return;
 
-    const existing = await ApiKey.count({ where: { provider: "openrouter", status: "active" } });
-    if (existing > 0) return;
+    // Reactivate any previously cooled-down or invalidated OpenRouter keys first.
+    await ApiKey.update(
+      { status: "active", cooldown_until: null, consecutive_failures: 0, last_error: null },
+      { where: { provider: "openrouter" } }
+    );
+
+    const existing = await ApiKey.count({ where: { provider: "openrouter" } });
+    if (existing > 0) return; // key already in pool (now reactivated above)
 
     const or = getProvider("openrouter");
     await ApiKey.create({
